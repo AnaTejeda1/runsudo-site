@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sudo — AI pull requests, proven on your own ticket history</title>
+<meta name="description" content="sudo ships merged pull requests from your ticket queue, priced per PR that survives. Before you pay, we replay your last 90 days of closed tickets blind and show you exactly how we compare to your engineers.">
+<style>
+  :root {
+    --bg: #f8f9fb; --card: #ffffff; --ink: #1f2430; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #4f46e5; --accent-ink: #ffffff;
+    --good-ink: #166534; --good-bg: #dcfce7; --bad-ink: #991b1b; --bad-bg: #fee2e2;
+    --par-ink: #374151; --par-bg: #e5e7eb; --warn-ink: #92400e; --warn-bg: #fef3c7;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, "Segoe UI", -apple-system, sans-serif; line-height: 1.55; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+  .brand { font-weight: 700; font-size: 18px; color: var(--accent); font-family: var(--mono); }
+  .nav a.cta { background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+  .nav a.cta:hover { text-decoration: none; opacity: .92; }
+  .hero { padding: 56px 0 32px; }
+  .hero h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.01em; }
+  .hero p.lead { font-size: 19px; color: var(--muted); max-width: 680px; margin: 0 0 24px; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill-good { background: var(--good-bg); color: var(--good-ink); }
+  .pill-bad { background: var(--bad-bg); color: var(--bad-ink); }
+  .pill-par { background: var(--par-bg); color: var(--par-ink); }
+  .pill-warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .step .n { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .step h3 { margin: 6px 0 8px; font-size: 17px; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+  section { padding: 28px 0; }
+  h2 { font-size: 22px; margin: 0 0 14px; }
+  .headline { font-family: var(--mono); font-size: 15px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .headline .k { color: var(--muted); }
+  .why { padding-left: 20px; }
+  .why li { margin-bottom: 8px; }
+  form { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  input { flex: 1 1 260px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px; font-family: inherit; }
+  button { background: var(--accent); color: var(--accent-ink); border: 0; padding: 11px 18px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  button:hover { opacity: .92; }
+  .fine { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .muted { color: var(--muted); margin: 0; }
+  footer { padding: 36px 0 44px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <span class="brand">sudo</span>
+    <a class="cta" href="#backtest">Run a backtest</a>
+  </nav>
+
+  <header class="hero">
+    <h1>AI pull requests, proven on your own ticket history before you pay.</h1>
+    <p class="lead">sudo ships merged PRs from your ticket queue and charges per PR that survives. Before that, we replay your last 90 days of closed tickets against your repo as it was, solve each one blind, and hand you an honest comparison against what your engineers actually shipped.</p>
+    <div class="headline">
+      <span class="k">A report headline reads:</span>
+      <span class="pill pill-good">X better</span>
+      <span class="pill pill-par">Y par</span>
+      <span class="pill pill-bad">Z worse</span>
+      <span class="pill pill-warn">W no scorable attempt</span>
+    </div>
+  </header>
+
+  <section id="how">
+    <h2>How the backtest works</h2>
+    <div class="grid">
+      <div class="card step">
+        <div class="n">01</div>
+        <h3>Replay your tickets</h3>
+        <p>We take your closed tickets from the last 90 days and check out your repo at the commit just before each fix landed.</p>
+      </div>
+      <div class="card step">
+        <div class="n">02</div>
+        <h3>Solve each one blind</h3>
+        <p>An agent solves every ticket inside a sealed container: no network beyond the model API, no access to the real fix, nothing but that checkout.</p>
+      </div>
+      <div class="card step">
+        <div class="n">03</div>
+        <h3>Compare, honestly</h3>
+        <p>Your test suite runs on both patches. A blind judge compares the agent's patch to your engineer's. Failures go on page one, never in a footnote.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>Why the measurement is the product</h2>
+    <ul class="why">
+      <li><strong>Nobody buys outcome pricing on a demo.</strong> You see the agent on your code, your tickets, your tests, before a single invoice.</li>
+      <li><strong>Every ticket is accounted for.</strong> Tickets that produce no patch, break the build, or time out are counted in the denominator, not dropped.</li>
+      <li><strong>Every run is reproducible.</strong> Pinned model, pinned environment, frozen prompts, full transcripts. Rerun it and get the same answer.</li>
+      <li><strong>Contamination is audited.</strong> Every solve is scanned for any path to the real fix. A contaminated ticket is shown and never scored.</li>
+    </ul>
+  </section>
+
+  <section id="backtest">
+    <div class="card">
+      <h2>Run a backtest on your repo</h2>
+      <p class="muted">Leave your email and the repo you have in mind. We reply with what a report on it would look like and what we need from you.</p>
+      <!-- Sign up at https://formspree.io, create a form, and replace YOUR_FORM_ID below. -->
+      <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+        <input type="email" name="email" placeholder="you@company.com" required>
+        <input type="text" name="repo" placeholder="github.com/org/repo (optional)">
+        <button type="submit">Request a backtest</button>
+      </form>
+      <p class="fine">No spam, no drip campaign. One human reply.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span class="brand" style="font-size:14px">sudo</span> · runsudo.dev · <a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a>
+  </footer>
+</div>
+</body>
+</html>
