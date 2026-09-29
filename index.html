@@ -4,119 +4,164 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>sudo — AI pull requests, proven on your own ticket history</title>
-<meta name="description" content="sudo ships merged pull requests from your ticket queue, priced per PR that survives. Before you pay, we replay your last 90 days of closed tickets blind and show you exactly how we compare to your engineers.">
+<meta name="description" content="sudo ships merged pull requests from your ticket queue and charges per PR that survives. Before you pay, we replay your last 90 days of closed tickets blind and show you an honest comparison against your engineers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f8f9fb; --card: #ffffff; --ink: #1f2430; --muted: #6b7280; --line: #e5e7eb;
-    --accent: #4f46e5; --accent-ink: #ffffff;
-    --good-ink: #166534; --good-bg: #dcfce7; --bad-ink: #991b1b; --bad-bg: #fee2e2;
-    --par-ink: #374151; --par-bg: #e5e7eb; --warn-ink: #92400e; --warn-bg: #fef3c7;
-    --mono: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+    --bg:#0a0a0a; --fg:#f5f5f5; --muted:#9a9a9a; --line:#222; --accent:#f5e900;
+    --good:#8fd9a8; --good-bg:#12231a; --par:#c9c9c9; --par-bg:#1c1c1c;
+    --bad:#f0968f; --bad-bg:#2a1614; --warn:#dcb27a; --warn-bg:#271e12;
+    --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,Menlo,monospace;
   }
-  * { box-sizing: border-box; }
-  html { color-scheme: light; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, "Segoe UI", -apple-system, sans-serif; line-height: 1.55; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
-  .nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
-  .brand { font-weight: 700; font-size: 18px; color: var(--accent); font-family: var(--mono); }
-  .nav a.cta { background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 14px; }
-  .nav a.cta:hover { text-decoration: none; opacity: .92; }
-  .hero { padding: 56px 0 32px; }
-  .hero h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.01em; }
-  .hero p.lead { font-size: 19px; color: var(--muted); max-width: 680px; margin: 0 0 24px; }
-  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-  .pill-good { background: var(--good-bg); color: var(--good-ink); }
-  .pill-bad { background: var(--bad-bg); color: var(--bad-ink); }
-  .pill-par { background: var(--par-bg); color: var(--par-ink); }
-  .pill-warn { background: var(--warn-bg); color: var(--warn-ink); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
-  .step .n { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-  .step h3 { margin: 6px 0 8px; font-size: 17px; }
-  .step p { margin: 0; color: var(--muted); font-size: 15px; }
-  section { padding: 28px 0; }
-  h2 { font-size: 22px; margin: 0 0 14px; }
-  .headline { font-family: var(--mono); font-size: 15px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .headline .k { color: var(--muted); }
-  .why { padding-left: 20px; }
-  .why li { margin-bottom: 8px; }
-  form { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
-  input { flex: 1 1 260px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px; font-family: inherit; }
-  button { background: var(--accent); color: var(--accent-ink); border: 0; padding: 11px 18px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
-  button:hover { opacity: .92; }
-  .fine { color: var(--muted); font-size: 13px; margin-top: 10px; }
-  .muted { color: var(--muted); margin: 0; }
-  footer { padding: 36px 0 44px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); margin-top: 28px; }
+  *{box-sizing:border-box}
+  html{color-scheme:dark;background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;animation:fade .6s ease-out both}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @media (prefers-reduced-motion:reduce){body{animation:none}}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  @media (max-width:480px){.wrap{padding:0 16px}}
+  .logo{display:block;height:28px;width:auto}
+
+  nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+  nav .links{display:flex;gap:24px;font-size:14px;color:var(--muted)}
+  nav .links a:hover{color:var(--fg)}
+  @media (max-width:560px){nav .links a:not(:last-child){display:none}}
+
+  .hero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:64px;align-items:center;padding:80px 0 96px}
+  @media (max-width:960px){.hero{grid-template-columns:1fr;gap:40px;padding:56px 0 72px}}
+  h1{font-size:clamp(34px,4.2vw,54px);line-height:1.06;letter-spacing:-.03em;font-weight:600;margin:0 0 22px}
+  .lead{font-size:17px;color:var(--muted);margin:0 0 24px;max-width:48ch}
+  .price{font-family:var(--mono);font-size:13px;margin:0 0 32px;display:flex;gap:10px;align-items:center}
+  .price::before{content:"";width:7px;height:7px;background:var(--accent);transform:rotate(45deg);flex:none}
+  .hero .go{display:inline-block;font-size:14px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:9px 14px}
+  .hero .go:hover{color:var(--fg);border-color:#444}
+
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-family:var(--mono);font-size:12.5px;line-height:1.4;white-space:nowrap}
+  .good{background:var(--good-bg);color:var(--good)} .par{background:var(--par-bg);color:var(--par)}
+  .bad{background:var(--bad-bg);color:var(--bad)} .warn{background:var(--warn-bg);color:var(--warn)}
+
+  .report{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#0d0d0d}
+  .report .top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .report .strip{padding:20px;border-bottom:1px solid var(--line)}
+  .report .strip .k{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 0 10px}
+  .report .strip .pills{display:flex;flex-wrap:wrap;gap:8px}
+  .report .strip .pill{font-size:14px;padding:6px 14px}
+  .report .sec{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;padding:12px 20px 4px}
+  .report .row{display:grid;grid-template-columns:56px 1fr auto;gap:14px;align-items:center;padding:12px 20px;border-top:1px solid var(--line);font-size:14px}
+  .report .row:first-of-type{border-top:0}
+  .report .id{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .report .t small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .report .foot{padding:12px 20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  @media (max-width:520px){.report .row{grid-template-columns:1fr auto;gap:6px 10px;padding:12px 16px}.report .id{grid-column:1/-1}.report .strip,.report .top,.report .foot{padding-left:16px;padding-right:16px}}
+
+  section{padding:88px 0 0}
+  @media (max-width:760px){section{padding:64px 0 0}}
+  .head2{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:64px;border-top:1px solid var(--line);padding-top:48px}
+  @media (max-width:960px){.head2{grid-template-columns:1fr;gap:28px}}
+  h2{font-size:clamp(24px,2.6vw,32px);letter-spacing:-.025em;font-weight:600;line-height:1.15;margin:0;max-width:18ch}
+  .eyebrow{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 0 10px;letter-spacing:.04em;text-transform:uppercase}
+
+  .steps{margin:0;padding:0;list-style:none}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:12px;padding:0 0 32px}
+  .step:last-child{padding-bottom:0}
+  .step .n{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:5px}
+  .step h3{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .step p{margin:0;color:var(--muted);font-size:15px}
+
+  .after{list-style:none;margin:0;padding:0;display:grid;gap:28px}
+  .after li{position:relative;padding-left:24px;color:var(--muted);font-size:15px}
+  .after li::before{content:"";position:absolute;left:2px;top:9px;width:7px;height:7px;background:var(--accent);transform:rotate(45deg)}
+  .after li strong{color:var(--fg);font-weight:600;display:block;margin-bottom:4px;font-size:16px}
+
+  form{display:grid;gap:12px;max-width:520px}
+  label{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:6px}
+  input{width:100%;background:#111;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:12px 14px;font:inherit;font-size:15px}
+  input::placeholder{color:#8a8a8a}
+  input:focus{outline:none;border-color:#555}
+  button{justify-self:start;background:var(--accent);color:#0a0a0a;border:0;border-radius:8px;padding:12px 20px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;margin-top:4px}
+  button:hover{filter:brightness(.95)}
+  .fine{font-size:13px;color:var(--muted);margin:4px 0 0}
+
+  footer{border-top:1px solid var(--line);margin-top:96px;padding:64px 0 56px}
+  footer .row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:32px}
+  footer .logo{height:120px;width:auto;max-width:100%}
+  @media (max-width:420px){footer .logo{height:auto;width:100%}}
+  footer .meta{font-family:var(--mono);font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+  footer .meta a:hover{color:var(--fg)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <nav class="nav">
-    <span class="brand">sudo</span>
-    <a class="cta" href="#backtest">Run a backtest</a>
+  <nav>
+    <a href="#top" aria-label="sudo home"><img class="logo" src="sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="#how">How it works</a><a href="#after">After the backtest</a><a href="#backtest">Request a backtest</a></div>
   </nav>
 
-  <header class="hero">
-    <h1>AI pull requests, proven on your own ticket history before you pay.</h1>
-    <p class="lead">sudo ships merged PRs from your ticket queue and charges per PR that survives. Before that, we replay your last 90 days of closed tickets against your repo as it was, solve each one blind, and hand you an honest comparison against what your engineers actually shipped.</p>
-    <div class="headline">
-      <span class="k">A report headline reads:</span>
-      <span class="pill pill-good">X better</span>
-      <span class="pill pill-par">Y par</span>
-      <span class="pill pill-bad">Z worse</span>
-      <span class="pill pill-warn">W no scorable attempt</span>
+  <header class="hero" id="top">
+    <div>
+      <h1>AI pull requests, proven on your own ticket history before you pay.</h1>
+      <p class="lead">sudo ships merged PRs from your ticket queue and charges per PR that survives. Before that, we replay your last 90 days of closed tickets against your repo as it was, solve each one blind, and hand you an honest comparison against what your engineers actually shipped.</p>
+      <p class="price">Pay per merged PR. The backtest comes first.</p>
+      <a class="go" href="#backtest">Request a backtest</a>
+    </div>
+    <div class="report" aria-label="Illustrative backtest report">
+      <div class="top"><span>backtest · acme/api · 90 days · 87 tickets</span><span>illustrative</span></div>
+      <div class="strip">
+        <p class="k">Report headline</p>
+        <div class="pills"><span class="pill good">X better</span><span class="pill par">Y par</span><span class="pill bad">Z worse</span><span class="pill warn">W no scorable attempt</span></div>
+      </div>
+      <div class="sec">Page one · failures first</div>
+      <div class="row"><span class="id">#503</span><span class="t">Flaky CSV import on files with a UTF-8 BOM<small>Our patch fails 2 of 14 tests · engineer patch passes</small></span><span class="pill bad">worse</span></div>
+      <div class="row"><span class="id">#511</span><span class="t">Webhook retries duplicate deliveries on 5xx<small>Timed out at 40 min · no patch produced</small></span><span class="pill warn">no scorable attempt</span></div>
+      <div class="row"><span class="id">#482</span><span class="t">Race in session refresh on token expiry<small>Both pass · judge prefers ours: narrower lock, adds regression test</small></span><span class="pill good">better</span></div>
+      <div class="row"><span class="id">#497</span><span class="t">Pagination off by one on CSV exports<small>Both pass · judge calls it equivalent</small></span><span class="pill par">par</span></div>
+      <div class="foot">Illustrative mock. Titles and counts are placeholders. A sample report will be linked here.</div>
     </div>
   </header>
 
   <section id="how">
-    <h2>How the backtest works</h2>
-    <div class="grid">
-      <div class="card step">
-        <div class="n">01</div>
-        <h3>Replay your tickets</h3>
-        <p>We take your closed tickets from the last 90 days and check out your repo at the commit just before each fix landed.</p>
-      </div>
-      <div class="card step">
-        <div class="n">02</div>
-        <h3>Solve each one blind</h3>
-        <p>An agent solves every ticket inside a sealed container: no network beyond the model API, no access to the real fix, nothing but that checkout.</p>
-      </div>
-      <div class="card step">
-        <div class="n">03</div>
-        <h3>Compare, honestly</h3>
-        <p>Your test suite runs on both patches. A blind judge compares the agent's patch to your engineer's. Failures go on page one, never in a footnote.</p>
-      </div>
+    <div class="head2">
+      <div><p class="eyebrow">Method</p><h2>How the backtest works</h2></div>
+      <ol class="steps">
+        <li class="step"><span class="n">01</span><div><h3>Replay your tickets</h3><p>We take your closed tickets from the last 90 days and check out your repo at the commit just before each fix landed.</p></div></li>
+        <li class="step"><span class="n">02</span><div><h3>Solve each one blind</h3><p>Our software factory, an orchestration of agents we built, solves every ticket inside a sealed container: no network beyond the model API, no access to the real fix, nothing but that checkout.</p></div></li>
+        <li class="step"><span class="n">03</span><div><h3>Compare, honestly</h3><p>Your test suite runs on both patches. A blind judge compares the software factory's patch to your engineer's.</p></div></li>
+      </ol>
     </div>
   </section>
 
-  <section id="why">
-    <h2>Why the measurement is the product</h2>
-    <ul class="why">
-      <li><strong>Nobody buys outcome pricing on a demo.</strong> You see the agent on your code, your tickets, your tests, before a single invoice.</li>
-      <li><strong>Every ticket is accounted for.</strong> Tickets that produce no patch, break the build, or time out are counted in the denominator, not dropped.</li>
-      <li><strong>Every run is reproducible.</strong> Pinned model, pinned environment, frozen prompts, full transcripts. Rerun it and get the same answer.</li>
-      <li><strong>Contamination is audited.</strong> Every solve is scanned for any path to the real fix. A contaminated ticket is shown and never scored.</li>
-    </ul>
+  <section id="after">
+    <div class="head2">
+      <div><p class="eyebrow">Next</p><h2>What comes after the backtest</h2></div>
+      <ul class="after">
+        <li><strong>A classifier built from your results.</strong>We train a classifier on the backtest verdicts to decide which of your tickets the software factory is equipped to take, and which stay with your team.</li>
+        <li><strong>A three-month pilot on live tickets.</strong>The factory picks up live tickets from your queue as they arrive. You are charged per ticket successfully merged, and nothing for the rest.</li>
+        <li><strong>An agent-friendly repo.</strong>After the backtest we make your repo agentic friendly: reproducible environments, clear test entry points, and the context agents need to work in your codebase without hand-holding.</li>
+      </ul>
+    </div>
   </section>
 
   <section id="backtest">
-    <div class="card">
-      <h2>Run a backtest on your repo</h2>
-      <p class="muted">Leave your email and the repo you have in mind. We reply with what a report on it would look like and what we need from you.</p>
+    <div class="head2">
+      <div><p class="eyebrow">Get started</p><h2>Run a backtest on your repo</h2></div>
       <form action="https://formspree.io/f/xjykjgzy" method="POST">
-        <input type="email" name="email" placeholder="you@company.com" required>
-        <input type="text" name="repo" placeholder="github.com/org/repo (optional)">
+        <div><label for="email">Work email</label><input id="email" type="email" name="email" required placeholder="you@company.com" autocomplete="email"></div>
+        <div><label for="repo">Repo (optional)</label><input id="repo" type="text" name="repo" placeholder="github.com/org/repo"></div>
         <button type="submit">Request a backtest</button>
+        <p class="fine">No spam, no drip campaign. One human reply.</p>
       </form>
-      <p class="fine">No spam, no drip campaign. One human reply.</p>
     </div>
   </section>
 
   <footer>
-    <span class="brand" style="font-size:14px">sudo</span> · runsudo.dev · <a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a>
+    <div class="row">
+      <img class="logo" src="sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
   </footer>
 </div>
 </body>
