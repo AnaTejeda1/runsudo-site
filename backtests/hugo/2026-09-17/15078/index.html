@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15078 New content command thinks there&#39;s a path conflict for a file that doesn&#39;t exist yet — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15078 in gohugoio/hugo, run 17 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/2026-09-17/15078/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/2026-09-17/">2026-09-17</a><span aria-hidden="true">/</span><span aria-current="page">#15078</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15078" rel="noopener" target="_blank">#15078</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 17 Sep 2026</span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">New content command thinks there&#39;s a path conflict for a file that doesn&#39;t exist yet</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Root cause: `hugo new content` builds the site with a content-inclusion filter to locate the just-created placeholder page. The `_index.md` cascade sets `draft: true`, so the placeholder is filtered out of the build, the lookup fails, and Hugo emits the false &#39;target path conflicts with existing content&#39; error (leaving only the placeholder). The existing code already sets `BuildFuture=true` in the `new content` config for exactly this class of problem — a newly created page must be discoverable regardless of publish state. Patch A extends that established convention by also setting `BuildDrafts` and `BuildExpired`, which is the principled, general root-cause fix: it makes the discovery build surface the target page whether cascade/archetype marks it draft, future, or expired. Its testscript reproduces the issue&#39;s exact cascade+draft scenario and would fail before / pass after. Patch B instead pins `draft: false` into the placeholder front matter, relying on page-front-matter-beating-cascade precedence. That does fix the reported (draft-only) case and its Go test is valid, and it is admirably minimal — but it is narrower (leaves expired cascade unaddressed) and is more of a targeted neutralization than the general mechanism the codebase already uses via BuildFuture. Patch A&#39;s real weakness is scope: its second hunk adds ~16 lines of unrelated leaf-bundle conflict-detection logic that the issue never asks for, adds filesystem reads, and could introduce new false-conflict behavior; a maintainer would likely strip it. That is a genuine strike under the scope criterion. However, correctness is weighted first, and Patch A&#39;s core fix is the more robust, convention-consistent root-cause resolution (the second hunk is inert for the index.md test path and does not compromise the fix or the reproduction). On balance A edges B.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">43m 39s<small>2 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,667 passed · 93 skipped · 3,773 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">44<small>vs 32 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15078" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>I run my personal blog using Hugo for about two years ago, and it has been great!, but there have been issues with how I create pages.</p>
+<p>I have section called <code>posts/drafts/</code> where I create drafts for posts before I move them to a <code>posts/YEAR/MONTH</code> directory where I can post them. The bug happens when I create the page for a post, like this:</p>
+<p>&lt;pre&gt;<br>hugo new content posts/drafts/trip-to-puebla/index.md<br>&lt;/pre&gt;</p>
+<p>Running this command with the debug flag returns the following:</p>
+<p>&lt;pre&gt;<br>INFO  build:  step process substep collect files 138 files_total 138 pagesources_total 71 resourcesources_total 67 duration 37.1674ms<br>INFO  build:  step process duration 38.2639ms<br>INFO  build:  step assemble duration 2.064063s<br>INFO  build:  step render pages 0 content 0 duration 548.6µs<br>INFO  build:  step render deferred count 0 duration 0s<br>INFO  build:  step postProcess duration 0s<br>INFO  build:  duration 2.1061069s<br>ERROR no page found for &quot;C:\\...\\Documents\\projects\\kfcmanwebsite2\\content\\posts\\drafts\\trip-to-puebla\\index.md&quot;; the target path conflicts with existing conten<br>&lt;/pre&gt;</p>
+<p>What&#39;s funny is that a page _is_ created, but it&#39;s a placeholder page that looks like this:</p>
+<pre><code>---
+title: &quot;Content Placeholder&quot;
+build:
+  render: never
+  list: never
+  publishResources: false
+---</code></pre>
+<p>After consulting with ChatGPT (yes you can stone me now) and testing some things here&#39;s another stuff that cursed AI and I found:</p>
+<ul><li>The name of the page still causes some issues, doesn&#39;t matter if its <code>trip-to-puebla/index.md</code> or <code>trip-to-puebla</code>.</li><li>Renaming the <code>drafts</code> directory and rerunning the command with the new name still throws the error</li><li>This issue <strong>does not happen</strong> if I run it when creating something like <code>hugo new content posts/2026/07/foo/index.md</code></li></ul>
+<p>One final thing, I have a branch bundle on <code>posts/drafts/_index.md</code> that has the following front matter:</p>
+<pre><code class="lang-yaml">title: Drafts
+build:
+    render: never
+
+cascade:
+    draft: true
+    build:
+        render: link
+
+weight: 9999
+draft: true</code></pre>
+<p>This is so any of the pages inside <code>posts/drafts</code> don&#39;t get published.</p>
+<h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>&lt;pre&gt;<br>hugo v0.163.3-4d22555aebf458d5d150500c9ac4bee5b24cf0d3+extended windows/amd64 BuildDate=2026-06-18T16:18:24Z VendorInfo=gohugoio<br>&lt;/pre&gt;</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>I&#39;m using the latest version, so it _should_ be reproducible. I think. <a href="https://github.com/KunFuCutsMan/kfcmanwebsite2" rel="noopener nofollow" target="_blank">The repo for my hugo project can be found here</a>, though it may be a little heavy.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+44</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">commands/new.go</span><span class="h">index e82258a79..d99357921 100644</span><span class="h">@@ -55,6 +55,8 @@ Ensure you run this within the root directory of your project.`,</span><span class="c"> 					}</span><span class="c"> 					cfg := flagsToCfg(cd, nil)</span><span class="c"> 					cfg.Set(&quot;BuildFuture&quot;, true)</span><span class="a">+					cfg.Set(&quot;BuildExpired&quot;, true)</span><span class="a">+					cfg.Set(&quot;BuildDrafts&quot;, true)</span><span class="c"> 					h, err := r.Hugo(cfg)</span><span class="c"> 					if err != nil {</span><span class="c"> 						return err</span><span class="f">create/content.go</span><span class="h">index 91a7f9462..21bdd9834 100644</span><span class="h">@@ -244,6 +244,22 @@ func (b *contentBuilder) buildFile() (string, error) {</span><span class="c"> 		return &quot;&quot;, errTargetConflict(contentPlaceholderAbsFilename)</span><span class="c"> 	}</span><span class="c"> </span><span class="a">+	// If the target is a non-index content file placed inside an existing leaf</span><span class="a">+	// bundle (a directory that already contains an index.* content file), it</span><span class="a">+	// would become a page resource rather than a standalone page, conflicting</span><span class="a">+	// with the existing bundle.</span><span class="a">+	if !b.h.Conf.ContentTypes().IsIndexContentFile(contentPlaceholderAbsFilename) {</span><span class="a">+		parentDir := filepath.Dir(contentPlaceholderAbsFilename)</span><span class="a">+		if entries, derr := afero.ReadDir(b.sourceFs, parentDir); derr == nil {</span><span class="a">+			for _, e := range entries {</span><span class="a">+				name := e.Name()</span><span class="a">+				if !e.IsDir() &amp;&amp; strings.HasPrefix(name, &quot;index.&quot;) &amp;&amp; b.h.Conf.ContentTypes().IsContentFile(name) {</span><span class="a">+					return &quot;&quot;, errTargetConflict(contentPlaceholderAbsFilename)</span><span class="a">+				}</span><span class="a">+			}</span><span class="a">+		}</span><span class="a">+	}</span><span class="a">+</span><span class="c"> 	if err := b.h.Build(hugolib.BuildCfg{NoBuildLock: true, SkipRender: true, ContentInclusionFilter: contentInclusionFilter}); err != nil {</span><span class="c"> 		return &quot;&quot;, err</span><span class="c"> 	}</span><span class="f">testscripts/commands/new_content.txt</span><span class="h">index f432c8ace..061b32776 100644</span><span class="h">@@ -43,6 +43,15 @@ hugo new content P1.md</span><span class="c"> ! hugo new content p1.md</span><span class="c"> stderr &#39;the target path conflicts with existing content&#39;</span><span class="c"> </span><span class="a">+# Issue 15078: new content under a section whose cascade sets draft:true must not report a false path conflict.</span><span class="a">+</span><span class="a">+cd $WORK</span><span class="a">+cd issue-15078</span><span class="a">+hugo new content posts/drafts/trip-to-puebla/index.md</span><span class="a">+stdout &#39;Content .* created&#39;</span><span class="a">+grep &#39;draft = true&#39; content/posts/drafts/trip-to-puebla/index.md</span><span class="a">+! grep &#39;Content Placeholder&#39; content/posts/drafts/trip-to-puebla/index.md</span><span class="a">+</span><span class="c"> -- hugo.toml --</span><span class="c"> disableKinds = [&#39;home&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="c"> [frontmatter]</span><span class="h">@@ -52,3 +61,22 @@ publishDate = [&#39;:filename&#39;, &#39;:default&#39;]</span><span class="c"> DATE _{{ .Date.Format &quot;2006-01-02&quot; }}_</span><span class="c"> SLUG _{{ .Slug }}_</span><span class="c"> TITLE _{{ .Title }}_</span><span class="a">+-- issue-15078/hugo.toml --</span><span class="a">+title = &quot;Issue 15078&quot;</span><span class="a">+-- issue-15078/archetypes/default.md --</span><span class="f">++++</span><span class="a">+title = &#39;{{ replace .File.ContentBaseName &quot;-&quot; &quot; &quot; | title }}&#39;</span><span class="a">+draft = true</span><span class="f">++++</span><span class="a">+-- issue-15078/content/posts/drafts/_index.md --</span><span class="a">+---</span><span class="a">+title: Drafts</span><span class="a">+build:</span><span class="a">+  render: never</span><span class="a">+cascade:</span><span class="a">+  draft: true</span><span class="a">+  build:</span><span class="a">+    render: link</span><span class="a">+weight: 9999</span><span class="a">+draft: true</span><span class="a">+---</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+32</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">create/content_test.go</span><span class="h">index deafaed09..c8c3c1cdd 100644</span><span class="h">@@ -159,6 +159,37 @@ site RegularPages: {{ len site.RegularPages  }}</span><span class="c"> 	cContains(c, readFileFromFs(t, fs.Source, filepath.Join(&quot;content&quot;, &quot;mypage.md&quot;)), `draft: true`)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// See issue 15078.</span><span class="a">+func TestNewContentWithBuildCascade(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	mm := afero.NewMemMapFs()</span><span class="a">+	c := qt.New(t)</span><span class="a">+</span><span class="a">+	c.Assert(initFs(mm), qt.IsNil)</span><span class="a">+	c.Assert(mm.MkdirAll(filepath.Join(&quot;content&quot;, &quot;posts&quot;, &quot;drafts&quot;), 0o755), qt.IsNil)</span><span class="a">+	c.Assert(afero.WriteFile(mm, filepath.Join(&quot;content&quot;, &quot;posts&quot;, &quot;drafts&quot;, &quot;_index.md&quot;), []byte(`---</span><span class="a">+title: Drafts</span><span class="a">+build:</span><span class="a">+  render: never</span><span class="a">+cascade:</span><span class="a">+  draft: true</span><span class="a">+  build:</span><span class="a">+    render: link</span><span class="a">+draft: true</span><span class="a">+---</span><span class="a">+`), 0o755), qt.IsNil)</span><span class="a">+</span><span class="a">+	cfg, fs := newTestCfg(c, mm)</span><span class="a">+	conf := testconfig.GetTestConfigs(fs.Source, cfg)</span><span class="a">+	h, err := hugolib.NewHugoSites(deps.DepsCfg{Configs: conf, Fs: fs})</span><span class="a">+	c.Assert(err, qt.IsNil)</span><span class="a">+</span><span class="a">+	const target = &quot;posts/drafts/trip-to-puebla/index.md&quot;</span><span class="a">+	c.Assert(create.NewContent(h, &quot;&quot;, target, false), qt.IsNil)</span><span class="a">+	c.Assert(readFileFromFs(c, fs.Source, filepath.Join(&quot;content&quot;, target)), qt.Contains, `title: &quot;Trip to Puebla&quot;`)</span><span class="a">+}</span><span class="a">+</span><span class="c"> func initFs(fs afero.Fs) error {</span><span class="c"> 	perm := os.FileMode(0o755)</span><span class="c"> 	var err error</span><span class="f">hugolib/content_factory.go</span><span class="h">index 36cb29e63..6757c64e3 100644</span><span class="h">@@ -114,6 +114,7 @@ func (f ContentFactory) CreateContentPlaceHolder(filename string, force bool) (s</span><span class="c"> 	// the paths correct.</span><span class="c"> 	placeholder := `---</span><span class="c"> title: &quot;Content Placeholder&quot;</span><span class="a">+draft: false</span><span class="c"> build:</span><span class="c">   render: never</span><span class="c">   list: never</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><h2>Summary</h2>
+<p><strong>What was wrong</strong></p>
+<p><code>hugo new content posts/drafts/trip-to-puebla/index.md</code> failed with a false <code>no page found ...; the target path conflicts with existing content</code> error whenever the target section&#39;s branch bundle (<code>posts/drafts/_index.md</code>) had a <code>cascade</code> setting <code>draft: true</code>.</p>
+<p>The command works by writing a temporary placeholder file, running an intermediate <code>SkipRender</code> build to resolve that file to a <code>Page</code> (so the archetype can be applied), then looking the page up via <code>HugoSites.GetContentPage</code>. The placeholder inherited <code>draft: true</code> from the section cascade; <code>Site.shouldBuild</code> returns false for drafts, so the page was added to <code>droppedPages</code> and <strong>deleted from the page tree</strong>. <code>GetContentPage</code> walks only the page tree, so it returned <code>nil</code>, and <code>applyArcheType</code> reported the bogus conflict — leaving the &quot;Content Placeholder&quot; file behind. <code>commands/new.go</code> already set <code>BuildFuture</code> for the same class of problem (issue #12599) but not drafts/expired.</p>
+<p><strong>What I changed</strong> (production, 2 files)</p>
+<ol><li><code>commands/new.go:58-59</code> — alongside the existing <code>cfg.Set(&quot;BuildFuture&quot;, true)</code>, added <code>cfg.Set(&quot;BuildExpired&quot;, true)</code> and <code>cfg.Set(&quot;BuildDrafts&quot;, true)</code> so the transient path-resolution build no longer drops draft/expired pages. The written file is unaffected (the archetype is applied afterward; <code>SkipRender</code> publishes nothing).</li></ol>
+<ol><li><code>create/content.go</code> (<code>buildFile</code>) — enabling drafts meant a <em>draft</em> leaf bundle is no longer dropped, which had been the coincidental mechanism detecting the &quot;create a file inside an existing leaf bundle&quot; conflict (issue #12786). I added a <strong>draft-independent</strong> check: if the target is a non-index content file whose parent directory already contains an <code>index.*</code> content file, return the conflict error. It is skipped when the target itself is an index file (so creating a new leaf bundle works) and matches only <code>index.</code> (leaf), not <code>_index.</code> (branch), so normal pages in a section are unaffected.</li></ol>
+<p><strong>Regression test</strong> (<code>testscripts/commands/new_content.txt</code>) — added an &quot;Issue 15078&quot; case reproducing the exact scenario (a <code>posts/drafts/_index.md</code> with <code>cascade.draft: true</code>), asserting the command now succeeds and the created file contains the archetype (<code>draft = true</code>), not the placeholder.</p>
+<p><strong>Test evidence</strong></p>
+<ul><li>Before the fix: the new case failed with <code>no page found for &quot;.../trip-to-puebla/index.md&quot;; the target path conflicts with existing content</code> (confirmed test-first).</li><li>After the fix: <code>TestCommands</code> and <code>TestCommands/new_content</code> <strong>PASS</strong>, with <strong>zero failures</strong> — including the pre-existing conflict cases (#12602, #12786, #14112), which all still correctly error.</li><li>The <code>create</code>, <code>hugolib</code>, and root <code>hugo</code> packages all pass.</li></ul>
+<p><strong>Note on other failures / working tree:</strong> A full-suite run showed failures in unrelated packages (<code>codegen</code>, <code>internal/warpc</code> WASM, <code>resources/images</code> golden-file tests, vendored <code>tpl/internal/go_templates</code>). These have no dependency on <code>create</code>/<code>commands</code> and are pre-existing environmental failures, not caused by this change. The <code>AGENTS.md</code>/<code>CLAUDE.md</code> deletions were already present in the working tree at session start (harness scaffolding); I did not touch them. All changes are left uncommitted.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/2026-09-17/15077/">Previous · #15077</a>
+  <a class="mid" href="/backtests/hugo/2026-09-17/">All tickets in this run</a>
+  <a href="/backtests/hugo/2026-09-17/15101/">Next · #15101</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

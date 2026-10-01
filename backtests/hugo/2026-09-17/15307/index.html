@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15307 js.Build should support es2025 as target — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged on par with the merged fix. Issue #15307 in gohugoio/hugo, run 17 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/2026-09-17/15307/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/2026-09-17/">2026-09-17</a><span aria-hidden="true">/</span><span aria-current="page">#15307</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15307" rel="noopener" target="_blank">#15307</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 17 Sep 2026</span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">js.Build should support es2025 as target</h1>
+
+<div class="verdict-block">
+  <span class="pill par lg">Par</span>
+  <p class="line">Our patch was judged on par with the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The two diffs are byte-for-byte identical. Both add the exact same one-line mapping `&quot;es2025&quot;: api.ES2025` to the target map in internal/js/esbuild/options.go — the correct root-cause fix, since the reported error `unsupported target: [es2025]` comes from that lookup table lacking the entry now that esbuild exposes api.ES2025. Both make the identical edit to options_test.go, adding `{&quot;es2024&quot;, api.ES2024}` and `{&quot;es2025&quot;, api.ES2025}` to the table-driven TestToBuildOptionsTarget cases, which would fail before the map change and pass after. Correctness, tests, scope (minimal, no drive-by churn), and craft are indistinguishable because there is literally nothing to distinguish — the patches are the same text. This is a genuine tie, not a hard comparison resolved arbitrarily.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">15m 48s<small>1 turn</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,753 passed · 100 skipped · 3,859 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">3<small>vs 3 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15307" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Hugo&#39;s built-in js.Build function currently doesnt support and/or list es2025 as available target parameter.<br>As far as i understood js.Build relies on evanw/esbuild for bundling, transforming and minifying javascript ressources.</p>
+<p>According to hugo&#39;s own release notes esbuild was just bumped to 0.28.2.<br>According to esbuild&#39;s release notes, support for es2025 as target parameter exists since 0.27.5.<br>Hugo should therefore support es2025 as target parameter.</p>
+<p>However when doing something like this:</p>
+<pre><code>{{- $buildParams := dict
+    &quot;minify&quot; true
+    &quot;sourceMap&quot; &quot;none&quot;
+    &quot;target&quot; &quot;es2025&quot;
+}}
+{{- with . | js.Build $buildParams }}
+    &lt;script&gt;{{ .Content | safeJS }}&lt;/script&gt;
+{{- end }}</code></pre>
+<p>results in the following error message:<br>`<br>... JSBUILD: failed to transform &quot;/ts/test.ts&quot; (text/typescript): unsupported target: [es2025] ...<br>`</p>
+<h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>hugo v0.165.0</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>Yes</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+3</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">internal/js/esbuild/options.go</span><span class="h">index 4176438e8..9248701f7 100644</span><span class="h">@@ -49,6 +49,7 @@ var (</span><span class="c"> 		&quot;es2022&quot;: api.ES2022,</span><span class="c"> 		&quot;es2023&quot;: api.ES2023,</span><span class="c"> 		&quot;es2024&quot;: api.ES2024,</span><span class="a">+		&quot;es2025&quot;: api.ES2025,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	engineName = map[string]api.EngineName{</span><span class="f">internal/js/esbuild/options_test.go</span><span class="h">index b60dcbc4a..683a32db0 100644</span><span class="h">@@ -189,6 +189,8 @@ func TestToBuildOptionsTarget(t *testing.T) {</span><span class="c"> 		{&quot;es2021&quot;, api.ES2021},</span><span class="c"> 		{&quot;es2022&quot;, api.ES2022},</span><span class="c"> 		{&quot;es2023&quot;, api.ES2023},</span><span class="a">+		{&quot;es2024&quot;, api.ES2024},</span><span class="a">+		{&quot;es2025&quot;, api.ES2025},</span><span class="c"> 		{&quot;&quot;, api.ESNext},</span><span class="c"> 		{&quot;esnext&quot;, api.ESNext},</span><span class="c"> 	} {</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+3</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">internal/js/esbuild/options.go</span><span class="h">index 4176438e8..9248701f7 100644</span><span class="h">@@ -49,6 +49,7 @@ var (</span><span class="c"> 		&quot;es2022&quot;: api.ES2022,</span><span class="c"> 		&quot;es2023&quot;: api.ES2023,</span><span class="c"> 		&quot;es2024&quot;: api.ES2024,</span><span class="a">+		&quot;es2025&quot;: api.ES2025,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	engineName = map[string]api.EngineName{</span><span class="f">internal/js/esbuild/options_test.go</span><span class="h">index b60dcbc4a..683a32db0 100644</span><span class="h">@@ -189,6 +189,8 @@ func TestToBuildOptionsTarget(t *testing.T) {</span><span class="c"> 		{&quot;es2021&quot;, api.ES2021},</span><span class="c"> 		{&quot;es2022&quot;, api.ES2022},</span><span class="c"> 		{&quot;es2023&quot;, api.ES2023},</span><span class="a">+		{&quot;es2024&quot;, api.ES2024},</span><span class="a">+		{&quot;es2025&quot;, api.ES2025},</span><span class="c"> 		{&quot;&quot;, api.ESNext},</span><span class="c"> 		{&quot;esnext&quot;, api.ESNext},</span><span class="c"> 	} {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The fix is complete and verified. Final report:</p>
+<h2>What was wrong</h2>
+<p>Hugo&#39;s <code>js.Build</code> maps a <code>target</code> string (e.g. <code>&quot;es2020&quot;</code>) to an <code>esbuild</code> target enum via the <code>nameTarget</code> map in <code>internal/js/esbuild/options.go</code>. That map stopped at <code>&quot;es2024&quot;</code>. When <code>&quot;es2025&quot;</code> was requested, the lookup in <code>compile()</code> found nothing, <code>target</code> stayed <code>0</code>, and the guard <code>if target == 0 &amp;&amp; len(engines) == 0 &amp;&amp; len(opts.Target) &gt; 0</code> fired, producing the reported error <code>unsupported target: [es2025]</code>. The <code>evanw/esbuild</code> dependency (v0.28.2, which includes ES2025 support since 0.27.5) already exposed the <code>api.ES2025</code> constant — Hugo simply never mapped it.</p>
+<h2>What I changed</h2>
+<p>Two files, one line each:</p>
+<ul><li><strong><code>internal/js/esbuild/options.go</code></strong> — added <code>&quot;es2025&quot;: api.ES2025,</code> to the <code>nameTarget</code> map, right after the <code>es2024</code> entry.</li><li><strong><code>internal/js/esbuild/options_test.go</code></strong> — added <code>{&quot;es2024&quot;, api.ES2024}</code> and <code>{&quot;es2025&quot;, api.ES2025}</code> table entries to the existing <code>TestToBuildOptionsTarget</code> (which previously only covered up to <code>es2023</code>).</li></ul>
+<p>I left the stale <code>Target</code> doc comment (which already omits es2021–es2024) untouched to keep the change minimal — it&#39;s pre-existing and out of scope.</p>
+<h2>Verification</h2>
+<ul><li>I confirmed <code>api.ES2025</code> exists in the esbuild v0.28.2 module cache inside the build container.</li><li>Gate run: <code>./bt-test -run &#39;TestToBuildOptions|TestDecodeExternalOptions&#39; ./internal/js/esbuild/</code> — all esbuild option tests <strong>pass</strong>, including the new <code>TestToBuildOptionsTarget/es2024</code> and <code>TestToBuildOptionsTarget/es2025</code> subtests, with <strong>no failures</strong> anywhere in the report. The regression test is genuine: without the map entry, <code>es2025</code> would error (unsupported target) rather than mapping to <code>api.ES2025</code>.</li><li>The reviewer confirmed the fix targets exactly the reported code path, the regression test is real, no existing test was weakened, and the diff is limited to these two files (plus the pre-existing <code>AGENTS.md</code>/<code>CLAUDE.md</code> deletions from the initial working-tree state).</li></ul>
+<p>All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/2026-09-17/15302/">Previous · #15302</a>
+  <a class="mid" href="/backtests/hugo/2026-09-17/">All tickets in this run</a>
+  <a href="/backtests/hugo/2026-09-17/15323/">Next · #15323</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

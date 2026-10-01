@@ -4,7 +4,10 @@
       "slug": "pydantic",
       "name": "pydantic/pydantic",
       "description": "Data validation library for Python, with a Rust core.",
-      "languages": ["Python", "Rust"],
+      "languages": [
+        "Python",
+        "Rust"
+      ],
       "status": "active",
       "runs": [
         {
@@ -35,13 +38,48 @@
       "slug": "pydantic-ai",
       "name": "pydantic/pydantic-ai",
       "description": "Agent framework for building production-grade applications with generative AI.",
-      "languages": ["Python"],
+      "languages": [
+        "Python"
+      ],
       "status": "pending",
       "runs": []
+    },
+    {
+      "slug": "hugo",
+      "name": "gohugoio/hugo",
+      "description": "Static site generator written in Go.",
+      "languages": [
+        "Go"
+      ],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-09-17",
+          "id": "run-20260917-015623",
+          "source_runs": [
+            "run-20260917-015623"
+          ],
+          "tickets": 30,
+          "better": 9,
+          "par": 3,
+          "worse": 16,
+          "error": 2,
+          "notes": "First Hugo run",
+          "footnote": ""
+        }
+      ]
     }
   ],
   "events": [
-    { "date": "2026-09-30", "label": "Updated solvers to Opus 5.5", "kind": "product" },
-    { "date": "2026-09-29", "label": "Verification fixes", "kind": "measurement" }
+    {
+      "date": "2026-09-30",
+      "label": "Updated solvers to Opus 5.5",
+      "kind": "product"
+    },
+    {
+      "date": "2026-09-29",
+      "label": "Verification fixes",
+      "kind": "measurement"
+    }
   ]
 }
