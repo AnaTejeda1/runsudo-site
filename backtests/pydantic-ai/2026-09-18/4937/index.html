@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#4937 Support configurable HTTP retry options for GoogleProvider — pydantic/pydantic-ai backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #4937 in pydantic/pydantic-ai, run 18 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic-ai/2026-09-18/4937/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/">pydantic-ai</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/2026-09-18/">2026-09-18</a><span aria-hidden="true">/</span><span aria-current="page">#4937</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic-ai/issues/4937" rel="noopener" target="_blank">#4937</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 18 Sep 2026</span>
+  <span>pydantic/pydantic-ai</span>
+</div>
+<h1 class="ticket-title">Support configurable HTTP retry options for GoogleProvider</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The source change is byte-for-byte identical in both patches (add `HttpRetryOptions` import, thread a `retry_options` param through all three overloads and the real `__init__`, forward it into `HttpOptions`, document it). Both correctly resolve the root cause—exposing the SDK&#39;s native `HttpOptions.retry_options` without forcing users to build their own Client—and both add a test that fails before the change (passing `retry_options=` raised TypeError) and passes after. So correctness and scope are a wash; the decision rests on tests and craft. Patch B is stronger on two counts: (1) location—it puts the test under tests/providers/, which matches the convention for a provider feature, whereas Patch A appends its test to tests/models/test_google.py, a mismatch for a change that lives entirely in providers/google.py; (2) coverage—B adds a negative test asserting `retry_options is None` by default, guarding the default/overload behavior against regression, in addition to the positive passthrough test. Patch A&#39;s single test is fine (its `is retry_options` identity check is marginally stronger than B&#39;s `is not None`, and it exercises more fields), but B&#39;s positive test already verifies attributes (attempts, initial_delay, max_delay) and its default-case test covers ground A leaves untested. The one caveat: B relies on tests/providers/test_google.py not already existing (declared as a new file); if it did, the patch would fail to apply—but taking the diff at face value, B&#39;s better-conventioned placement plus the extra default-behavior test give it the edge.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">15m 17s<small>2 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">5,558 passed · 285 skipped · 5,885 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">34<small>vs 46 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic-ai/issues/4937" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Description</h2>
+<p><code>GoogleProvider</code> currently doesn&#39;t expose the <code>google-genai</code> SDK&#39;s built-in <code>HttpRetryOptions</code>, which means users who want retry behavior for transient HTTP errors (429, 500, 502, 503, 504) must construct their own <code>GenAIClient</code> and pass it via <code>GoogleProvider(client=...)</code>, bypassing the provider&#39;s normal setup.</p>
+<p>The <code>google-genai</code> SDK supports this natively via <code>HttpOptions.retry_options</code>:</p>
+<pre><code class="lang-python">from google.genai.types import HttpOptions, HttpRetryOptions
+
+HttpOptions(
+    retry_options=HttpRetryOptions(
+        initial_delay=1.0,
+        attempts=4,
+        exp_base=2,
+        max_delay=60,
+        jitter=1,
+        http_status_codes=[408, 429, 500, 502, 503, 504],
+    ),
+)</code></pre>
+<p>Reference: <a href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/retry-strategy" rel="noopener nofollow" target="_blank">https://docs.cloud.google.com/vertex-ai/generative-ai/docs/retry-strategy</a></p>
+<h2>Proposal</h2>
+<p>Add a <code>retry_options</code> parameter to <code>GoogleProvider.__init__</code> (or accept <code>HttpRetryOptions</code> as part of an existing config) so users can configure retries without having to manually construct the underlying <code>Client</code>.</p>
+<p>Something like:</p>
+<pre><code class="lang-python">from google.genai.types import HttpRetryOptions
+
+provider = GoogleProvider(
+    project=&quot;my-project&quot;,
+    location=&quot;us-central1&quot;,
+    retry_options=HttpRetryOptions(
+        initial_delay=1.0,
+        attempts=4,
+        http_status_codes=[408, 429, 500, 502, 503, 504],
+    ),
+)</code></pre>
+<h2>Current Workaround</h2>
+<p>Construct a <code>GenAIClient</code> manually with retry options and pass it to <code>GoogleProvider(client=...)</code>. This works but requires duplicating the provider&#39;s setup logic (User-Agent header, timeout, vertexai flag, etc.).</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+32</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/providers/google.py</span><span class="h">index 36d5e81f..859aaa7d 100644</span><span class="h">@@ -14,7 +14,7 @@ from pydantic_ai.providers import Provider</span><span class="c"> try:</span><span class="c">     from google.auth.credentials import Credentials</span><span class="c">     from google.genai.client import Client</span><span class="r">-    from google.genai.types import HttpOptions</span><span class="a">+    from google.genai.types import HttpOptions, HttpRetryOptions</span><span class="c"> except ImportError as _import_error:</span><span class="c">     raise ImportError(</span><span class="c">         &#39;Please install the `google-genai` package to use the Google provider, &#39;</span><span class="h">@@ -43,7 +43,12 @@ class GoogleProvider(Provider[Client]):</span><span class="c"> </span><span class="c">     @overload</span><span class="c">     def __init__(</span><span class="r">-        self, *, api_key: str, http_client: httpx.AsyncClient | None = None, base_url: str | None = None</span><span class="a">+        self,</span><span class="a">+        *,</span><span class="a">+        api_key: str,</span><span class="a">+        http_client: httpx.AsyncClient | None = None,</span><span class="a">+        base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None: ...</span><span class="c"> </span><span class="c">     @overload</span><span class="h">@@ -55,6 +60,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">         location: VertexAILocation | Literal[&#39;global&#39;] | str | None = None,</span><span class="c">         http_client: httpx.AsyncClient | None = None,</span><span class="c">         base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None: ...</span><span class="c"> </span><span class="c">     @overload</span><span class="h">@@ -68,6 +74,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">         api_key: str | None = None,</span><span class="c">         http_client: httpx.AsyncClient | None = None,</span><span class="c">         base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None: ...</span><span class="c"> </span><span class="c">     def __init__(</span><span class="h">@@ -81,6 +88,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">         client: Client | None = None,</span><span class="c">         http_client: httpx.AsyncClient | None = None,</span><span class="c">         base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Create a new Google provider.</span><span class="c"> </span><span class="h">@@ -99,6 +107,8 @@ class GoogleProvider(Provider[Client]):</span><span class="c">             client: A pre-initialized client to use.</span><span class="c">             http_client: An existing `httpx.AsyncClient` to use for making HTTP requests.</span><span class="c">             base_url: The base URL for the Google API.</span><span class="a">+            retry_options: Options to configure automatic retries for transient HTTP errors (e.g. 429, 500, 502, 503, 504).</span><span class="a">+                See `google.genai.types.HttpRetryOptions`.</span><span class="c">         &quot;&quot;&quot;</span><span class="c">         if client is None:</span><span class="c">             # NOTE: We are keeping GEMINI_API_KEY for backwards compatibility.</span><span class="h">@@ -123,6 +133,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">                 headers={&#39;User-Agent&#39;: get_user_agent()},</span><span class="c">                 httpx_async_client=http_client,</span><span class="c">                 timeout=timeout_ms,</span><span class="a">+                retry_options=retry_options,</span><span class="c">             )</span><span class="c">             if not vertexai:</span><span class="c">                 if api_key is None:</span><span class="f">tests/models/test_google.py</span><span class="h">index 01a8f714..1f753b92 100644</span><span class="h">@@ -93,6 +93,7 @@ with try_import() as imports_successful:</span><span class="c">         HarmBlockThreshold,</span><span class="c">         HarmCategory,</span><span class="c">         HarmProbability,</span><span class="a">+        HttpRetryOptions,</span><span class="c">         LogprobsResult,</span><span class="c">         LogprobsResultCandidate,</span><span class="c">         LogprobsResultTopCandidates,</span><span class="h">@@ -2704,6 +2705,24 @@ async def test_google_timeout(allow_model_requests: None, google_provider: Googl</span><span class="c">         await agent.run(&#39;Hello!&#39;, model_settings={&#39;timeout&#39;: Timeout(10)})</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_google_provider_retry_options():</span><span class="a">+    retry_options = HttpRetryOptions(</span><span class="a">+        initial_delay=1.0,</span><span class="a">+        attempts=4,</span><span class="a">+        exp_base=2,</span><span class="a">+        max_delay=60,</span><span class="a">+        jitter=1,</span><span class="a">+        http_status_codes=[408, 429, 500, 502, 503, 504],</span><span class="a">+    )</span><span class="a">+    provider = GoogleProvider(api_key=&#39;foo&#39;, retry_options=retry_options)</span><span class="a">+</span><span class="a">+    http_options = provider.client._api_client._http_options  # pyright: ignore[reportPrivateUsage]</span><span class="a">+    assert http_options.retry_options is retry_options</span><span class="a">+    assert http_options.retry_options.attempts == 4</span><span class="a">+    assert http_options.retry_options.http_status_codes == [408, 429, 500, 502, 503, 504]</span><span class="a">+    assert http_options.retry_options.initial_delay == 1.0</span><span class="a">+</span><span class="a">+</span><span class="c"> async def test_google_extra_headers(allow_model_requests: None, google_provider: GoogleProvider):</span><span class="c">     m = GoogleModel(&#39;gemini-1.5-flash&#39;, provider=google_provider)</span><span class="c">     agent = Agent(m, model_settings=GoogleModelSettings(extra_headers={&#39;Extra-Header-Key&#39;: &#39;Extra-Header-Value&#39;}))</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+44</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/providers/google.py</span><span class="h">index 36d5e81fbd..c90b2046fc 100644</span><span class="h">@@ -14,7 +14,7 @@ from pydantic_ai.providers import Provider</span><span class="c"> try:</span><span class="c">     from google.auth.credentials import Credentials</span><span class="c">     from google.genai.client import Client</span><span class="r">-    from google.genai.types import HttpOptions</span><span class="a">+    from google.genai.types import HttpOptions, HttpRetryOptions</span><span class="c"> except ImportError as _import_error:</span><span class="c">     raise ImportError(</span><span class="c">         &#39;Please install the `google-genai` package to use the Google provider, &#39;</span><span class="h">@@ -43,7 +43,12 @@ class GoogleProvider(Provider[Client]):</span><span class="c"> </span><span class="c">     @overload</span><span class="c">     def __init__(</span><span class="r">-        self, *, api_key: str, http_client: httpx.AsyncClient | None = None, base_url: str | None = None</span><span class="a">+        self,</span><span class="a">+        *,</span><span class="a">+        api_key: str,</span><span class="a">+        http_client: httpx.AsyncClient | None = None,</span><span class="a">+        base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None: ...</span><span class="c"> </span><span class="c">     @overload</span><span class="h">@@ -55,6 +60,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">         location: VertexAILocation | Literal[&#39;global&#39;] | str | None = None,</span><span class="c">         http_client: httpx.AsyncClient | None = None,</span><span class="c">         base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None: ...</span><span class="c"> </span><span class="c">     @overload</span><span class="h">@@ -68,6 +74,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">         api_key: str | None = None,</span><span class="c">         http_client: httpx.AsyncClient | None = None,</span><span class="c">         base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None: ...</span><span class="c"> </span><span class="c">     def __init__(</span><span class="h">@@ -81,6 +88,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">         client: Client | None = None,</span><span class="c">         http_client: httpx.AsyncClient | None = None,</span><span class="c">         base_url: str | None = None,</span><span class="a">+        retry_options: HttpRetryOptions | None = None,</span><span class="c">     ) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Create a new Google provider.</span><span class="c"> </span><span class="h">@@ -99,6 +107,8 @@ class GoogleProvider(Provider[Client]):</span><span class="c">             client: A pre-initialized client to use.</span><span class="c">             http_client: An existing `httpx.AsyncClient` to use for making HTTP requests.</span><span class="c">             base_url: The base URL for the Google API.</span><span class="a">+            retry_options: HTTP retry options for transient errors (429, 5xx, etc.).</span><span class="a">+                See `google.genai.types.HttpRetryOptions` for available fields.</span><span class="c">         &quot;&quot;&quot;</span><span class="c">         if client is None:</span><span class="c">             # NOTE: We are keeping GEMINI_API_KEY for backwards compatibility.</span><span class="h">@@ -123,6 +133,7 @@ class GoogleProvider(Provider[Client]):</span><span class="c">                 headers={&#39;User-Agent&#39;: get_user_agent()},</span><span class="c">                 httpx_async_client=http_client,</span><span class="c">                 timeout=timeout_ms,</span><span class="a">+                retry_options=retry_options,</span><span class="c">             )</span><span class="c">             if not vertexai:</span><span class="c">                 if api_key is None:</span><span class="f">tests/providers/test_google.py</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..c4051c5d23</span><span class="h">@@ -0,0 +1,31 @@</span><span class="a">+from __future__ import annotations as _annotations</span><span class="a">+</span><span class="a">+import pytest</span><span class="a">+</span><span class="a">+from ..conftest import TestEnv, try_import</span><span class="a">+</span><span class="a">+with try_import() as imports_successful:</span><span class="a">+    from google.genai.types import HttpRetryOptions</span><span class="a">+</span><span class="a">+    from pydantic_ai.providers.google import GoogleProvider</span><span class="a">+</span><span class="a">+pytestmark = pytest.mark.skipif(not imports_successful(), reason=&#39;google-genai not installed&#39;)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_google_provider_retry_options(env: TestEnv):</span><span class="a">+    env.set(&#39;GOOGLE_API_KEY&#39;, &#39;test-key&#39;)</span><span class="a">+    retry = HttpRetryOptions(attempts=4, initial_delay=2.0, max_delay=30.0)</span><span class="a">+    provider = GoogleProvider(api_key=&#39;test-key&#39;, retry_options=retry)</span><span class="a">+    # Verify the retry options were passed through to the underlying HttpOptions.</span><span class="a">+    http_options = provider.client._api_client._http_options  # type: ignore[reportPrivateUsage]</span><span class="a">+    assert http_options.retry_options is not None</span><span class="a">+    assert http_options.retry_options.attempts == 4</span><span class="a">+    assert http_options.retry_options.initial_delay == 2.0</span><span class="a">+    assert http_options.retry_options.max_delay == 30.0</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_google_provider_no_retry_options(env: TestEnv):</span><span class="a">+    env.set(&#39;GOOGLE_API_KEY&#39;, &#39;test-key&#39;)</span><span class="a">+    provider = GoogleProvider(api_key=&#39;test-key&#39;)</span><span class="a">+    http_options = provider.client._api_client._http_options  # type: ignore[reportPrivateUsage]</span><span class="a">+    assert http_options.retry_options is None</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The diff is clean: only <code>providers/google.py</code> (+15) and <code>tests/models/test_google.py</code> (+19) reflect my change. The three deletions (<code>.claude/settings.json</code>, <code>AGENTS.md</code>, <code>CLAUDE.md</code>) were already present in the working tree before this task began.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong:</strong> <code>GoogleProvider</code> gave no way to enable the <code>google-genai</code> SDK&#39;s built-in HTTP retry behavior (<code>HttpRetryOptions</code>). Users wanting retries for transient errors (429/500/502/503/504) had to construct a <code>GenAIClient</code> themselves and pass it via <code>GoogleProvider(client=...)</code>, duplicating the provider&#39;s User-Agent/timeout/vertexai setup.</p>
+<p><strong>What I changed</strong> (<code>pydantic_ai_slim/pydantic_ai/providers/google.py</code>):</p>
+<ul><li>Imported <code>HttpRetryOptions</code> alongside <code>HttpOptions</code> from <code>google.genai.types</code>.</li><li>Added a <code>retry_options: HttpRetryOptions | None = None</code> keyword parameter to the real <code>__init__</code> and to the three non-client overloads (api_key, credentials/vertex, vertexai bool) — deliberately not the client-only overload, which bypasses <code>HttpOptions</code> construction.</li><li>Added a docstring entry.</li><li>Threaded <code>retry_options=retry_options</code> into the <code>HttpOptions(...)</code> construction, so it flows into both the GLA and Vertex <code>Client</code> paths.</li></ul>
+<p><strong>Test evidence:</strong></p>
+<ul><li>Added <code>test_google_provider_retry_options</code> in <code>tests/models/test_google.py</code> (and added <code>HttpRetryOptions</code> to the guarded import). It constructs <code>GoogleProvider(api_key=&#39;foo&#39;, retry_options=...)</code> and asserts the options reach <code>provider.client._api_client._http_options.retry_options</code> (identity + field checks). This is a new parameter, so before the fix construction raises <code>TypeError: unexpected keyword argument &#39;retry_options&#39;</code>.</li><li>The <code>bt-test</code> wrapper refuses targeted runs (its base command chains with <code>&amp;&amp;</code>), so I ran the full frozen suite: <strong>5566 passed, 28 failed</strong>. The new test <strong>passed</strong> (confirmed via junit: self-closing testcase, no failure/error child). All 28 failures are in unrelated modules — <code>tests/test_dbos.py</code> (database <code>IntegrityError</code>/<code>UserWarning</code>), <code>tests/models/test_outlines.py</code> (llamacpp), and <code>tests/test_agent.py</code> (context-manager/MCP) — none touch the Google provider, and they are environmental/pre-existing, not caused by this change.</li></ul>
+<p><strong>Reviewer:</strong> Confirmed the change is correct and complete with no unrelated production/test edits and no weakened tests.</p>
+<p><strong>Requirements checklist:</strong></p>
+<ol><li>Add <code>retry_options</code> param to <code>GoogleProvider.__init__</code> accepting <code>HttpRetryOptions</code> — <strong>Implemented</strong> (param + overloads + docstring), covered by the new test.</li><li>Thread it through to the underlying Client via <code>HttpOptions.retry_options</code> without requiring a manual <code>Client</code> — <strong>Implemented</strong> (<code>HttpOptions(..., retry_options=retry_options)</code> on both GLA and Vertex paths), asserted by the test reading <code>client._api_client._http_options.retry_options</code>.</li><li>Report&#39;s &quot;or accept as part of an existing config&quot; alternative — <strong>Skipped</strong> in favor of the primary, explicitly-preferred <code>retry_options=</code> parameter form shown in the report&#39;s own example; a dedicated parameter is the simplest, most defensible fit and requires no new config type.</li></ol>
+<p>All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic-ai/2026-09-18/4733/">Previous · #4733</a>
+  <a class="mid" href="/backtests/pydantic-ai/2026-09-18/">All tickets in this run</a>
+  <a href="/backtests/pydantic-ai/2026-09-18/5034/">Next · #5034</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -41,8 +41,23 @@
       "languages": [
         "Python"
       ],
-      "status": "pending",
-      "runs": []
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-09-18",
+          "id": "run-20260918-215936",
+          "source_runs": [
+            "run-20260918-215936"
+          ],
+          "tickets": 18,
+          "better": 7,
+          "par": 0,
+          "worse": 9,
+          "error": 2,
+          "notes": "First pydantic-ai run",
+          "footnote": ""
+        }
+      ]
     },
     {
       "slug": "hugo",
@@ -75,11 +90,6 @@
       "date": "2026-09-30",
       "label": "Updated solvers to Opus 5.5",
       "kind": "product"
-    },
-    {
-      "date": "2026-09-29",
-      "label": "Verification fixes",
-      "kind": "measurement"
     }
   ]
 }

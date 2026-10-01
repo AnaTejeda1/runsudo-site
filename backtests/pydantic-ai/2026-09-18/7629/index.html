@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#7629 `TestModel` generates values that violate falsy JSON Schema `const` constraints — pydantic/pydantic-ai backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #7629 in pydantic/pydantic-ai, run 18 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic-ai/2026-09-18/7629/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/">pydantic-ai</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/2026-09-18/">2026-09-18</a><span aria-hidden="true">/</span><span aria-current="page">#7629</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic-ai/issues/7629" rel="noopener" target="_blank">#7629</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 18 Sep 2026</span>
+  <span>pydantic/pydantic-ai</span>
+</div>
+<h1 class="ticket-title"><code>TestModel</code> generates values that violate falsy JSON Schema <code>const</code> constraints</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the identical, correct root-cause fix: replacing the truthiness check `if const := schema.get(&#39;const&#39;)` with a membership test `if &#39;const&#39; in schema`, which is exactly the direction the issue suggests. So correctness and scope of the source change are a wash. The decision turns on test quality. Patch A adds one focused unit test calling `_JsonSchemaTestData` directly with the three falsy-const cases — clean, minimal, and it fails before / passes after. Patch B does more and better: it extends the existing `test_json_schema_test_data` snapshot with `Literal[&#39;&#39;]`, `Literal[False]`, `Literal[0]` fields (single-value Literals compile to JSON Schema `const` in pydantic, so these genuinely exercise the fixed path within the established regression fixture), AND adds an end-to-end `test_falsy_const_tool_args` that drives a real `Agent` + `TestModel` with falsy-const tool arguments, asserting the tool receives `&#39;&#39;`/`False`/`0`. That integration test mirrors the exact user-facing symptom the issue calls out (&#39;generate tool arguments ... that violate the schema&#39;), which A&#39;s internal-only test does not cover. Both B tests would fail pre-fix and pass post-fix. Minor dings against B: it invents an issue number (#7629) not present in the report, and it touches slightly more surface — but the added coverage is justified and directly tied to the reported failure mode. Net: equal fix, but B&#39;s tests are more thorough and closer to the real-world defect, so B is the better patch.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">10m 33s<small>1 turn</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">11,724 passed · 574 skipped · 12,543 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">18<small>vs 26 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic-ai/issues/7629" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h1><code>TestModel</code> generates values that violate falsy JSON Schema <code>const</code> constraints</h1>
+<h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I reproduced this against the current <code>main</code> checkout at <code>5976ebf1038368ad16ca3507a334b06c8fb6f2ea</code> in a tokenless Python 3.12 container.</li><li><input type="checkbox" disabled checked> I also reproduced it against released <code>pydantic-ai</code> <code>v2.29.0</code> (<code>f748e81ec64aff78c4d41593ed51803d8b15b9ee</code>).</li><li><input type="checkbox" disabled checked> I searched open and closed issues and pull requests for <code>TestModel</code>/<code>const</code>, <code>_JsonSchemaTestData</code>, and <code>falsy JSON Schema const</code>; I found no report of this <code>TestModel</code> generator behavior. I also checked #3610, which concerns <code>GoogleJsonSchemaTransformer</code>, not <code>_JsonSchemaTestData</code>.</li></ul>
+<h3>Description</h3>
+<p><code>TestModel</code>&#39;s JSON Schema data generator checks <code>const</code> by truthiness:</p>
+<pre><code class="lang-python">if const := schema.get(&#39;const&#39;):
+    return const</code></pre>
+<p>Valid JSON Schema constants such as <code>&quot;&quot;</code>, <code>False</code>, and <code>0</code> therefore fall through to ordinary type generation. This can make <code>TestModel</code> generate tool arguments or structured-output values that violate the schema it was given, producing misleading test behavior or validation retries.</p>
+<h3>Minimal, Reproducible Example</h3>
+<p>This uses the internal generator directly to keep the reproducer small:</p>
+<pre><code class="lang-python">from pydantic_ai.models.test import _JsonSchemaTestData
+
+cases = {
+    &#39;empty_string&#39;: {&#39;type&#39;: &#39;string&#39;, &#39;const&#39;: &#39;&#39;},
+    &#39;false&#39;: {&#39;type&#39;: &#39;boolean&#39;, &#39;const&#39;: False},
+    &#39;zero&#39;: {&#39;type&#39;: &#39;integer&#39;, &#39;const&#39;: 0},
+}
+
+for name, schema in cases.items():
+    value = _JsonSchemaTestData(
+        {
+            &#39;type&#39;: &#39;object&#39;,
+            &#39;required&#39;: [&#39;value&#39;],
+            &#39;properties&#39;: {&#39;value&#39;: schema},
+        },
+        seed=1,
+    ).generate()[&#39;value&#39;]
+    print(name, repr(value))</code></pre>
+<p>Observed with released <code>pydantic-ai</code> <code>v2.29.0</code>:</p>
+<pre><code class="lang-text">empty_string &#39;b&#39;
+false True
+zero 1</code></pre>
+<p>Expected output is <code>&#39;&#39;</code>, <code>False</code>, and <code>0</code>, respectively.</p>
+<h3>Suggested Direction</h3>
+<p>Distinguish an absent <code>const</code> from a present falsy value (for example, test for the key rather than the value&#39;s truthiness), then add focused coverage for these constants.</p>
+<h3>Environment</h3>
+<ul><li>Python: 3.12</li><li>Pydantic AI: released <code>v2.29.0</code> (<code>f748e81ec64aff78c4d41593ed51803d8b15b9ee</code>)</li><li>LLM provider SDK: not applicable; this is a local <code>TestModel</code> schema-generation path</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+16</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/models/test.py</span><span class="h">index 65ecb38e..3d758925 100644</span><span class="h">@@ -460,8 +460,8 @@ class _JsonSchemaTestData:</span><span class="c"> </span><span class="c">     def _gen_any(self, schema: dict[str, Any]) -&gt; Any:</span><span class="c">         &quot;&quot;&quot;Generate data for any JSON Schema.&quot;&quot;&quot;</span><span class="r">-        if const := schema.get(&#39;const&#39;):</span><span class="r">-            return const</span><span class="a">+        if &#39;const&#39; in schema:</span><span class="a">+            return schema[&#39;const&#39;]</span><span class="c">         elif enum := schema.get(&#39;enum&#39;):</span><span class="c">             return enum[self.seed % len(enum)]</span><span class="c">         elif examples := schema.get(&#39;examples&#39;):</span><span class="f">tests/models/test_model_test.py</span><span class="h">index cb45fb55..82d1d3aa 100644</span><span class="h">@@ -569,6 +569,20 @@ def test_json_schema_test_data_equal_inclusive_bounds():</span><span class="c">     TestModel.model_validate(data)</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_json_schema_test_data_falsy_const():</span><span class="a">+    schema = {</span><span class="a">+        &#39;type&#39;: &#39;object&#39;,</span><span class="a">+        &#39;required&#39;: [&#39;empty_string&#39;, &#39;false&#39;, &#39;zero&#39;],</span><span class="a">+        &#39;properties&#39;: {</span><span class="a">+            &#39;empty_string&#39;: {&#39;type&#39;: &#39;string&#39;, &#39;const&#39;: &#39;&#39;},</span><span class="a">+            &#39;false&#39;: {&#39;type&#39;: &#39;boolean&#39;, &#39;const&#39;: False},</span><span class="a">+            &#39;zero&#39;: {&#39;type&#39;: &#39;integer&#39;, &#39;const&#39;: 0},</span><span class="a">+        },</span><span class="a">+    }</span><span class="a">+    data = _JsonSchemaTestData(schema, seed=1).generate()</span><span class="a">+    assert data == snapshot({&#39;empty_string&#39;: &#39;&#39;, &#39;false&#39;: False, &#39;zero&#39;: 0})</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_chars_wrap():</span><span class="c">     class TestModel(BaseModel):</span><span class="c">         a: Annotated[set[str], MinLen(4)]</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+24</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/models/test.py</span><span class="h">index 65ecb38e09..3d7589253b 100644</span><span class="h">@@ -460,8 +460,8 @@ class _JsonSchemaTestData:</span><span class="c"> </span><span class="c">     def _gen_any(self, schema: dict[str, Any]) -&gt; Any:</span><span class="c">         &quot;&quot;&quot;Generate data for any JSON Schema.&quot;&quot;&quot;</span><span class="r">-        if const := schema.get(&#39;const&#39;):</span><span class="r">-            return const</span><span class="a">+        if &#39;const&#39; in schema:</span><span class="a">+            return schema[&#39;const&#39;]</span><span class="c">         elif enum := schema.get(&#39;enum&#39;):</span><span class="c">             return enum[self.seed % len(enum)]</span><span class="c">         elif examples := schema.get(&#39;examples&#39;):</span><span class="f">tests/models/test_model_test.py</span><span class="h">index cb45fb5511..7b1da8ba33 100644</span><span class="h">@@ -497,6 +497,9 @@ def test_json_schema_test_data():</span><span class="c">         my_lit_ints: Literal[1, 2, 3]</span><span class="c">         my_lit_str: Literal[&#39;a&#39;]</span><span class="c">         my_lit_strs: Literal[&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]</span><span class="a">+        my_lit_empty: Literal[&#39;&#39;]</span><span class="a">+        my_lit_false: Literal[False]</span><span class="a">+        my_lit_zero: Literal[0]</span><span class="c">         my_any: Any</span><span class="c">         nested: NestedModel</span><span class="c">         union: int | list[int]</span><span class="h">@@ -535,6 +538,9 @@ def test_json_schema_test_data():</span><span class="c">             &#39;my_lit_ints&#39;: 1,</span><span class="c">             &#39;my_lit_str&#39;: &#39;a&#39;,</span><span class="c">             &#39;my_lit_strs&#39;: &#39;a&#39;,</span><span class="a">+            &#39;my_lit_empty&#39;: &#39;&#39;,</span><span class="a">+            &#39;my_lit_false&#39;: False,</span><span class="a">+            &#39;my_lit_zero&#39;: 0,</span><span class="c">             &#39;my_any&#39;: &#39;g&#39;,</span><span class="c">             &#39;union&#39;: 6,</span><span class="c">             &#39;optional&#39;: &#39;g&#39;,</span><span class="h">@@ -598,6 +604,22 @@ def test_max_items():</span><span class="c">     assert data == snapshot([])</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_falsy_const_tool_args() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Regression test for #7629: falsy JSON Schema `const` values must be generated as-is.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    agent = Agent()</span><span class="a">+    calls: list[dict[str, Any]] = []</span><span class="a">+</span><span class="a">+    @agent.tool_plain</span><span class="a">+    def my_tool(empty: Literal[&#39;&#39;], flag: Literal[False], zero: Literal[0]) -&gt; str:</span><span class="a">+        calls.append({&#39;empty&#39;: empty, &#39;flag&#39;: flag, &#39;zero&#39;: zero})</span><span class="a">+        return &#39;ok&#39;</span><span class="a">+</span><span class="a">+    result = agent.run_sync(&#39;hello&#39;, model=TestModel())</span><span class="a">+    assert result.output == snapshot(&#39;{&quot;my_tool&quot;:&quot;ok&quot;}&#39;)</span><span class="a">+    assert calls == snapshot([{&#39;empty&#39;: &#39;&#39;, &#39;flag&#39;: False, &#39;zero&#39;: 0}])</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     &#39;content&#39;,</span><span class="c">     [</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>Reviewer approved. The work is complete.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong:</strong> <code>TestModel</code>&#39;s JSON Schema data generator <code>_JsonSchemaTestData._gen_any</code> (<code>pydantic_ai_slim/pydantic_ai/models/test.py:463</code>) checked <code>const</code> by truthiness:</p>
+<pre><code class="lang-python">if const := schema.get(&#39;const&#39;):
+    return const</code></pre>
+<p>Valid falsy constants (<code>&#39;&#39;</code>, <code>False</code>, <code>0</code>) failed this check and fell through to ordinary type generation, so <code>TestModel</code> produced values that violated the schema&#39;s <code>const</code> — e.g. <code>&#39;b&#39;</code>, <code>True</code>, <code>1</code> instead of <code>&#39;&#39;</code>, <code>False</code>, <code>0</code>.</p>
+<p><strong>What I changed:</strong></p>
+<ul><li><strong><code>pydantic_ai_slim/pydantic_ai/models/test.py</code></strong> (production, 2 lines) — replaced the truthiness check with a key-presence check so a present falsy <code>const</code> is returned verbatim: <code>python if &#39;const&#39; in schema: return schema[&#39;const&#39;]</code> Only the <code>const</code> branch changed; <code>enum</code>/<code>examples</code>/<code>anyOf</code> were left as-is (out of scope for this report).</li><li><strong><code>tests/models/test_model_test.py</code></strong> (regression test) — added <code>test_json_schema_test_data_falsy_const</code>, mirroring the established raw-dict-schema convention (<code>test_prefix_unique</code>, <code>test_max_items</code>) and the report&#39;s reproducer. It generates for a schema with <code>const: &#39;&#39;</code>, <code>const: False</code>, <code>const: 0</code> and asserts <code>{&#39;empty_string&#39;: &#39;&#39;, &#39;false&#39;: False, &#39;zero&#39;: 0}</code>.</li></ul>
+<p><strong>Test evidence:</strong></p>
+<ul><li>Before the fix (isolated run): <code>test_json_schema_test_data_falsy_const</code> <strong>FAILED</strong> — generator returned <code>{&#39;empty_string&#39;: &#39;b&#39;, &#39;false&#39;: True, &#39;zero&#39;: 1}</code>, matching the report.</li><li>After the fix: full <code>tests/models/test_model_test.py</code> — <strong>26 passed</strong>, including the new regression test and all pre-existing <code>_JsonSchemaTestData</code>/<code>TestModel</code> tests.</li><li>Independent reviewer verdict: <strong>APPROVE</strong> (fix correct and minimal, test exercises the exact scenario, no existing tests weakened).</li></ul>
+<p><strong>Requirements checklist:</strong></p>
+<ol><li><em>Distinguish absent <code>const</code> from present falsy <code>const</code> (report&#39;s suggested direction)</em> — <strong>Implemented</strong>; key-presence check, verified by passing regression test.</li><li><em>Cover falsy constants <code>&#39;&#39;</code>, <code>False</code>, <code>0</code> (report&#39;s three named cases)</em> — <strong>Implemented</strong>; all three asserted in <code>test_json_schema_test_data_falsy_const</code>, seen failing before and passing after.</li><li><em>Keep behavior for non-falsy <code>const</code>/<code>enum</code>/<code>examples</code> intact</em> — <strong>Verified</strong>; those branches unchanged and the full <code>test_model_test.py</code> suite (which exercises <code>Literal[1]</code> const and enum paths) still passes.</li></ol>
+<p>All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic-ai/2026-09-18/7527/">Previous · #7527</a>
+  <a class="mid" href="/backtests/pydantic-ai/2026-09-18/">All tickets in this run</a>
+  <a href="/backtests/pydantic-ai/2026-09-18/7791/">Next · #7791</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
