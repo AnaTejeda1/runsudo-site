@@ -1,0 +1,47 @@
+{
+  "repos": [
+    {
+      "slug": "pydantic",
+      "name": "pydantic/pydantic",
+      "description": "Data validation library for Python, with a Rust core.",
+      "languages": ["Python", "Rust"],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-09-30",
+          "id": "run-20260930-144322",
+          "tickets": 30,
+          "better": 20,
+          "par": 2,
+          "worse": 8,
+          "error": 0,
+          "notes": "Updated to Opus 5.5",
+          "footnote": ""
+        },
+        {
+          "date": "2026-09-29",
+          "id": "run-20260929-204949",
+          "tickets": 30,
+          "better": 12,
+          "par": 2,
+          "worse": 12,
+          "error": 4,
+          "notes": "All verification fixes in place",
+          "footnote": "Three tickets hit a harness error and one produced no patch within the time limit. All four count as errors."
+        }
+      ]
+    },
+    {
+      "slug": "pydantic-ai",
+      "name": "pydantic/pydantic-ai",
+      "description": "Agent framework for building production-grade applications with generative AI.",
+      "languages": ["Python"],
+      "status": "pending",
+      "runs": []
+    }
+  ],
+  "events": [
+    { "date": "2026-09-30", "label": "Updated solvers to Opus 5.5", "kind": "product" },
+    { "date": "2026-09-29", "label": "Verification fixes", "kind": "measurement" }
+  ]
+}

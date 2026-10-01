@@ -1,0 +1,9 @@
+{
+  "name": "runsudo-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-backtests.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}

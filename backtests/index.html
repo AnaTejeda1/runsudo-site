@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtests — sudo</title>
+<meta name="description" content="Public results of replaying real, already-fixed GitHub issues: every repo, every run, every ticket, with the verdict and both patches.">
+<link rel="canonical" href="https://runsudo.dev/backtests/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<div class="intro">
+  <h1 class="big">How Our Software Factory Compares</h1>
+  <p class="lead">We replay real, already-fixed GitHub issues from public repos. Our software factory gets the issue and the code as it was before the fix, works in an isolated container with the network locked down, and never sees the real fix. A blind judge then compares our patch to the one maintainers merged, labelled only A and B.</p>
+</div>
+
+<section class="first">
+  <h2>Our progress on pydantic:</h2>
+  <div class="chart" id="chart">
+<div class="scroll"><svg viewBox="0 0 960 340" role="img" aria-label="Percentage of tickets judged better than the merged fix, per run and repo">
+<text class="axis title" transform="translate(14 180) rotate(-90)" text-anchor="middle">% marked better</text>
+<line class="grid" x1="64" x2="934" y1="298" y2="298"/>
+<text class="axis" x="56" y="302" text-anchor="end">0%</text>
+<line class="grid" x1="64" x2="934" y1="239" y2="239"/>
+<text class="axis" x="56" y="243" text-anchor="end">25%</text>
+<line class="grid" x1="64" x2="934" y1="180" y2="180"/>
+<text class="axis" x="56" y="184" text-anchor="end">50%</text>
+<line class="grid" x1="64" x2="934" y1="121" y2="121"/>
+<text class="axis" x="56" y="125" text-anchor="end">75%</text>
+<line class="grid" x1="64" x2="934" y1="62" y2="62"/>
+<text class="axis" x="56" y="66" text-anchor="end">100%</text>
+<text class="axis" x="354" y="318" text-anchor="middle">29 Sep</text>
+<text class="axis" x="644" y="318" text-anchor="middle">30 Sep</text>
+<line class="ev-line" x1="354" x2="354" y1="58" y2="298"><title>29 Sep 2026: Verification fixes</title></line>
+<text class="ev-label" x="354" y="46" text-anchor="middle">Verification fixes</text>
+<line class="ev-line" x1="644" x2="644" y1="58" y2="298"><title>30 Sep 2026: Updated solvers to Opus 5.5</title></line>
+<text class="ev-label" x="644" y="30" text-anchor="middle">Updated solvers to Opus 5.5</text>
+<polyline class="line" stroke="#f5e900" points="354,203.6 644,139.88"/>
+<a href="/backtests/pydantic/2026-09-29/" data-tip data-date="29 Sep 2026" data-repo="pydantic/pydantic" data-pct="40" data-better="12" data-par="2" data-worse="12" data-error="4" data-notes="All verification fixes in place"><circle class="hit" cx="354" cy="203.6" r="16"/><circle class="pt" fill="#f5e900" cx="354" cy="203.6" r="7"><title>29 Sep 2026 · pydantic/pydantic: 40% better (12 better, 2 par, 12 worse, 4 error). All verification fixes in place</title></circle></a>
+<a href="/backtests/pydantic/2026-09-30/" data-tip data-date="30 Sep 2026" data-repo="pydantic/pydantic" data-pct="67" data-better="20" data-par="2" data-worse="8" data-error="0" data-notes="Updated to Opus 5.5"><circle class="hit" cx="644" cy="139.88" r="16"/><circle class="pt" fill="#f5e900" cx="644" cy="139.88" r="7"><title>30 Sep 2026 · pydantic/pydantic: 67% better (20 better, 2 par, 8 worse, 0 error). Updated to Opus 5.5</title></circle></a>
+</svg></div>
+<p class="caption">Each point is one run on that repo's fixed ticket sample. Dotted lines and text label any changes we made.</p>
+<p class="caption">Pydantic is the longest running repo we've been testing our software factory on.</p>
+<div class="tip" id="tip" role="status"></div>
+</div>
+</section>
+
+<section>
+  <h2>How to read a verdict</h2>
+  <div class="verdicts">
+  <div class="vcard better"><span class="pill better">Better</span><p>Our patch passes the full test suite and the judge preferred it to the merged fix.</p></div>
+  <div class="vcard par"><span class="pill par">Par</span><p>Both are equally good.</p></div>
+  <div class="vcard worse"><span class="pill worse">Worse</span><p>The merged fix was better, or our patch broke a test that passed before. We show every one.</p></div>
+  <div class="vcard error"><span class="pill error">Error</span><p>The harness couldn't finish the ticket. Counted in the total, never dropped.</p></div>
+</div>
+</section>
+
+<section>
+  <h2>Repos</h2>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Repo</th><th>Language</th><th>Latest run</th><th>Better · par · worse</th><th class="num">% better</th></tr></thead>
+    <tbody>
+<tr class="link"><td class="title"><a href="/backtests/pydantic/">pydantic/pydantic</a></td><td class="muted">Python, Rust</td><td class="id"><a href="/backtests/pydantic/2026-09-30/">30 Sep 2026</a></td><td><div class="bar thin" role="img" aria-label="20 better, 2 par, 8 worse, 0 error"><span class="b-better" style="width:66.66666666666666%"></span><span class="b-par" style="width:6.666666666666667%"></span><span class="b-worse" style="width:26.666666666666668%"></span></div><div class="counts"><span class="better"><i></i>20 better</span><span class="par"><i></i>2 par</span><span class="worse"><i></i>8 worse</span></div></td><td class="num">67%</td></tr>
+<tr class="link"><td class="title"><a href="/backtests/pydantic-ai/">pydantic/pydantic-ai</a></td><td class="muted">Python</td><td colspan="3" class="muted">Rerun scheduled</td></tr>
+    </tbody>
+  </table></div>
+</section>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  var c=document.getElementById('chart'),tip=document.getElementById('tip');if(!c||!tip)return;
+  var cur=null;
+  function show(a){
+    var d=a.dataset;
+    tip.innerHTML='<b>'+d.repo+'</b>'+d.date+' · '+d.pct+'% better'
+      +'<div class="counts"><span class="better"><i></i>'+d.better+'</span><span class="par"><i></i>'+d.par+'</span><span class="worse"><i></i>'+d.worse+'</span><span class="error"><i></i>'+d.error+'</span></div>'
+      +(d.notes?'<div class="muted" style="margin-top:6px">'+d.notes+'</div>':'');
+    var r=a.querySelector('circle.pt').getBoundingClientRect(),cr=c.getBoundingClientRect();
+    tip.style.display='block';
+    var left=r.left-cr.left+r.width/2-tip.offsetWidth/2;
+    left=Math.max(8,Math.min(left,cr.width-tip.offsetWidth-8));
+    var top=r.top-cr.top-tip.offsetHeight-12;if(top<4)top=r.bottom-cr.top+12;
+    tip.style.left=left+'px';tip.style.top=top+'px';cur=a;
+  }
+  function hide(){tip.style.display='none';cur=null}
+  c.addEventListener('mouseover',function(e){var a=e.target.closest&&e.target.closest('a[data-tip]');if(a)show(a)});
+  c.addEventListener('mouseout',function(e){var a=e.target.closest&&e.target.closest('a[data-tip]');if(a)hide()});
+  c.addEventListener('focusin',function(e){var a=e.target.closest&&e.target.closest('a[data-tip]');if(a)show(a)});
+  c.addEventListener('focusout',hide);
+  c.addEventListener('touchend',function(e){var a=e.target.closest&&e.target.closest('a[data-tip]');if(!a)return;if(cur!==a){e.preventDefault();show(a)}},{passive:false});
+  document.addEventListener('touchstart',function(e){if(!e.target.closest||!e.target.closest('#chart'))hide()},{passive:true});
+})();
+</script>
+</body>
+</html>
