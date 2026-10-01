@@ -29,10 +29,3 @@ generated pages.
 - When a run's `tickets.json` exists, the build recounts verdicts from it and warns if the
   counts in `index.json` disagree. The page shows the recounted numbers.
 - A repo with `"status": "pending"` or no runs shows "Rerun scheduled" and no numbers.
-
-## Sample data
-
-The two pydantic runs currently checked in (`2026-09-30` and `2026-09-29`) are
-**placeholder files** that match the schema exactly. Ticket titles, diffs, judge text and
-issue bodies are invented. Replace them with the harness export before showing the section
-to anyone outside the team. Nothing on the page labels them as samples.
