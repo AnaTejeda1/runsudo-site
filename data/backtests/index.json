@@ -11,6 +11,21 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-09-30",
+          "id": "run-20260930-144322",
+          "source_runs": [
+            "run-20260930-134012",
+            "run-20260930-144322"
+          ],
+          "tickets": 30,
+          "better": 20,
+          "par": 2,
+          "worse": 8,
+          "error": 0,
+          "notes": "Updated to Opus 5.5",
+          "footnote": "This result is split across two harness runs on the same 30-ticket sample: the first (run-20260930-134012) judged 20 tickets before a harness fault on the host stopped it, and the second (run-20260930-144322) ran the remaining 10. Every ticket passed verification and audited clean."
+        },
+        {
           "date": "2026-09-29",
           "id": "run-20260929-204949",
           "source_runs": [
