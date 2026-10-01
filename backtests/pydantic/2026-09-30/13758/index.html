@@ -32,7 +32,7 @@
 <div class="verdict-block">
   <span class="pill worse lg">Worse</span>
   <p class="line">The merged fix was judged better than our patch.</p>
-  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>. The order was randomized per ticket, and the judge never knew which was which.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
   <pre class="reasoning">Patch A fixes the reported case and keeps the existing contract for dictionary inputs. Patch B changes the return type of `_handle` for dictionary subclasses, which is a broader behaviour change than the issue asks for and is not covered by the added tests; `test_type_adapter_subclass_roundtrip` in the existing suite fails after Patch B is applied. The additional tuple handling in Patch B is reasonable but out of scope. Because Patch B regresses an existing test while Patch A does not, Patch A is clearly preferable. Verdict: Patch A is better.</pre>
   <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
 </div>

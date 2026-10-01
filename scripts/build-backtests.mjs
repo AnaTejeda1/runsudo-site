@@ -621,7 +621,7 @@ function ticketPage(repo, run, t, prev, next) {
   let judgeBlock = '';
   if (judge && judge.reasoning) {
     judgeBlock = `
-  <p class="map">In this judgment, <b>Patch ${agentIs} = our agent</b>, <b>Patch ${mergedIs} = the merged fix</b>. The order was randomized per ticket, and the judge never knew which was which.</p>
+  <p class="map">In this judgment, <b>Patch ${agentIs} = our agent</b>, <b>Patch ${mergedIs} = the merged fix</b>.</p>
   <pre class="reasoning">${esc(judge.reasoning)}</pre>
   <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>`;
   } else {

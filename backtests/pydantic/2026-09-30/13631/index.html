@@ -32,7 +32,7 @@
 <div class="verdict-block">
   <span class="pill better lg">Better</span>
   <p class="line">Our patch was judged better than the merged fix.</p>
-  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>. The order was randomized per ticket, and the judge never knew which was which.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
   <pre class="reasoning">Both patches address the root cause in the same helper and both pass the full suite. Patch A preserves the concrete mapping type and also handles tuples, which the issue at &lt;link&gt; implicitly requires because the reporter&#39;s real-world model uses a tuple field. Patch B special-cases the `self` key by string comparison, which fixes the reported reproduction but would silently drop a legitimately named key. Patch A also adds a second regression test covering the `None` case. On correctness and generality Patch A is stronger, and its test coverage is more thorough. Verdict: Patch A is better.</pre>
   <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
 </div>
