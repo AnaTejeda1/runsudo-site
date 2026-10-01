@@ -392,6 +392,7 @@ function chart() {
 <div class="scroll"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Percentage of tickets judged better than the merged fix, per run and repo">
 ${parts.join('\n')}
 </svg></div>
+<div class="legend">${series.map((s) => `<span><i class="sw" style="background:${s.color}"></i>${esc(s.repo.name.split('/').pop())}</span>`).join('')}</div>
 <p class="caption">Each point is one run on that repo's fixed ticket sample. Dotted lines and text label any changes we made.</p>
 <p class="caption">Pydantic is the longest running repo we've been testing our software factory on.</p>
 <div class="tip" id="tip" role="status"></div>
@@ -430,7 +431,8 @@ const CHART_JS = `<script>
 
 function overviewPage() {
   const withRuns = index.repos.filter((r) => r.runs.length);
-  const chartTitle = withRuns.length === 1 ? `Our progress on ${esc(withRuns[0].name.split('/').pop())}:` : 'Our progress:';
+  const names = withRuns.map((r) => esc(r.name.split('/').pop()));
+  const chartTitle = names.length ? `Our progress on ${names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]}:` : 'Our progress:';
 
   const verdictCards = `<div class="verdicts">
   <div class="vcard better">${pill('better')}<p>Our patch passes the full test suite and the judge preferred it to the merged fix.</p></div>

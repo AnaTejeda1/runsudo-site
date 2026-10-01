@@ -204,7 +204,7 @@ html:not(.js) .filters{display:none}
 .chart a:hover .pt,.chart a:focus .pt{r:9;stroke:var(--fg)}
 .chart a:hover .hit,.chart a:focus .hit{fill:rgba(245,233,0,.12)}
 .chart a:focus{outline:none}
-.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:12px;color:var(--muted);padding:12px 12px 4px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:12.5px;color:var(--fg);padding:12px 12px 0}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:-1px}
 .legend i.sw{border-radius:2px;height:3px;vertical-align:3px;width:16px}
 .legend i.product{background:var(--fg)} .legend i.measurement{background:transparent;border:1.5px solid var(--fg)}
