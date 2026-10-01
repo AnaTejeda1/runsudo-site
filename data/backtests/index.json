@@ -12,17 +12,17 @@
       "runs": [
         {
           "date": "2026-09-29",
-          "id": "run-20260929-012451",
+          "id": "run-20260929-204949",
           "source_runs": [
-            "run-20260929-012451"
+            "run-20260929-204949"
           ],
           "tickets": 30,
-          "better": 7,
-          "par": 0,
-          "worse": 10,
-          "error": 13,
-          "notes": "First run with the solver in the sandbox; 13 tickets lost to a harness report-parsing bug, fixed afterwards",
-          "footnote": "The 13 errors are tickets whose test suite the harness wrongly rejected as corrupt before the solver ran: pytest counts subtests in its report totals but writes one entry per test, and the harness read the difference as a truncated report. No patch was judged on those tickets. The bug was fixed in the harness the same day."
+          "better": 12,
+          "par": 2,
+          "worse": 12,
+          "error": 4,
+          "notes": "Every verification fix in place; 3 errors from a login-expiry bug, 1 no-patch",
+          "footnote": "Three tickets (13453, 13460, 13465) errored because the sandbox's copy of the login expired mid-solve and could not be renewed; no patch was attempted on them. The bug was fixed in the harness the next day. One ticket (12978) is a deliberate no-patch: the agent found a test asserting the very behaviour the ticket reports and declined to change it. Both count as errors."
         },
         {
           "date": "2026-09-23",

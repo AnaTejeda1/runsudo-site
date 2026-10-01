@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>#13450 Experimental pipeline: `Interval` bounds of zero are silently dropped — pydantic/pydantic backtest</title>
-<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #13450 in pydantic/pydantic, run 29 Sep 2026.">
+<meta name="description" content="Our patch was judged on par with the merged fix. Issue #13450 in pydantic/pydantic, run 29 Sep 2026.">
 <link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-29/13450/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,23 +23,25 @@
 <p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/2026-09-29/">2026-09-29</a><span aria-hidden="true">/</span><span aria-current="page">#13450</span></p>
 <div class="tk-head">
   <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13450" rel="noopener" target="_blank">#13450</a></span>
-  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13452" rel="noopener" target="_blank">PR #13452</a></span>
   <span>Run 29 Sep 2026</span>
   <span>pydantic/pydantic</span>
 </div>
 <h1 class="ticket-title">Experimental pipeline: <code>Interval</code> bounds of zero are silently dropped</h1>
 
 <div class="verdict-block">
-  <span class="pill error lg">Error</span>
-  <p class="line">The harness couldn't finish this ticket.</p>
-  <p class="note">The test suite was unusable at the base commit.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+  <span class="pill par lg">Par</span>
+  <p class="line">Our patch was judged on par with the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The source fix is byte-for-byte identical in both patches: all four Interval bound checks changed from truthiness to `is not None`, which correctly addresses the root cause of zero bounds being dropped. Both would hold up under every scenario in the issue table. The only difference is test placement/coverage, and it is negligible. Patch A augments existing parametrized cases (adding `-5` to `Interval(ge=0, le=10)`, `0.0` to the float `gt`/`lt` case) and adds dedicated `gt=0`/`le=0`/`lt=0` cases, giving both int and float zero-bound coverage. Patch B adds equivalent cases (`ge=0/le=10`, `gt=0`, `le=0`, `lt=0`) to a dedicated `test_interval_constraints` function without deleting anything. Both sets of tests fail before the fix and pass after, and both exercise every affected bound. Patch A&#39;s edits touch an existing case (minor extra churn) but add float cross-type coverage; Patch B is slightly cleaner by appending to a purpose-named test. These advantages roughly cancel, leaving no meaningful difference in correctness, scope, or craft.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
 </div>
 
 <div class="stats">
-  <div class="card"><p class="k">Solve</p><p class="v">—<small></small></p><p class="d">Wall-clock time in the container</p></div>
-  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
-  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
-  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 0 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+  <div class="card"><p class="k">Solve</p><p class="v">3m 35s<small>8 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,266 passed · 501 skipped · 12,767 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">12<small>vs 15 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
 </div>
 
 <section>
@@ -95,12 +97,24 @@ ta2.validate_python(-5)        # -&gt; ValidationError (correct)</code></pre>
 <section>
   <h2>The two patches</h2>
   <div class="patches">
-    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
-    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+8</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">pydantic/experimental/pipeline.py</span><span class="h">index 9b886db8..b9668517 100644</span><span class="h">@@ -613,13 +613,13 @@ def _apply_constraint(  # noqa: C901</span><span class="c">         else:</span><span class="c">             raise NotImplementedError(&#39;Constraining to a specific timezone is not yet supported&#39;)</span><span class="c">     elif isinstance(constraint, annotated_types.Interval):</span><span class="r">-        if constraint.ge:</span><span class="a">+        if constraint.ge is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Ge(constraint.ge))</span><span class="r">-        if constraint.gt:</span><span class="a">+        if constraint.gt is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Gt(constraint.gt))</span><span class="r">-        if constraint.le:</span><span class="a">+        if constraint.le is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Le(constraint.le))</span><span class="r">-        if constraint.lt:</span><span class="a">+        if constraint.lt is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Lt(constraint.lt))</span><span class="c">         assert s is not None</span><span class="c">     elif isinstance(constraint, annotated_types.Predicate):</span><span class="f">tests/test_pipeline.py</span><span class="h">index a71fb6b1..b2f35bea 100644</span><span class="h">@@ -91,6 +91,10 @@ def test_parse_multipleOf(type_: Any, pipeline: Any, valid_cases: list[Any], inv</span><span class="c">         ),</span><span class="c">         (int, validate_as(int).constrain(Interval(gt=1, lt=5)), [2, 4], [1, 5]),</span><span class="c">         (float, validate_as(float).constrain(Interval(ge=1.0, le=5.0)), [1.0, 3.0, 5.0], [0.9, 5.1]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(ge=0, le=10)), [0, 5, 10], [-5, 20]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(gt=0)), [1, 5], [0, -5]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(le=0)), [0, -5], [5]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(lt=0)), [-1, -5], [0, 5]),</span><span class="c">     ],</span><span class="c"> )</span><span class="c"> def test_interval_constraints(type_: Any, pipeline: Any, valid_cases: list[Any], invalid_cases: list[Any]) -&gt; None:</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13452" rel="noopener" target="_blank">PR #13452</a></span><span class="pm"><span class="a">+9</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">pydantic/experimental/pipeline.py</span><span class="h">index 9b886db88..b96685172 100644</span><span class="h">@@ -613,13 +613,13 @@ def _apply_constraint(  # noqa: C901</span><span class="c">         else:</span><span class="c">             raise NotImplementedError(&#39;Constraining to a specific timezone is not yet supported&#39;)</span><span class="c">     elif isinstance(constraint, annotated_types.Interval):</span><span class="r">-        if constraint.ge:</span><span class="a">+        if constraint.ge is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Ge(constraint.ge))</span><span class="r">-        if constraint.gt:</span><span class="a">+        if constraint.gt is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Gt(constraint.gt))</span><span class="r">-        if constraint.le:</span><span class="a">+        if constraint.le is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Le(constraint.le))</span><span class="r">-        if constraint.lt:</span><span class="a">+        if constraint.lt is not None:</span><span class="c">             s = _apply_constraint(s, annotated_types.Lt(constraint.lt))</span><span class="c">         assert s is not None</span><span class="c">     elif isinstance(constraint, annotated_types.Predicate):</span><span class="f">tests/test_pipeline.py</span><span class="h">index a71fb6b14..00e421012 100644</span><span class="h">@@ -81,8 +81,11 @@ def test_parse_multipleOf(type_: Any, pipeline: Any, valid_cases: list[Any], inv</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     &#39;type_, pipeline, valid_cases, invalid_cases&#39;,</span><span class="c">     [</span><span class="r">-        (int, validate_as(int).constrain(Interval(ge=0, le=10)), [0, 5, 10], [11]),</span><span class="r">-        (float, validate_as(float).constrain(Interval(gt=0.0, lt=10.0)), [0.1, 9.9], [10.0]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(ge=0, le=10)), [0, 5, 10], [-5, 11]),</span><span class="a">+        (float, validate_as(float).constrain(Interval(gt=0.0, lt=10.0)), [0.1, 9.9], [0.0, -5.0, 10.0]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(gt=0)), [1, 100], [0, -5]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(le=0)), [0, -5], [1]),</span><span class="a">+        (int, validate_as(int).constrain(Interval(lt=0)), [-5], [0, 1]),</span><span class="c">         (</span><span class="c">             Decimal,</span><span class="c">             validate_as(Decimal).constrain(Interval(ge=Decimal(&#39;1.0&#39;), lt=Decimal(&#39;10.0&#39;))),</span><span class="c"> </span></pre></div>
   </div>
 </section>
 
-
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The diff is clean and scoped to exactly the two intended files. Done.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong:</strong> In <code>pydantic/experimental/pipeline.py</code>, the <code>annotated_types.Interval</code> branch of <code>_apply_constraint()</code> (lines 615-624) tested each bound with a truthiness check (<code>if constraint.ge:</code>) instead of <code>is not None</code>. Because <code>0</code> is falsy, a bound of exactly zero was silently dropped and the constraint never applied — so e.g. <code>Interval(ge=0, le=10)</code> wrongly accepted <code>-5</code>. All four bounds (ge/gt/le/lt) were affected.</p>
+<p><strong>What I changed:</strong></p>
+<ul><li><code>pydantic/experimental/pipeline.py</code>: changed the four <code>if constraint.&lt;ge|gt|le|lt&gt;:</code> checks to <code>if constraint.&lt;...&gt; is not None:</code>. Smallest possible fix; no other production changes.</li><li><code>tests/test_pipeline.py</code>: added 4 parametrize rows to the existing <code>test_interval_constraints</code> (no existing tests modified), covering zero bounds for every bound type:</li><li><code>Interval(ge=0, le=10)</code> valid <code>[0,5,10]</code> / invalid <code>[-5,20]</code></li><li><code>Interval(gt=0)</code> valid <code>[1,5]</code> / invalid <code>[0,-5]</code></li><li><code>Interval(le=0)</code> valid <code>[0,-5]</code> / invalid <code>[5]</code></li><li><code>Interval(lt=0)</code> valid <code>[-1,-5]</code> / invalid <code>[0,5]</code></li></ul>
+<p><strong>Test evidence:</strong></p>
+<ul><li>Before the fix: the 4 new cases failed (<code>4 failed, 5 passed</code>) with <code>DID NOT RAISE ValueError</code> — confirming the bug.</li><li>After the fix: <code>./bt-test tests/test_pipeline.py</code> → <strong>70 passed</strong>, including the 4 regression cases and all previously passing tests.</li></ul>
+<p><strong>Requirements disposition:</strong></p>
+<ul><li>Fix all four zero-bound checks (<code>is not None</code>) — <strong>implemented</strong>, verified by full test run.</li><li>Regression test exercising the reported scenario (<code>Interval(ge=0, le=10)</code> rejecting <code>-5</code>, plus gt/le/lt zero bounds) — <strong>implemented</strong>, seen failing before and passing after.</li><li>Offer to open a PR (report author&#39;s aside) — not an action for this session; left as uncommitted working-tree edits per instructions.</li><li>Distinction from #13446 (numeric type-mismatch drop of <code>Gt</code>) — <strong>out of scope / not touched</strong>; the fix is confined to the <code>Interval</code> branch&#39;s None-vs-truthiness handling, and the individual <code>Gt</code>/<code>Ge</code>/<code>Le</code>/<code>Lt</code> handler branches are unchanged (confirmed by reviewer).</li></ul>
+<p>All changes left uncommitted in the working tree.</p></div></div>
+</section>
 
 <nav class="pager" aria-label="Ticket navigation">
   <a href="/backtests/pydantic/2026-09-29/13422/">Previous · #13422</a>
