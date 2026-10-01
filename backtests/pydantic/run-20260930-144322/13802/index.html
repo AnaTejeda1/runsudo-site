@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13802 Three error-reference examples no longer raise the error they document, and the docs test suite cannot detect it — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13802 in pydantic/pydantic, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20260930-144322/13802/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20260930-144322/">run-20260930-144322</a><span aria-hidden="true">/</span><span aria-current="page">#13802</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13802" rel="noopener" target="_blank">#13802</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13821" rel="noopener" target="_blank">PR #13821</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-144322</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Three error-reference examples no longer raise the error they document, and the docs test suite cannot detect it</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same three doc fixes. `complex_type` now uses a string input. The `string_sub_type` section is deleted. `invalid-for-json-schema` now uses a `Callable` field, which really has no JSON schema, so the `except` branch runs again. On those three fixes the patches are equivalent.
+
+They differ elsewhere.
+
+Patch A also deletes the `StringSubType` variant from pydantic-core&#39;s Rust enum, the Python `ErrorType` Literal, and the core error test. That removes part of the public error-type surface, which the issue explicitly left as the maintainers&#39; decision. Patch A also edits `docs/concepts/experimental.md`, changing the partial-JSON example input from an unterminated string `&quot;12` to a terminated `&quot;12&quot;`. That change is unrelated to the issue and may alter what the example is meant to show about partial validation. Both are risky scope changes.
+
+Patch A also adds no test for the blind spot the issue emphasises, so a future regression like the `complex` one would still pass silently.
+
+Patch B keeps the core error type. It updates `test_validation_error_codes` to exclude `string_sub_type`, with a comment explaining it is never raised; this is needed because the doc section is gone. It also adds `test_docs_error_examples_raise`. That test parses each error-page example and injects an `else: raise AssertionError` into every module-level `try`/`except` that has no `else`. It then executes the example, so any example that stops raising fails loudly. This test would have caught all three reported cases (it fails before the doc fixes and passes after), and it directly addresses the root cause the issue describes. It also respects the existing skip and requires settings.
+
+Patch B therefore fixes the issue more completely, with real regression tests and less risky churn.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 6s<small>12 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,875 passed · 545 skipped · 13,420 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">85<small>vs 39 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13802" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>Three examples on the error-reference pages no longer raise the error they document, and the documentation test suite cannot detect it.</p>
+<p>Every example on those pages has the same shape: do something that should fail, catch it, then print or assert the error code. The only assertion lives inside the <code>except</code> branch. When the operation stops failing, that branch never runs, so nothing is printed and no <code>assert</code> is evaluated. <code>run_print_check</code> compares printed output against the <code>#&gt;</code> comments, and an example whose <code>print</code> never ran produces no output to disagree with, so the example exits 0 and CI stays green while the page documents behaviour that no longer exists.</p>
+<p>I checked this exhaustively rather than by sampling. I injected a sentinel as the first statement of every <code>except</code> block on both error pages and ran each example. Of the 152 examples containing a <code>try</code>/<code>except</code> at v2.13.5, all 152 run, and exactly 3 never enter their <code>except</code> branch. On <code>main</code> the count is 3 of 157. None of the three is marked <code>test=&quot;skip&quot;</code>, so all three are executed by CI today.</p>
+<p><strong>1. <code>complex_type</code>, <code>docs/errors/validation_errors.md</code></strong></p>
+<p><code>Model(num=False)</code> now validates successfully to <code>0j</code>, so the <code>#&gt; &#39;complex_type&#39;</code> line never prints. This changed in 2.13.0b1 with #12498, which made <code>complex</code> validation call the <code>complex()</code> constructor unconditionally in Python mode, and <code>complex(False)</code> is <code>0j</code>.</p>
+<p><strong>2. <code>string_sub_type</code>, <code>docs/errors/validation_errors.md</code></strong></p>
+<p>The section says a strict <code>str</code> field rejects an instance of a <code>str</code> subclass. It does not: the example returns a plain <code>str</code> with the value <code>&#39;foo&#39;</code>, and <code>#&gt; &#39;string_sub_type&#39;</code> never prints. <code>pydantic_core</code> 2.49.0 still declares the error (&quot;Input should be a string, not an instance of a subclass of str&quot;), but I could not find any <code>str</code> schema that raises it. Building <code>core_schema.str_schema()</code> directly with <code>strict=True</code>, without strict, and with <code>strict=True</code> plus a pattern all accept a <code>str</code> subclass and return a plain <code>str</code>.</p>
+<p>This looks intentional rather than accidental. #6261 reported exactly this behaviour as a bug in June 2023, was labelled <code>bug V2</code>, and was closed with the conversation moved to pydantic-core#786. So the check appears to have been removed on purpose and this documentation section was left behind describing it.</p>
+<p><strong>3. <code>invalid-for-json-schema</code>, <code>docs/errors/usage_errors.md</code></strong></p>
+<p><code>ImportString</code> has had a JSON schema since 2.8.0 via #9344, so <code>Model.model_json_schema()</code> succeeds and returns a plain string schema. The <code>assert exc_info.code == &#39;invalid-for-json-schema&#39;</code> inside the <code>except</code> block has not executed since that release.</p>
+<h3>Output of the example code below</h3>
+<p>Identical on 2.13.5 and on <code>main</code> at 2.14.0b2:</p>
+<pre><code>1. no exception; num = 0j
+2. no exception; accepted &#39;foo&#39;
+3. no exception; {&#39;properties&#39;: {&#39;a&#39;: {&#39;title&#39;: &#39;A&#39;, &#39;type&#39;: &#39;string&#39;}}, &#39;required&#39;: [&#39;a&#39;], &#39;title&#39;: &#39;ImportStringModel&#39;, &#39;type&#39;: &#39;object&#39;}</code></pre>
+<h3>Suggested fixes</h3>
+<ol><li><code>complex_type</code> is a one-word fix. <code>Model(num=&#39;not a complex number&#39;)</code> still raises <code>complex_type</code>, and so do <code>[]</code>, <code>{}</code> and a bare <code>object()</code>. Replacing <code>False</code> with any of those restores the example.</li><li><code>string_sub_type</code> needs a decision rather than a fix, which is the main reason I am opening an issue instead of sending a patch. Given the trail through #6261, the section probably wants deleting rather than repairing, and possibly the error variant too, but that is your call.</li><li><code>invalid-for-json-schema</code> needs a type that genuinely has no JSON schema, in place of <code>ImportString</code>.</li></ol>
+<p>Separately, the blind spot itself is fixable. If an example on these pages had to demonstrate that the error occurred, for instance by printing inside the <code>except</code> and also failing loudly when nothing was raised, then a future change like #12498 would turn the docs red instead of silently making a section untrue. I am happy to send a PR for any or all of this, including that check as a test, if you tell me which direction you prefer.</p>
+<p>I used AI assistance to run this audit, in line with your AI policy. I have reproduced and understood each of the three cases myself and can explain any of them.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">from enum import Enum
+
+from pydantic import (
+    BaseModel,
+    Field,
+    ImportString,
+    PydanticUserError,
+    ValidationError,
+)
+
+# 1. validation_errors.md, `complex_type`: documented to print &#39;complex_type&#39;
+class ComplexModel(BaseModel):
+    num: complex
+
+try:
+    ComplexModel(num=False)
+    print(&#39;1. no exception; num =&#39;, ComplexModel(num=False).num)
+except ValidationError as exc:
+    print(&#39;1.&#39;, repr(exc.errors()[0][&#39;type&#39;]))
+
+# 2. validation_errors.md, `string_sub_type`: documented to print &#39;string_sub_type&#39;
+class MyEnum(str, Enum):
+    foo = &#39;foo&#39;
+
+class StrictStrModel(BaseModel):
+    x: str = Field(strict=True)
+
+try:
+    print(&#39;2. no exception; accepted&#39;, repr(StrictStrModel(x=MyEnum.foo).x))
+except ValidationError as exc:
+    print(&#39;2.&#39;, repr(exc.errors()[0][&#39;type&#39;]))
+
+# 3. usage_errors.md, `invalid-for-json-schema`: the assert is never reached
+class ImportStringModel(BaseModel):
+    a: ImportString
+
+try:
+    print(&#39;3. no exception;&#39;, ImportStringModel.model_json_schema())
+except PydanticUserError as exc:
+    print(&#39;3.&#39;, exc.code)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.13.5
+        pydantic-core version: 2.46.5
+        python version: 3.12.10 (CPython)
+        platform: Windows 11
+
+also reproduced against main at pydantic 2.14.0b2 / pydantic-core 2.49.0</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+57</span> <span class="r">−28</span></span></div><pre class="diff"><span class="f">docs/errors/usage_errors.md</span><span class="h">index 7e28e9f8..abbdd276 100644</span><span class="h">@@ -620,11 +620,13 @@ type C = B</span><span class="c"> This error is raised when Pydantic fails to generate a JSON schema for some `CoreSchema`.</span><span class="c"> </span><span class="c"> ```python</span><span class="r">-from pydantic import BaseModel, ImportString, PydanticUserError</span><span class="a">+from collections.abc import Callable</span><span class="a">+</span><span class="a">+from pydantic import BaseModel, PydanticUserError</span><span class="c"> </span><span class="c"> </span><span class="c"> class Model(BaseModel):</span><span class="r">-    a: ImportString</span><span class="a">+    a: Callable[[], int]</span><span class="c"> </span><span class="c"> </span><span class="c"> try:</span><span class="f">docs/errors/validation_errors.md</span><span class="h">index 71d3a929..95e240e7 100644</span><span class="h">@@ -233,7 +233,7 @@ class Model(BaseModel):</span><span class="c"> </span><span class="c"> </span><span class="c"> try:</span><span class="r">-    Model(num=False)</span><span class="a">+    Model(num=&#39;not a complex number&#39;)</span><span class="c"> except ValidationError as exc:</span><span class="c">     print(repr(exc.errors()[0][&#39;type&#39;]))</span><span class="c">     #&gt; &#39;complex_type&#39;</span><span class="h">@@ -1845,31 +1845,6 @@ except ValidationError as exc:</span><span class="c">     #&gt; &#39;string_pattern_mismatch&#39;</span><span class="c"> ```</span><span class="c"> </span><span class="r">-## `string_sub_type`</span><span class="r">-</span><span class="r">-This error is raised when the value is an instance of a strict subtype of `str` when the field is strict:</span><span class="r">-</span><span class="r">-```python</span><span class="r">-from enum import Enum</span><span class="r">-</span><span class="r">-from pydantic import BaseModel, Field, ValidationError</span><span class="r">-</span><span class="r">-</span><span class="r">-class MyEnum(str, Enum):</span><span class="r">-    foo = &#39;foo&#39;</span><span class="r">-</span><span class="r">-</span><span class="r">-class Model(BaseModel):</span><span class="r">-    x: str = Field(strict=True)</span><span class="r">-</span><span class="r">-</span><span class="r">-try:</span><span class="r">-    Model(x=MyEnum.foo)</span><span class="r">-except ValidationError as exc:</span><span class="r">-    print(repr(exc.errors()[0][&#39;type&#39;]))</span><span class="r">-    #&gt; &#39;string_sub_type&#39;</span><span class="r">-```</span><span class="r">-</span><span class="c"> ## `string_too_long`</span><span class="c"> </span><span class="c"> This error is raised when the input value is a string whose length is greater than the field&#39;s `max_length` constraint:</span><span class="f">tests/test_docs.py</span><span class="h">index 7c185657..75223504 100644</span><span class="h">@@ -1,10 +1,14 @@</span><span class="c"> from __future__ import annotations as _annotations</span><span class="c"> </span><span class="a">+import ast</span><span class="a">+import contextlib</span><span class="a">+import io</span><span class="c"> import os</span><span class="c"> import platform</span><span class="c"> import re</span><span class="c"> import subprocess</span><span class="c"> import sys</span><span class="a">+import types</span><span class="c"> from datetime import datetime</span><span class="c"> from pathlib import Path</span><span class="c"> from tempfile import NamedTemporaryFile</span><span class="h">@@ -207,6 +211,53 @@ def test_docs_examples(example: CodeExample, eval_example: EvalExample, tmp_path</span><span class="c">     run_example(example, eval_example, mocker)</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.thread_unsafe</span><span class="a">+@pytest.mark.filterwarnings(&#39;ignore:(parse_obj_as|schema_json_of|schema_of) is deprecated.*:DeprecationWarning&#39;)</span><span class="a">+@pytest.mark.skipif(bool(skip_reason), reason=skip_reason or &#39;not skipping&#39;)</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;example&#39;,</span><span class="a">+    list(</span><span class="a">+        find_examples(</span><span class="a">+            str(DOCS_ROOT / &#39;errors/validation_errors.md&#39;),</span><span class="a">+            str(DOCS_ROOT / &#39;errors/usage_errors.md&#39;),</span><span class="a">+            skip=sys.platform == &#39;win32&#39;,</span><span class="a">+        )</span><span class="a">+    ),</span><span class="a">+    ids=str,</span><span class="a">+)</span><span class="a">+def test_docs_error_examples_raise(example: CodeExample):</span><span class="a">+    &quot;&quot;&quot;Each module-level `try`/`except` in the error docs must actually hit its `except` branch.</span><span class="a">+</span><span class="a">+    Otherwise an example that stops raising would silently pass `test_docs_examples`.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    prefix_settings = example.prefix_settings()</span><span class="a">+    if prefix_settings.get(&#39;test&#39;, &#39;&#39;).startswith(&#39;skip&#39;):</span><span class="a">+        pytest.skip(&#39;running code skipped&#39;)</span><span class="a">+    requires_settings = prefix_settings.get(&#39;requires&#39;)</span><span class="a">+    if requires_settings and sys.version_info &lt; tuple(map(int, requires_settings.split(&#39;.&#39;))):</span><span class="a">+        pytest.skip(f&#39;requires python {requires_settings}&#39;)</span><span class="a">+</span><span class="a">+    tree = ast.parse(example.source)</span><span class="a">+    try_nodes = [node for node in tree.body if isinstance(node, ast.Try) and node.handlers]</span><span class="a">+    if not try_nodes:</span><span class="a">+        pytest.skip(&#39;no module-level try/except&#39;)</span><span class="a">+</span><span class="a">+    for node in try_nodes:</span><span class="a">+        if not node.orelse:</span><span class="a">+            msg = f&#39;no exception raised by the try block at line {node.lineno}&#39;</span><span class="a">+            node.orelse = ast.parse(f&#39;raise AssertionError({msg!r})&#39;).body</span><span class="a">+    ast.fix_missing_locations(tree)</span><span class="a">+</span><span class="a">+    module_name = f&#39;_docs_error_example_{example.path.stem}_{example.start_line}&#39;</span><span class="a">+    module = types.ModuleType(module_name)</span><span class="a">+    sys.modules[module_name] = module</span><span class="a">+    try:</span><span class="a">+        with contextlib.redirect_stdout(io.StringIO()):</span><span class="a">+            exec(compile(tree, str(example.path), &#39;exec&#39;), module.__dict__)</span><span class="a">+    finally:</span><span class="a">+        del sys.modules[module_name]</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.thread_unsafe</span><span class="c"> @pytest.mark.skipif(bool(skip_reason), reason=skip_reason or &#39;not skipping&#39;)</span><span class="c"> @pytest.mark.skipif(sys.version_info &gt;= (3, 13), reason=&#39;python-devtools does not yet support python 3.13&#39;)</span><span class="h">@@ -265,6 +316,7 @@ def test_validation_error_codes():</span><span class="c">     expected_validation_error_codes = set(core_schema.ErrorType.__args__)</span><span class="c">     # Remove codes that are not currently accessible from pydantic:</span><span class="c">     expected_validation_error_codes.remove(&#39;timezone_offset&#39;)  # not currently exposed for configuration in pydantic</span><span class="a">+    expected_validation_error_codes.remove(&#39;string_sub_type&#39;)  # never raised: str subclasses are accepted and coerced to str</span><span class="c"> </span><span class="c">     test_failures = []</span><span class="c"> </span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13821" rel="noopener" target="_blank">PR #13821</a></span><span class="pm"><span class="a">+6</span> <span class="r">−33</span></span></div><pre class="diff"><span class="f">docs/concepts/experimental.md</span><span class="h">index cc349f3a0..ab1665260 100644</span><span class="h">@@ -342,7 +342,7 @@ class MyModel(BaseModel):</span><span class="c"> ta = TypeAdapter(MyModel)</span><span class="c"> try:</span><span class="c">     v = ta.validate_json(</span><span class="r">-        &#39;{&quot;a&quot;: 1, &quot;b&quot;: [&quot;12345&quot;, &quot;12&#39;, experimental_allow_partial=True</span><span class="a">+        &#39;{&quot;a&quot;: 1, &quot;b&quot;: [&quot;12345&quot;, &quot;12&quot;&#39;, experimental_allow_partial=True</span><span class="c">     )</span><span class="c"> except ValidationError as e:</span><span class="c">     print(e)</span><span class="f">docs/errors/usage_errors.md</span><span class="h">index 7e28e9f82..3e6a67412 100644</span><span class="h">@@ -620,11 +620,13 @@ type C = B</span><span class="c"> This error is raised when Pydantic fails to generate a JSON schema for some `CoreSchema`.</span><span class="c"> </span><span class="c"> ```python</span><span class="r">-from pydantic import BaseModel, ImportString, PydanticUserError</span><span class="a">+from collections.abc import Callable</span><span class="a">+</span><span class="a">+from pydantic import BaseModel, PydanticUserError</span><span class="c"> </span><span class="c"> </span><span class="c"> class Model(BaseModel):</span><span class="r">-    a: ImportString</span><span class="a">+    a: Callable[..., object]</span><span class="c"> </span><span class="c"> </span><span class="c"> try:</span><span class="f">docs/errors/validation_errors.md</span><span class="h">index 71d3a9292..95e240e70 100644</span><span class="h">@@ -233,7 +233,7 @@ class Model(BaseModel):</span><span class="c"> </span><span class="c"> </span><span class="c"> try:</span><span class="r">-    Model(num=False)</span><span class="a">+    Model(num=&#39;not a complex number&#39;)</span><span class="c"> except ValidationError as exc:</span><span class="c">     print(repr(exc.errors()[0][&#39;type&#39;]))</span><span class="c">     #&gt; &#39;complex_type&#39;</span><span class="h">@@ -1845,31 +1845,6 @@ except ValidationError as exc:</span><span class="c">     #&gt; &#39;string_pattern_mismatch&#39;</span><span class="c"> ```</span><span class="c"> </span><span class="r">-## `string_sub_type`</span><span class="r">-</span><span class="r">-This error is raised when the value is an instance of a strict subtype of `str` when the field is strict:</span><span class="r">-</span><span class="r">-```python</span><span class="r">-from enum import Enum</span><span class="r">-</span><span class="r">-from pydantic import BaseModel, Field, ValidationError</span><span class="r">-</span><span class="r">-</span><span class="r">-class MyEnum(str, Enum):</span><span class="r">-    foo = &#39;foo&#39;</span><span class="r">-</span><span class="r">-</span><span class="r">-class Model(BaseModel):</span><span class="r">-    x: str = Field(strict=True)</span><span class="r">-</span><span class="r">-</span><span class="r">-try:</span><span class="r">-    Model(x=MyEnum.foo)</span><span class="r">-except ValidationError as exc:</span><span class="r">-    print(repr(exc.errors()[0][&#39;type&#39;]))</span><span class="r">-    #&gt; &#39;string_sub_type&#39;</span><span class="r">-```</span><span class="r">-</span><span class="c"> ## `string_too_long`</span><span class="c"> </span><span class="c"> This error is raised when the input value is a string whose length is greater than the field&#39;s `max_length` constraint:</span><span class="f">pydantic-core/python/pydantic_core/core_schema.py</span><span class="h">index b6fce060b..fda0e35ee 100644</span><span class="h">@@ -4776,7 +4776,6 @@ ErrorType: TypeAlias = Literal[</span><span class="c">     &#39;iterable_type&#39;,</span><span class="c">     &#39;iteration_error&#39;,</span><span class="c">     &#39;string_type&#39;,</span><span class="r">-    &#39;string_sub_type&#39;,</span><span class="c">     &#39;string_unicode&#39;,</span><span class="c">     &#39;string_too_short&#39;,</span><span class="c">     &#39;string_too_long&#39;,</span><span class="f">pydantic-core/src/errors/types.rs</span><span class="h">index 4bdb92135..f49f48509 100644</span><span class="h">@@ -247,7 +247,6 @@ error_types! {</span><span class="c">     // ---------------------</span><span class="c">     // string errors</span><span class="c">     StringType {},</span><span class="r">-    StringSubType {},</span><span class="c">     StringUnicode {},</span><span class="c">     StringTooShort {</span><span class="c">         min_length: {ctx_type: usize, ctx_fn: field_from_context},</span><span class="h">@@ -533,7 +532,6 @@ impl ErrorType {</span><span class="c">             Self::IterableType { .. } =&gt; &quot;Input should be iterable&quot;,</span><span class="c">             Self::IterationError { .. } =&gt; &quot;Error iterating over object, error: {error}&quot;,</span><span class="c">             Self::StringType { .. } =&gt; &quot;Input should be a valid string&quot;,</span><span class="r">-            Self::StringSubType { .. } =&gt; &quot;Input should be a string, not an instance of a subclass of str&quot;,</span><span class="c">             Self::StringUnicode { .. } =&gt; {</span><span class="c">                 &quot;Input should be a valid string, unable to parse raw data as a unicode string&quot;</span><span class="c">             }</span><span class="f">pydantic-core/tests/test_errors.py</span><span class="h">index 66f15d81a..b024e618b 100644</span><span class="h">@@ -303,7 +303,6 @@ all_errors = [</span><span class="c">         {&#39;field_type&#39;: &#39;Foobar&#39;, &#39;max_length&#39;: 42, &#39;actual_length&#39;: 50},</span><span class="c">     ),</span><span class="c">     (&#39;string_type&#39;, &#39;Input should be a valid string&#39;, None),</span><span class="r">-    (&#39;string_sub_type&#39;, &#39;Input should be a string, not an instance of a subclass of str&#39;, None),</span><span class="c">     (&#39;string_unicode&#39;, &#39;Input should be a valid string, unable to parse raw data as a unicode string&#39;, None),</span><span class="c">     (&#39;string_pattern_mismatch&#39;, &quot;String should match pattern &#39;foo&#39;&quot;, {&#39;pattern&#39;: &#39;foo&#39;}),</span><span class="c">     (&#39;string_not_ascii&#39;, &#39;String should contain only ASCII characters&#39;, None),</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>All three examples now raise the error they document, and a new docs test fails if an example on either error page stops raising. The docs tests for the error pages pass: 321 passed, 29 skipped, 0 failed. Nothing is committed; the changes are in <code>docs/errors/validation_errors.md</code>, <code>docs/errors/usage_errors.md</code> and <code>tests/test_docs.py</code>.</p>
+<p><strong>What was wrong:</strong> <code>Model(num=False)</code> now validates to <code>0j</code>. A strict <code>str</code> field accepts <code>str</code> subclasses, so nothing raises <code>string_sub_type</code> any more. <code>ImportString</code> has had a JSON schema since 2.8. In each case the only check sat inside the <code>except</code> block, so when nothing was raised the example printed nothing and still passed.</p>
+<p><strong>Changes:</strong></p>
+<ol><li><strong><code>complex_type</code>:</strong> the example now uses <code>Model(num=&#39;not a complex number&#39;)</code>. I checked that it raises <code>complex_type</code>.</li><li><strong><code>string_sub_type</code>:</strong> I deleted the section, following #6261 and pydantic-core#786. The existing <code>test_validation_error_codes</code> expects every <code>ErrorType</code> to have a section in the docs. So I added <code>string_sub_type</code> to its exclusion list, next to the existing <code>timezone_offset</code> exclusion, with a comment explaining why.</li><li>This is a change to an existing test, and it makes that check skip one error code.</li><li>The only alternative was to keep an example that wrongly claims to print <code>&#39;string_sub_type&#39;</code>.</li><li>I didn&#39;t remove the error variant from pydantic-core: that needs a Rust change and a rebuild, and I&#39;ve left it for the maintainers to decide.</li><li><strong><code>invalid-for-json-schema</code>:</strong> the example now uses <code>a: Callable[[], int]</code> (from <code>collections.abc</code>). I checked that it raises the error with this code.</li><li><strong>The detection gap:</strong> I added <code>test_docs_error_examples_raise</code> to <code>tests/test_docs.py</code>. For every example on the two error pages, it adds <code>else: raise AssertionError(...)</code> to each top-level <code>try</code>/<code>except</code> and runs the example. It follows the same <code>test=&quot;skip&quot;</code> and <code>requires=</code> settings as the existing docs test.</li></ol>
+<p><strong>Test results:</strong></p>
+<ul><li>The new test on its own: 153 passed, 19 skipped.</li><li>With the docs temporarily put back to <code>num=False</code> and <code>ImportString</code>, it failed on exactly those two examples (&quot;no exception raised by the try block&quot;), so it catches the reported problem.</li><li><code>./bt-test tests/test_docs.py -k &quot;error_codes or errors&quot;</code>: 321 passed, 29 skipped, 0 failed.</li><li>An earlier run caught a lint error (UP035) on <code>from typing import Callable</code>; switching to <code>collections.abc</code> fixed it.</li></ul>
+<p><strong>Limits of the new test:</strong> it only checks <code>try</code> blocks at the top level of an example, not ones inside functions. It only proves that the caught exception type was raised somewhere in the <code>try</code>, not which statement raised it.</p>
+<p><strong>Requirements:</strong><br>| Item | Outcome |<br>|---|---|<br>| Fix the <code>complex_type</code> example | Done; covered by the new test and the docs example test |<br>| Decide on <code>string_sub_type</code> | Section deleted; exclusion added to the existing test; error variant left in pydantic-core |<br>| Replace <code>ImportString</code> in the <code>invalid-for-json-schema</code> example | Done, using <code>Callable</code>; covered by the new test |<br>| Make a silently passing error example fail the docs tests | Done; shown to fail on the old docs and pass on the new ones |</p>
+<p>A reviewer read the diff and found no blocking issues or unrelated changes. It said the new test lacks the <code>skipif</code> marker the other docs tests have; I checked, and the marker is there.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20260930-144322/13780/">Previous · #13780</a>
+  <a class="mid" href="/backtests/pydantic/run-20260930-144322/">All tickets in this run</a>
+  <span class="disabled">Next</span>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

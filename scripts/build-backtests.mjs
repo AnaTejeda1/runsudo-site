@@ -5,8 +5,11 @@
 // Every route gets a real index.html so GitHub Pages can serve it without routing:
 //   backtests/index.html
 //   backtests/<repo>/index.html                      (latest run)
-//   backtests/<repo>/<run-date>/index.html
-//   backtests/<repo>/<run-date>/<ticket>/index.html
+//   backtests/<repo>/<run-id>/index.html
+//   backtests/<repo>/<run-id>/<ticket>/index.html
+//
+// Runs are addressed by their harness run id (e.g. run-20260930-144322), which is unique,
+// so several runs of one repo can land on the same day. The run's `date` is display only.
 //
 // All data is treated as untrusted. Markdown is rendered by a small sanitizing renderer
 // that never passes raw HTML through; diffs, judge text and every other string are escaped.
@@ -44,6 +47,18 @@ function fmtShort(iso) {
   return `${d} ${MONTHS[m - 1]}`;
 }
 const dateMs = (iso) => Date.UTC(...iso.split('-').map((n, i) => Number(n) - (i === 1 ? 1 : 0)));
+
+// Harness run ids look like run-YYYYMMDD-HHMMSS. The time part is used only to spread
+// same-day runs along the chart's x-axis; the run's `date` field remains the date shown.
+const RUN_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+function runTimeFraction(id) {
+  const m = String(id || '').match(/^run-\d{8}-(\d{2})(\d{2})(\d{2})$/);
+  if (!m) return 0.5;
+  return (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) / 86400;
+}
+const runMs = (run) => dateMs(run.date) + runTimeFraction(run.id) * 86400000;
+// Newest first: by date, then by id (ids sort chronologically within a day).
+const byNewest = (a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
 
 function fmtDuration(s) {
   if (s == null || Number.isNaN(Number(s))) return '—';
@@ -293,8 +308,8 @@ function countsRow(c, withError = true) {
   return '<div class="counts">' + keys.map((k) => `<span class="${k}"><i></i>${c[k]} ${k}</span>`).join('') + '</div>';
 }
 
-const runUrl = (repo, run) => `/backtests/${repo.slug}/${run.date}/`;
-const ticketUrl = (repo, run, t) => `/backtests/${repo.slug}/${run.date}/${t.number}/`;
+const runUrl = (repo, run) => `/backtests/${repo.slug}/${run.id}/`;
+const ticketUrl = (repo, run, t) => `/backtests/${repo.slug}/${run.id}/${t.number}/`;
 
 // ---------------------------------------------------------------------------
 // Data loading and consistency checks
@@ -304,23 +319,32 @@ const index = readJSON(join(DATA, 'index.json'));
 const warnings = [];
 
 for (const repo of index.repos) {
-  repo.runs = (repo.runs || []).slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+  const seen = new Set();
+  for (const run of repo.runs || []) {
+    if (!run.id || !RUN_ID_RE.test(run.id)) throw new Error(`${repo.slug}: run dated ${run.date} has no usable "id" (got ${JSON.stringify(run.id)}); runs are addressed by id`);
+    if (seen.has(run.id)) throw new Error(`${repo.slug}: run id ${run.id} appears twice in index.json`);
+    seen.add(run.id);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(run.date))) throw new Error(`${repo.slug}/${run.id}: "date" must be YYYY-MM-DD (got ${JSON.stringify(run.date)})`);
+  }
+  repo.runs = (repo.runs || []).slice().sort(byNewest);
   for (const run of repo.runs) {
-    const file = join(DATA, repo.slug, run.date, 'tickets.json');
+    const key = `${repo.slug}/${run.id}`;
+    const file = join(DATA, repo.slug, run.id, 'tickets.json');
     run.ticketList = existsSync(file) ? readJSON(file) : null;
     if (run.ticketList) {
       const c = { better: 0, par: 0, worse: 0, error: 0 };
       for (const t of run.ticketList) c[displayVerdict(t)]++;
       for (const k of VERDICTS) {
-        if ((run[k] ?? 0) !== c[k]) warnings.push(`${repo.slug}/${run.date}: index.json says ${k}=${run[k] ?? 0}, tickets.json has ${c[k]}; using tickets.json`);
+        if ((run[k] ?? 0) !== c[k]) warnings.push(`${key}: index.json says ${k}=${run[k] ?? 0}, tickets.json has ${c[k]}; using tickets.json`);
       }
-      if (run.tickets !== run.ticketList.length) warnings.push(`${repo.slug}/${run.date}: index.json says tickets=${run.tickets}, tickets.json has ${run.ticketList.length}; using tickets.json`);
+      if (run.tickets !== run.ticketList.length) warnings.push(`${key}: index.json says tickets=${run.tickets}, tickets.json has ${run.ticketList.length}; using tickets.json`);
       Object.assign(run, c, { tickets: run.ticketList.length });
     } else {
-      warnings.push(`${repo.slug}/${run.date}: no tickets.json, run page will list no tickets`);
+      const legacy = join(DATA, repo.slug, run.date, 'tickets.json');
+      warnings.push(`${key}: no tickets.json at data/backtests/${key}/, run page will list no tickets${existsSync(legacy) ? ` (found one under the date folder ${run.date}; move it to ${run.id})` : ''}`);
       for (const k of VERDICTS) run[k] = run[k] ?? 0;
       const sum = VERDICTS.reduce((s, k) => s + run[k], 0);
-      if (run.tickets !== sum) warnings.push(`${repo.slug}/${run.date}: counts sum to ${sum} but tickets=${run.tickets}`);
+      if (run.tickets !== sum) warnings.push(`${key}: counts sum to ${sum} but tickets=${run.tickets}`);
     }
     run.pct = pct(run.better, run.tickets);
   }
@@ -340,6 +364,9 @@ function chart() {
   const runDates = series.flatMap((s) => s.repo.runs.map((r) => r.date));
   const evDates = (index.events || []).map((e) => e.date);
   const all = [...runDates, ...evDates].map(dateMs);
+  // Runs sit at their date plus the time of day from the run id, so two runs on one day
+  // appear as two nearby points instead of one on top of the other.
+  all.push(...series.flatMap((s) => s.repo.runs.map(runMs)));
   if (!all.length) return '<div class="pending">No runs yet.</div>';
 
   const DAY = 86400000;
@@ -386,13 +413,13 @@ function chart() {
   });
   // lines and points
   for (const s of series) {
-    const pts = s.repo.runs.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    const pts = s.repo.runs.slice().sort((a, b) => -byNewest(a, b));
     if (pts.length > 1) {
-      parts.push(`<polyline class="line" stroke="${s.color}" points="${pts.map((r) => `${x(dateMs(r.date))},${y(r.pct)}`).join(' ')}"/>`);
+      parts.push(`<polyline class="line" stroke="${s.color}" points="${pts.map((r) => `${x(runMs(r))},${y(r.pct)}`).join(' ')}"/>`);
     }
     for (const r of pts) {
-      const label = `${fmtDate(r.date)} · ${s.repo.name}: ${r.pct}% better (${r.better} better, ${r.par} par, ${r.worse} worse, ${r.error} error)${r.notes ? '. ' + r.notes : ''}`;
-      parts.push(`<a href="${runUrl(s.repo, r)}" data-tip data-date="${esc(fmtDate(r.date))}" data-repo="${esc(s.repo.name)}" data-pct="${r.pct}" data-better="${r.better}" data-par="${r.par}" data-worse="${r.worse}" data-error="${r.error}" data-notes="${esc(r.notes || '')}"><circle class="hit" cx="${x(dateMs(r.date))}" cy="${y(r.pct)}" r="16"/><circle class="pt" fill="${s.color}" cx="${x(dateMs(r.date))}" cy="${y(r.pct)}" r="7"><title>${esc(label)}</title></circle></a>`);
+      const label = `${fmtDate(r.date)} · ${s.repo.name} · ${r.id}: ${r.pct}% better (${r.better} better, ${r.par} par, ${r.worse} worse, ${r.error} error)${r.notes ? '. ' + r.notes : ''}`;
+      parts.push(`<a href="${runUrl(s.repo, r)}" data-tip data-date="${esc(fmtDate(r.date))}" data-run="${esc(r.id)}" data-repo="${esc(s.repo.name)}" data-pct="${r.pct}" data-better="${r.better}" data-par="${r.par}" data-worse="${r.worse}" data-error="${r.error}" data-notes="${esc(r.notes || '')}"><circle class="hit" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="16"/><circle class="pt" fill="${s.color}" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="7"><title>${esc(label)}</title></circle></a>`);
     }
   }
 
@@ -401,8 +428,8 @@ function chart() {
 <div class="scroll"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Percentage of tickets judged better than the merged fix, per run and repo">
 ${parts.join('\n')}
 </svg></div>
-<div class="legend">${series.map((s) => `<span><i class="sw" style="background:${s.color}"></i>${esc(s.repo.name.split('/').pop())}</span>`).join('')}</div>
-<p class="caption">Each point is one run on that repo's fixed ticket sample. Dotted lines and text label any changes we made.</p>
+<div class="legend">${series.map((s) => `<span><i class="sw" style="background:${s.color}"></i>${esc(s.repo.slug)}</span>`).join('')}</div>
+<p class="caption">Each point is one run on that repo's fixed ticket sample, placed at the day it ran; two runs on one day sit side by side. Dotted lines and text label any changes we made.</p>
 <p class="caption">Pydantic is the longest running repo we've been testing our software factory on.</p>
 <div class="tip" id="tip" role="status"></div>
 </div>`;
@@ -414,7 +441,7 @@ const CHART_JS = `<script>
   var cur=null;
   function show(a){
     var d=a.dataset;
-    tip.innerHTML='<b>'+d.repo+'</b>'+d.date+' · '+d.pct+'% better'
+    tip.innerHTML='<b>'+d.repo+'</b>'+d.date+' · '+d.pct+'% better'+(d.run?'<div class="muted small">'+d.run+'</div>':'')
       +'<div class="counts"><span class="better"><i></i>'+d.better+'</span><span class="par"><i></i>'+d.par+'</span><span class="worse"><i></i>'+d.worse+'</span><span class="error"><i></i>'+d.error+'</span></div>'
       +(d.notes?'<div class="muted" style="margin-top:6px">'+d.notes+'</div>':'');
     var r=a.querySelector('circle.pt').getBoundingClientRect(),cr=c.getBoundingClientRect();
@@ -440,7 +467,7 @@ const CHART_JS = `<script>
 
 function overviewPage() {
   const withRuns = index.repos.filter((r) => r.runs.length);
-  const names = withRuns.map((r) => esc(r.name.split('/').pop()));
+  const names = withRuns.map((r) => esc(r.slug));
   const chartTitle = names.length ? `Our progress on ${names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]}:` : 'Our progress:';
 
   const verdictCards = `<div class="verdicts">
@@ -543,7 +570,7 @@ ${rows}
 function runPage(repo, run, { isRepoPage }) {
   const crumbItems = [{ label: 'Backtests', href: '/backtests/' }];
   if (isRepoPage || !run) crumbItems.push({ label: repo.slug });
-  else crumbItems.push({ label: repo.slug, href: `/backtests/${repo.slug}/` }, { label: run.date });
+  else crumbItems.push({ label: repo.slug, href: `/backtests/${repo.slug}/` }, { label: run.id });
 
   const header = `
 ${crumbs(crumbItems)}
@@ -557,7 +584,7 @@ ${crumbs(crumbItems)}
   }
 
   const summary = `<div class="card summary">
-  <p class="k">${isRepoPage ? 'Latest run' : 'This run'} · ${fmtDate(run.date)}</p>
+  <p class="k">${isRepoPage ? 'Latest run' : 'This run'} · ${fmtDate(run.date)} · <span class="runid">${esc(run.id)}</span></p>
   <p class="big">${run.pct}%<small>judged better than the merged fix</small></p>
   <p class="sub">${run.better} of ${run.tickets} tickets. ${run.notes ? esc(run.notes) + '.' : ''}</p>
   ${stackedBar(run)}
@@ -567,9 +594,9 @@ ${crumbs(crumbItems)}
   const runs = repo.runs.map((r) => {
     const open = r === run;
     const tickets = r.ticketList || [];
-    return `<details class="run" id="run-${r.date}"${open ? ' open' : ''}>
+    return `<details class="run" id="${esc(r.id)}"${open ? ' open' : ''}>
   <summary>
-    <span class="date">${fmtDate(r.date)}</span>
+    <span class="date">${fmtDate(r.date)}<span class="runid">${esc(r.id)}</span></span>
     <span class="bars">${stackedBar(r, true)}<span class="counts"><span class="better">${r.better} better</span><span class="par">${r.par} par</span><span class="worse">${r.worse} worse</span><span class="error">${r.error} error</span></span></span>
     <span class="notes">${esc(r.notes || '')}</span>
     <span class="meta">${plural(tickets.length || r.tickets, 'ticket')} · <a href="${runUrl(repo, r)}">permalink</a></span>
@@ -686,11 +713,11 @@ function ticketPage(repo, run, t, prev, next) {
 </nav>`;
 
   const body = `
-${crumbs([{ label: 'Backtests', href: '/backtests/' }, { label: repo.slug, href: `/backtests/${repo.slug}/` }, { label: run.date, href: runUrl(repo, run) }, { label: `#${t.number}` }])}
+${crumbs([{ label: 'Backtests', href: '/backtests/' }, { label: repo.slug, href: `/backtests/${repo.slug}/` }, { label: run.id, href: runUrl(repo, run) }, { label: `#${t.number}` }])}
 <div class="tk-head">
   <span>Issue <a href="${esc(t.issue_url)}" rel="noopener" target="_blank">#${esc(t.number)}</a></span>
   <span>Merged fix <a href="${esc(t.pr_url)}" rel="noopener" target="_blank">PR #${esc(t.pr)}</a></span>
-  <span>Run ${fmtDate(run.date)}</span>
+  <span>Run ${fmtDate(run.date)} · <span class="runid">${esc(run.id)}</span></span>
   <span>${esc(repo.name)}</span>
 </div>
 <h1 class="ticket-title">${inline(t.title || '')}</h1>
@@ -731,10 +758,10 @@ writePage('', overviewPage()); pages++;
 for (const repo of index.repos) {
   writePage(repo.slug, runPage(repo, repo.latest, { isRepoPage: true })); pages++;
   for (const run of repo.runs) {
-    writePage(`${repo.slug}/${run.date}`, runPage(repo, run, { isRepoPage: false })); pages++;
+    writePage(`${repo.slug}/${run.id}`, runPage(repo, run, { isRepoPage: false })); pages++;
     const tickets = run.ticketList || [];
     tickets.forEach((t, k) => {
-      writePage(`${repo.slug}/${run.date}/${t.number}`, ticketPage(repo, run, t, tickets[k - 1], tickets[k + 1])); pages++;
+      writePage(`${repo.slug}/${run.id}/${t.number}`, ticketPage(repo, run, t, tickets[k - 1], tickets[k + 1])); pages++;
     });
   }
 }

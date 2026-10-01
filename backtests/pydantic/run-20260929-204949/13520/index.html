@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13520 Generic model parametrization drops field defaults and typevar substitution after `__annotations__` is read on a metaclass (Python &lt;= 3.13) — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13520 in pydantic/pydantic, run 29 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20260929-204949/13520/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20260929-204949/">run-20260929-204949</a><span aria-hidden="true">/</span><span aria-current="page">#13520</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13520" rel="noopener" target="_blank">#13520</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13521" rel="noopener" target="_blank">PR #13521</a></span>
+  <span>Run 29 Sep 2026 · <span class="runid">run-20260929-204949</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Generic model parametrization drops field defaults and typevar substitution after <code>__annotations__</code> is read on a metaclass (Python &lt;= 3.13)</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the identical root-cause fix: on Python &lt;= 3.13, read a type&#39;s own annotations via `obj.__dict__.get(&#39;__annotations__&#39;, {})` instead of `getattr`, which is exactly the fix proposed in the issue. Correctness is a wash. The difference is in tests and craft. Patch B&#39;s test reproduces the actual reported symptom end-to-end: it parametrizes a generic model under a poisoned metaclass and asserts both that the typevar is substituted (`model_fields[&#39;x&#39;].annotation is str`) and that the default is preserved (`m.a == 5`). This directly exercises the two failure modes the issue describes and would fail before the fix. Patch A&#39;s test only checks the internal helper (`safe_get_annotations(Sub) == {}`); it is a valid regression test (it would return the parent&#39;s `{&#39;f&#39;: int}` before the fix), but it verifies the mechanism rather than the user-facing behavior, so it is weaker evidence that the actual bug is resolved. Patch B also adds an explanatory comment inline at the fix site describing the CPython &lt;= 3.13 annotation-auto-creation quirk and the langgraph/ABCMeta trigger, aiding future maintainers; Patch A&#39;s fix has no comment. Both tests isolate the poisoning to a local metaclass, avoiding global state pollution. Patch B is the better fix on tests and craft.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 57s<small>22 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,274 passed · 501 skipped · 12,775 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">35<small>vs 26 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13520" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>This is a regression on <code>main</code> (<code>2.14.0a1</code>); I could not reproduce it on any released version (checked 2.13.4 and 2.10.6 under the same conditions). It affects Python 3.10–3.13 (verified on 3.10, 3.12 and 3.13); Python 3.14 is unaffected.</p>
+<p>If <code>__annotations__</code> has ever been <strong>read</strong> on a metaclass appearing in a model&#39;s metatype MRO (e.g. <code>ModelMetaclass</code> itself, or <code>abc.ABCMeta</code>), then any generic model parametrized <strong>for the first time afterwards</strong> gets a broken schema:</p>
+<ul><li>type variables are not substituted (<code>x: T</code> ends up with an <code>any</code> schema), and</li><li>field defaults are dropped (fields with defaults become required).</li></ul>
+<p>Parametrizations built <em>before</em> the read keep working, since their schemas are already cached — which makes this very order-dependent and confusing to track down in a real test suite.</p>
+<p>Reading an attribute sounds like an odd trigger, but it happens in the wild: on CPython ≤ 3.13, reading <code>__annotations__</code> on a (heap) class that has none <strong>auto-creates a plain <code>__annotations__ = {}</code> entry in that class&#39;s <code>__dict__</code></strong> (see the <a href="https://docs.python.org/3/howto/annotations.html" rel="noopener nofollow" target="_blank">annotations HOWTO</a>). <code>langgraph</code> does such a read at import time (<code>get_cached_annotated_keys</code> in <code>langgraph/_internal/_fields.py</code> has a <code>getattr(base, &quot;__annotations__&quot;, None)</code> fallback — added for Python 3.14 compat, ironically — which ends up planting <code>{}</code> on <code>abc.ABCMeta</code>). So a plain <code>import langgraph.prebuilt</code> breaks all subsequently-parametrized generic models. We found this via the <code>pydantic/logfire</code> weekly CI job testing against pydantic main, where <code>pydantic_evals.Dataset.from_dict()</code> fails with <code>3 validation errors for _DatasetModel[...]</code> — <code>Field required</code> for exactly its three defaulted fields — but only in test runs where a langchain test ran first (<a href="https://github.com/pydantic/logfire/actions/runs/30268424934" rel="noopener nofollow" target="_blank">failing run</a>).</p>
+<p><strong>Mechanism:</strong></p>
+<ol><li>The planted <code>{}</code> lives in the metaclass&#39;s <code>__dict__</code>. For a model class <code>M</code>, attribute lookup of <code>M.__annotations__</code> searches <code>type(M).__mro__</code> (e.g. <code>(ModelMetaclass, ABCMeta, type, object)</code>) and now finds the plain dict <strong>before</strong> reaching the <code>type.__annotations__</code> getset descriptor. A plain dict is not a data descriptor, so lookup falls back to <code>M</code>&#39;s own MRO — and for a class with no own <code>__annotations__</code> (like a freshly created generic submodel), this returns <strong>the parent&#39;s annotations</strong>. (Normally the <code>type.__annotations__</code> data descriptor intercepts the lookup and auto-creates/returns the class&#39;s own empty dict, which is what makes <code>getattr</code> look safe.)</li><li><code>safe_get_annotations()</code> in <code>pydantic/_internal/_typing_extra.py</code> uses <code>getattr(obj, &#39;__annotations__&#39;, {})</code> on &lt; 3.14, so for the new submodel <code>G[str]</code> it returns the origin&#39;s annotations instead of <code>{}</code>: <code>clean:    safe_get_annotations(G[str]) == {} poisoned: safe_get_annotations(G[str]) == {&#39;x&#39;: ~T, &#39;a&#39;: &lt;class &#39;int&#39;&gt;}</code></li><li>In <code>collect_model_fields()</code>, <code>cls_annotations</code> is &quot;only used to determine if an annotation comes from a parent class&quot;. The leak makes <code>ann_name in cls_annotations</code> true for every inherited field, so instead of copying the parent <code>FieldInfo</code> and applying <code>typevars_map</code> (via <code>_recreate_field_info</code>), it takes the plain <code>FieldInfo.from_annotation(ann_type)</code> branch: no typevar substitution, and no default — the origin&#39;s class-attribute default is long gone because it was <code>delattr</code>&#39;d during the origin&#39;s own field collection.</li></ol>
+<p><strong>Possible fix:</strong> for classes on ≤ 3.13, read own annotations via <code>obj.__dict__.get(&#39;__annotations__&#39;, {})</code> (what <code>inspect.get_annotations()</code> does) rather than <code>getattr</code>. Both call sites of <code>safe_get_annotations()</code> seem to want own-class annotations anyway: <code>get_model_type_hints()</code> iterates the MRO itself and calls it per base, and <code>cls_annotations</code> in <code>collect_model_fields()</code> is explicitly meant to be the current class&#39;s own annotations.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-python">from typing import Generic, TypeVar
+
+from pydantic import BaseModel
+
+# The trigger: any read of `__annotations__` on a metaclass. On CPython &lt;= 3.13 this
+# auto-creates a plain `__annotations__ = {}` entry in the metaclass&#39;s `__dict__`,
+# which shadows the `type.__annotations__` data descriptor for every model class.
+# `abc.ABCMeta.__annotations__` has the same effect, and `import langgraph.prebuilt`
+# performs an equivalent read at import time.
+type(BaseModel).__annotations__
+
+T = TypeVar(&#39;T&#39;)
+
+
+class G(BaseModel, Generic[T]):
+    x: T
+    a: int = 5
+
+
+G[str].model_validate({&#39;x&#39;: &#39;hi&#39;})</code></pre>
+<pre><code>pydantic_core._pydantic_core.ValidationError: 1 validation error for G[str]
+a
+  Field required [type=missing, input_value={&#39;x&#39;: &#39;hi&#39;}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing</code></pre>
+<p>Removing the <code>type(BaseModel).__annotations__</code> line — or moving the <code>G[str]</code> parametrization above it — makes it pass. To run against main:</p>
+<pre><code class="lang-bash">uv run --isolated --no-project --python 3.13 --with &quot;pydantic @ git+https://github.com/pydantic/pydantic.git&quot; repro.py</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-text">             pydantic version: 2.14.0a1
+        pydantic-core version: 2.47.0
+          pydantic-core build: profile=release pgo=false
+               python version: 3.13.0 (main, Oct 12 2024, 20:24:27) [Clang 15.0.0 (clang-1500.3.9.4)]
+                     platform: macOS-26.5.1-arm64-arm-64bit-Mach-O
+             related packages: mypy-2.3.0 pyright-1.1.411 email-validator-2.3.0 fastapi-0.139.2 pydantic-settings-2.14.2 typing_extensions-4.16.0
+                       commit: a187a65467a588ccc00761d80f325b45381ca819</code></pre>
+<p>Selected Assignee: @Viicos</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+35</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_typing_extra.py</span><span class="h">index ab6a1397..5b8cfd5f 100644</span><span class="h">@@ -293,6 +293,13 @@ def safe_get_annotations(obj: Any) -&gt; dict[str, Any]:</span><span class="c">     &quot;&quot;&quot;</span><span class="c">     if sys.version_info &gt;= (3, 14):</span><span class="c">         return annotationlib.get_annotations(obj, format=annotationlib.Format.FORWARDREF)</span><span class="a">+    elif isinstance(obj, type):</span><span class="a">+        # On Python &lt;= 3.13, reading `__annotations__` on a class that has none auto-creates a</span><span class="a">+        # plain `__annotations__ = {}` entry in the class&#39;s `__dict__`. If such an entry is planted</span><span class="a">+        # on a metaclass (e.g. via a bare `getattr(meta, &#39;__annotations__&#39;, None)`), a plain</span><span class="a">+        # `getattr` on a model class can then leak a parent class&#39;s annotations. Read the class&#39;s</span><span class="a">+        # own annotations directly, as `inspect.get_annotations()` does, to avoid this:</span><span class="a">+        return obj.__dict__.get(&#39;__annotations__&#39;, {})</span><span class="c">     else:</span><span class="c">         return getattr(obj, &#39;__annotations__&#39;, {})</span><span class="c"> </span><span class="f">tests/test_generics.py</span><span class="h">index a0c46632..10dbcafc 100644</span><span class="h">@@ -3154,6 +3154,34 @@ def test_generic_with_allow_extra():</span><span class="c">         data: T</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_generic_with_poisoned_metaclass_annotations():</span><span class="a">+    # Regression test: on CPython &lt;= 3.13, reading `__annotations__` on a metaclass in the</span><span class="a">+    # model&#39;s metatype MRO plants a `{}` entry in its `__dict__`, which used to leak the parent</span><span class="a">+    # model&#39;s annotations to freshly-parametrized generic submodels, dropping typevar</span><span class="a">+    # substitution and field defaults (e.g. `import langgraph.prebuilt` plants such an entry</span><span class="a">+    # on `abc.ABCMeta` at import time).</span><span class="a">+    from pydantic._internal._model_construction import ModelMetaclass</span><span class="a">+</span><span class="a">+    class PoisonedMeta(ModelMetaclass):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    # Trigger the poisoning read on our own metaclass only.</span><span class="a">+    PoisonedMeta.__annotations__</span><span class="a">+</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class G(BaseModel, Generic[T], metaclass=PoisonedMeta):</span><span class="a">+        x: T</span><span class="a">+        a: int = 5</span><span class="a">+</span><span class="a">+    parametrized = G[str]</span><span class="a">+    # Typevar must be substituted:</span><span class="a">+    assert parametrized.model_fields[&#39;x&#39;].annotation is str</span><span class="a">+    # Field default must be preserved (field stays optional):</span><span class="a">+    m = parametrized.model_validate({&#39;x&#39;: &#39;hi&#39;})</span><span class="a">+    assert m.a == 5</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_generic_field():</span><span class="c">     &quot;&quot;&quot;Test for https://github.com/pydantic/pydantic/issues/10039.</span><span class="c"> </span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13521" rel="noopener" target="_blank">PR #13521</a></span><span class="pm"><span class="a">+25</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_typing_extra.py</span><span class="h">index ab6a1397c..d68c792af 100644</span><span class="h">@@ -294,7 +294,10 @@ def safe_get_annotations(obj: Any) -&gt; dict[str, Any]:</span><span class="c">     if sys.version_info &gt;= (3, 14):</span><span class="c">         return annotationlib.get_annotations(obj, format=annotationlib.Format.FORWARDREF)</span><span class="c">     else:</span><span class="r">-        return getattr(obj, &#39;__annotations__&#39;, {})</span><span class="a">+        if isinstance(obj, type):</span><span class="a">+            return obj.__dict__.get(&#39;__annotations__&#39;, {})</span><span class="a">+        else:</span><span class="a">+            return getattr(obj, &#39;__annotations__&#39;, {})</span><span class="c"> </span><span class="c"> </span><span class="c"> def get_model_type_hints(</span><span class="f">tests/test_edge_cases.py</span><span class="h">index 3e8e38e7d..df52288cc 100644</span><span class="h">@@ -51,6 +51,7 @@ from pydantic import (</span><span class="c">     validator,</span><span class="c"> )</span><span class="c"> from pydantic._internal._model_construction import ModelMetaclass</span><span class="a">+from pydantic._internal._typing_extra import safe_get_annotations</span><span class="c"> from pydantic.fields import Field, computed_field</span><span class="c"> from pydantic.functional_serializers import (</span><span class="c">     field_serializer,</span><span class="h">@@ -3161,3 +3162,23 @@ def test_model_fields_set_includes_extra_after_assignment():</span><span class="c">     m.extra_after_init = 3</span><span class="c">     assert m.model_fields_set == {&#39;field&#39;, &#39;extra_at_init&#39;, &#39;extra_after_init&#39;}</span><span class="c">     assert m.model_extra == {&#39;extra_at_init&#39;: 2, &#39;extra_after_init&#39;: 3}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_safe_get_annotations_from_dict() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13520&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Meta(type):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    Meta.__annotations__</span><span class="a">+</span><span class="a">+    class Base(metaclass=Meta):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    class Main(Base):</span><span class="a">+        f: int</span><span class="a">+</span><span class="a">+    class Sub(Main):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    assert safe_get_annotations(Sub) == {}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>All done. Here is the summary.</p>
+<h2>What was wrong</h2>
+<p>On CPython ≤ 3.13, <em>reading</em> <code>__annotations__</code> on a metaclass in a model&#39;s metatype MRO (e.g. via <code>getattr(meta, &#39;__annotations__&#39;, None)</code>, as <code>langgraph</code> does at import time on <code>abc.ABCMeta</code>) auto-creates a plain <code>__annotations__ = {}</code> entry in that metaclass&#39;s <code>__dict__</code>. That plain dict shadows the <code>type.__annotations__</code> data descriptor, so <code>getattr(ModelClass, &#39;__annotations__&#39;)</code> on a freshly-parametrized generic submodel — which has no own <code>__annotations__</code> — falls back through the model&#39;s own MRO and returns <strong>the parent class&#39;s</strong> annotations instead of <code>{}</code>.</p>
+<p><code>safe_get_annotations()</code> in <code>pydantic/_internal/_typing_extra.py</code> used <code>getattr(obj, &#39;__annotations__&#39;, {})</code>, so this leak made <code>collect_model_fields()</code> treat every inherited field as locally-annotated, skipping typevar substitution (<code>x: T</code> → <code>Any</code>) and dropping defaults (defaulted fields became required).</p>
+<h2>What I changed</h2>
+<ul><li><strong><code>pydantic/_internal/_typing_extra.py</code></strong> — In <code>safe_get_annotations</code>, on the ≤ 3.13 path, added an <code>elif isinstance(obj, type):</code> branch that reads a class&#39;s <em>own</em> annotations directly via <code>obj.__dict__.get(&#39;__annotations__&#39;, {})</code> (what <code>inspect.get_annotations()</code> does), bypassing the poisoned metaclass descriptor. The <code>getattr</code> fallback is retained for non-class objects — critically, <strong>functions</strong> store <code>__annotations__</code> outside <code>__dict__</code>, so they must (and do) keep using <code>getattr</code>.</li><li><strong><code>tests/test_generics.py</code></strong> — Added <code>test_generic_with_poisoned_metaclass_annotations</code>, which triggers the poisoning on a <em>local</em> <code>ModelMetaclass</code> subclass (avoiding global test-isolation pollution), then asserts typevar substitution (<code>model_fields[&#39;x&#39;].annotation is str</code>) and default preservation (<code>m.a == 5</code>).</li></ul>
+<h2>Test evidence</h2>
+<ul><li>Regression test <strong>fails before</strong> the fix (<code>assert ~T is str</code> → <code>AssertionError</code>) and <strong>passes after</strong>.</li><li>Gate: <code>./bt-test tests/test_generics.py tests/test_dataclasses.py tests/test_deferred_annotations.py tests/test_edge_cases.py</code> → <strong>583 passed, 14 skipped, 5 xfailed</strong> — no previously passing test broke.</li><li>Reviewer confirmed the fix matches the report, preserves function-annotation behavior, and the test is valid and isolated.</li></ul>
+<h2>Requirements disposition</h2>
+<ul><li><strong>Fix the dropped typevar substitution and field defaults after a metaclass <code>__annotations__</code> read (≤ 3.13)</strong> — ✅ implemented; regression test asserts both.</li><li><strong>Suggested approach: read own annotations via <code>obj.__dict__.get(&#39;__annotations__&#39;, {})</code> rather than <code>getattr</code> for classes on ≤ 3.13</strong> — ✅ implemented exactly, scoped to <code>isinstance(obj, type)</code> so both class call sites (<code>get_model_type_hints</code>, <code>collect_model_fields</code>/<code>cls_annotations</code>) get own-class annotations while function call sites are untouched.</li><li><strong>Python 3.14 unaffected</strong> — ✅ the <code>&gt;= 3.14</code> branch is unchanged; the test also passes there since poisoning doesn&#39;t occur.</li></ul>
+<p>Changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20260929-204949/13507/">Previous · #13507</a>
+  <a class="mid" href="/backtests/pydantic/run-20260929-204949/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20260929-204949/13599/">Next · #13599</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

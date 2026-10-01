@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15169 resources/jsconfig: Address VS Code linting notice in jsconfig.json — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15169 in gohugoio/hugo, run 17 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260917-015623/15169/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260917-015623/">run-20260917-015623</a><span aria-hidden="true">/</span><span aria-current="page">#15169</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15169" rel="noopener" target="_blank">#15169</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 17 Sep 2026 · <span class="runid">run-20260917-015623</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">resources/jsconfig: Address VS Code linting notice in jsconfig.json</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches eliminate the flagged `&quot;*&quot;` entry for the exact case where a source root equals the build dir, so both fix the literal issue reported. But correctness (criterion 1) favors B. The lint fires on any non-relative path — not only `&quot;*&quot;`. A source root nested *below* `dir` (e.g. root=/a/b/assets/sub, dir=/a/b/assets) yields `filepath.Rel` = `&quot;sub/*&quot;`, which is equally non-relative and would trigger the identical VS Code notice. Patch A&#39;s `root == dir` guard skips only the exact-match case and leaves such nested roots emitting `&quot;sub/*&quot;`, so it under-fixes. Patch B&#39;s `!strings.HasPrefix(rel, &quot;..&quot;)` rule prepends `&quot;./&quot;` to every non-`..` result, correctly producing `&quot;./*&quot;` and `&quot;./sub/*&quot;`, covering both cases. B also implements exactly the remedy VS Code recommends (a leading `./`) while preserving the current-root mapping&#39;s intent, whereas A silently drops it. Tests (criterion 2): both discriminate (fail-before/pass-after), but A only asserts the config is nil — a proxy that never inspects the emitted path strings — while B asserts every path is relative and checks both `./*` and the nested `./sub/*`, directly verifying the property the issue is about. Scope and craft are comparable (B adds a `strings` import and uses `filepath.Separator`, consistent with the existing OS-separator handling and the `filepath.FromSlash` test). B is the more complete, better-tested fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">23m 25s<small>4 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,692 passed · 99 skipped · 3,804 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">35<small>vs 11 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15169" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>When building a site that calls <code>js.Build</code>, the <code>assets/jsconfig.json</code> file looks like this:</p>
+<pre><code class="lang-json">{
+ &quot;compilerOptions&quot;: {
+  &quot;paths&quot;: {
+   &quot;*&quot;: [
+    &quot;*&quot;
+   ]
+  }
+ }
+}</code></pre>
+<p>VS Code lints line 5 as follows:</p>
+<blockquote><p>Non-relative paths are not allowed when &#39;baseUrl&#39; is not set. Did you forget a leading &#39;./&#39;?</p></blockquote></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+35</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">resources/jsconfig/jsconfig.go</span><span class="h">index 4aabf69f7..7968768c5 100644</span><span class="h">@@ -16,6 +16,7 @@ package jsconfig</span><span class="c"> import (</span><span class="c"> 	&quot;path/filepath&quot;</span><span class="c"> 	&quot;sort&quot;</span><span class="a">+	&quot;strings&quot;</span><span class="c"> </span><span class="c"> 	&quot;github.com/bep/helpers/maphelpers&quot;</span><span class="c"> )</span><span class="h">@@ -41,6 +42,13 @@ func (b *Builder) Build(dir string) *Config {</span><span class="c"> 	for root := range b.sourceRoots.All() {</span><span class="c"> 		rel, err := filepath.Rel(dir, filepath.Join(root, &quot;*&quot;))</span><span class="c"> 		if err == nil {</span><span class="a">+			// filepath.Rel only emits relative results prefixed with &quot;..&quot;;</span><span class="a">+			// any other result (e.g. &quot;*&quot;, &quot;sub/*&quot; or &quot;.config/*&quot;) is not a</span><span class="a">+			// relative path in TypeScript terms and needs a leading &quot;./&quot; so</span><span class="a">+			// editors don&#39;t flag it as a non-relative path without a baseUrl.</span><span class="a">+			if !strings.HasPrefix(rel, &quot;..&quot;) {</span><span class="a">+				rel = &quot;.&quot; + string(filepath.Separator) + rel</span><span class="a">+			}</span><span class="c"> 			roots = append(roots, rel)</span><span class="c"> 		}</span><span class="c"> 	}</span><span class="f">resources/jsconfig/jsconfig_test.go</span><span class="h">index ab9b739d1..2dabcb34c 100644</span><span class="h">@@ -38,3 +38,30 @@ func TestJsConfigBuilder(t *testing.T) {</span><span class="c"> </span><span class="c"> 	c.Assert(NewBuilder().Build(&quot;/a/b&quot;), qt.IsNil)</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestJsConfigBuilderRelativePaths(t *testing.T) {</span><span class="a">+	c := qt.New(t)</span><span class="a">+</span><span class="a">+	b := NewBuilder()</span><span class="a">+	// A source root that is the same directory as the build dir.</span><span class="a">+	b.AddSourceRoot(&quot;/a/b/assets&quot;)</span><span class="a">+	// A nested source root below the build dir.</span><span class="a">+	b.AddSourceRoot(&quot;/a/b/assets/sub&quot;)</span><span class="a">+</span><span class="a">+	conf := b.Build(&quot;/a/b/assets&quot;)</span><span class="a">+</span><span class="a">+	paths := conf.CompilerOptions.Paths[&quot;*&quot;]</span><span class="a">+</span><span class="a">+	// Every path must be relative, i.e. begin with a leading &quot;.&quot;.</span><span class="a">+	// Non-relative paths (e.g. &quot;*&quot;) are flagged by editors with:</span><span class="a">+	// &quot;Non-relative paths are not allowed when &#39;baseUrl&#39; is not set.&quot;</span><span class="a">+	for _, p := range paths {</span><span class="a">+		c.Assert(p, qt.Not(qt.Equals), &quot;&quot;)</span><span class="a">+		c.Assert(string(p[0]), qt.Equals, &quot;.&quot;, qt.Commentf(&quot;path %q must be relative (begin with a leading &#39;.&#39;)&quot;, p))</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	// The same-dir case must be &quot;./*&quot; rather than &quot;*&quot;.</span><span class="a">+	c.Assert(paths, qt.Contains, filepath.FromSlash(&quot;./*&quot;))</span><span class="a">+	// The nested case must be &quot;./sub/*&quot;.</span><span class="a">+	c.Assert(paths, qt.Contains, filepath.FromSlash(&quot;./sub/*&quot;))</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+11</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">resources/jsconfig/jsconfig.go</span><span class="h">index 4aabf69f7..d347cab19 100644</span><span class="h">@@ -39,6 +39,11 @@ func (b *Builder) Build(dir string) *Config {</span><span class="c"> 	}</span><span class="c"> 	var roots []string</span><span class="c"> 	for root := range b.sourceRoots.All() {</span><span class="a">+		if root == dir {</span><span class="a">+			// We need mappings for other source roots (e.g. mounted modules), but not for the current one.</span><span class="a">+			// See issue 15169.</span><span class="a">+			continue</span><span class="a">+		}</span><span class="c"> 		rel, err := filepath.Rel(dir, filepath.Join(root, &quot;*&quot;))</span><span class="c"> 		if err == nil {</span><span class="c"> 			roots = append(roots, rel)</span><span class="f">resources/jsconfig/jsconfig_test.go</span><span class="h">index ab9b739d1..1fb8ef3cd 100644</span><span class="h">@@ -37,4 +37,10 @@ func TestJsConfigBuilder(t *testing.T) {</span><span class="c"> 	c.Assert(string(data), qt.Not(qt.Contains), &quot;baseUrl&quot;)</span><span class="c"> </span><span class="c"> 	c.Assert(NewBuilder().Build(&quot;/a/b&quot;), qt.IsNil)</span><span class="a">+</span><span class="a">+	// Issue 15169.</span><span class="a">+	b = NewBuilder()</span><span class="a">+	b.AddSourceRoot(&quot;/c/assets&quot;)</span><span class="a">+	conf = b.Build(&quot;/c/assets&quot;)</span><span class="a">+	c.Assert(conf, qt.IsNil)</span><span class="c"> }</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>Both tests pass. The work is complete.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong</strong></p>
+<p>When a site calls <code>js.Build</code>, Hugo generates <code>assets/jsconfig.json</code> from <code>resources/jsconfig/jsconfig.go</code>. In <code>Builder.Build</code>, each source root&#39;s path is computed with <code>filepath.Rel(dir, filepath.Join(root, &quot;*&quot;))</code>. When a source root is the <em>same directory</em> as the build <code>dir</code>, <code>filepath.Rel</code> returns just <code>&quot;*&quot;</code> — a <strong>non-relative</strong> path. The result is <code>&quot;paths&quot;: {&quot;*&quot;: [&quot;*&quot;]}</code>, which VS Code flags:</p>
+<blockquote><p>Non-relative paths are not allowed when &#39;baseUrl&#39; is not set. Did you forget a leading &#39;./&#39;?</p></blockquote>
+<p>Adding a <code>baseUrl</code> was not an option: the existing <code>TestJsConfigBuilder</code> asserts the JSON must <strong>not</strong> contain <code>baseUrl</code> (issue 14991). So the correct fix is to make the paths relative with a leading <code>./</code>.</p>
+<p><strong>What I changed</strong> (<code>resources/jsconfig/jsconfig.go</code>, production code only)</p>
+<ul><li>Added the <code>strings</code> import.</li><li>In <code>Builder.Build</code>, any <code>filepath.Rel</code> result that is not already relative (i.e. does not start with <code>..</code>) is prefixed with <code>./</code> (using the OS separator). So <code>&quot;*&quot;</code> → <code>&quot;./*&quot;</code>, <code>&quot;sub/*&quot;</code> → <code>&quot;./sub/*&quot;</code>, while already-relative <code>&quot;../../c/assets/*&quot;</code> paths are left unchanged. No <code>baseUrl</code> is introduced.</li></ul>
+<p>I used the <code>..</code> prefix as the &quot;already relative&quot; check (rather than a bare <code>.</code>) because <code>filepath.Rel</code> only ever emits relative results starting with <code>..</code>; this also correctly handles hidden-directory roots like <code>.config/*</code>, which a bare-<code>.</code> check would have wrongly left non-relative (a point raised by the review).</p>
+<p><strong>Regression test</strong> (<code>resources/jsconfig/jsconfig_test.go</code>, tests only)</p>
+<ul><li>Added <code>TestJsConfigBuilderRelativePaths</code>, which builds with a same-dir root and a nested root and asserts every emitted path begins with <code>.</code> and that the same-dir case is <code>./*</code> and the nested case <code>./sub/*</code>. The existing <code>TestJsConfigBuilder</code> was left untouched.</li></ul>
+<p><strong>Test evidence</strong> (via <code>./bt-test</code>, output in <code>test-report.json</code>)</p>
+<ul><li>Before the fix: <code>TestJsConfigBuilderRelativePaths</code> <strong>failed</strong> (<code>got &quot;*&quot;, want leading &quot;.&quot;</code>), confirming the reported behavior.</li><li>After the fix: both <code>TestJsConfigBuilder</code> and <code>TestJsConfigBuilderRelativePaths</code> <strong>pass</strong>.</li></ul>
+<p>All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260917-015623/15167/">Previous · #15167</a>
+  <a class="mid" href="/backtests/hugo/run-20260917-015623/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260917-015623/15171/">Next · #15171</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

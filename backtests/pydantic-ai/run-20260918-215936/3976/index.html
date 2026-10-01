@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#3976 `OpenAIResponsesModel` should use `developer` role for `SystemPromptPart`s by default — pydantic/pydantic-ai backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #3976 in pydantic/pydantic-ai, run 18 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic-ai/run-20260918-215936/3976/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/">pydantic-ai</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/run-20260918-215936/">run-20260918-215936</a><span aria-hidden="true">/</span><span aria-current="page">#3976</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic-ai/issues/3976" rel="noopener" target="_blank">#3976</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 18 Sep 2026 · <span class="runid">run-20260918-215936</span></span>
+  <span>pydantic/pydantic-ai</span>
+</div>
+<h1 class="ticket-title"><code>OpenAIResponsesModel</code> should use <code>developer</code> role for <code>SystemPromptPart</code>s by default</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="note">No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">9m 14s<small>3 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--bad)">1 new failure</span></p><p class="d">3,313 passed · 163 skipped · 3,552 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">55<small>vs 17 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic-ai/issues/3976" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Question</h3>
+<p>Hi, I’m using Pydantic AI’s <code>OpenAIResponsesModel</code> and providing an input prompt via the <code>instructions</code> parameter. In the OpenAI Logs dashboard, requests generated with that code always have their instructions labeled as “System instructions” at the top.</p>
+<p>But when I run the same instructions via the OpenAI Playground / Prompt dashboard, it shows up in the logs labeled as “Developer” at the top.</p>
+<p>OpenAI’s latest docs also seem to emphasize “developer” instructions for app-level behavior (rather than &quot;system&quot;), which makes it seem like the best practice for their API is to set <code>&quot;role&quot;: &quot;developer&quot;</code> for instructions like these, I think?</p>
+<p>Is there a setting or hook in OpenAIResponsesModel to send these as developer instructions (or otherwise match the Playground behavior)? If not, would you consider adding one, or documenting the current behavior and recommended workaround?</p>
+<p>Ultimately, I&#39;d like to be able to test/optimize prompts in the playground, and then have my Pydantic AI agents in my application send requests to the API that have identical configuration as the ones I&#39;m tweaking in the playground.</p>
+<p>Thanks for reading!</p>
+<h3>Additional Context</h3>
+<p>pydantic-ai v1.0.18<br>Python 3.13.3</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+53</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/models/openai.py</span><span class="h">index 5365deb6..565f6e9f 100644</span><span class="h">@@ -1631,7 +1631,10 @@ class OpenAIResponsesModel(Model):</span><span class="c">             if isinstance(message, ModelRequest):</span><span class="c">                 for part in message.parts:</span><span class="c">                     if isinstance(part, SystemPromptPart):</span><span class="r">-                        openai_messages.append(responses.EasyInputMessageParam(role=&#39;system&#39;, content=part.content))</span><span class="a">+                        system_prompt_role = profile.openai_system_prompt_role or &#39;system&#39;</span><span class="a">+                        openai_messages.append(</span><span class="a">+                            responses.EasyInputMessageParam(role=system_prompt_role, content=part.content)</span><span class="a">+                        )</span><span class="c">                     elif isinstance(part, UserPromptPart):</span><span class="c">                         openai_messages.append(await self._map_user_prompt(part))</span><span class="c">                     elif isinstance(part, ToolReturnPart):</span><span class="f">tests/models/test_openai_responses.py</span><span class="h">index 00b2276b..20dd55ce 100644</span><span class="h">@@ -48,7 +48,7 @@ from pydantic_ai.messages import (</span><span class="c"> )</span><span class="c"> from pydantic_ai.models import ModelRequestParameters</span><span class="c"> from pydantic_ai.output import NativeOutput, PromptedOutput, TextOutput, ToolOutput</span><span class="r">-from pydantic_ai.profiles.openai import openai_model_profile</span><span class="a">+from pydantic_ai.profiles.openai import OpenAIModelProfile, openai_model_profile</span><span class="c"> from pydantic_ai.tools import ToolDefinition</span><span class="c"> from pydantic_ai.usage import RequestUsage, RunUsage</span><span class="c"> </span><span class="h">@@ -8950,6 +8950,54 @@ async def test_openai_responses_system_prompts_ordering(allow_model_requests: No</span><span class="c">     )</span><span class="c"> </span><span class="c"> </span><span class="a">+async def test_openai_responses_system_prompt_role_developer(allow_model_requests: None):</span><span class="a">+    &quot;&quot;&quot;Test that the `openai_system_prompt_role` profile flag is honored by the Responses model.&quot;&quot;&quot;</span><span class="a">+    c = response_message(</span><span class="a">+        [</span><span class="a">+            ResponseOutputMessage(</span><span class="a">+                id=&#39;msg_123&#39;,</span><span class="a">+                content=cast(list[Content], [ResponseOutputText(text=&#39;ok&#39;, type=&#39;output_text&#39;, annotations=[])]),</span><span class="a">+                role=&#39;assistant&#39;,</span><span class="a">+                status=&#39;completed&#39;,</span><span class="a">+                type=&#39;message&#39;,</span><span class="a">+            ),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+    mock_client = MockOpenAIResponses.create_mock(c)</span><span class="a">+    model = OpenAIResponsesModel(</span><span class="a">+        &#39;gpt-4o&#39;,</span><span class="a">+        profile=OpenAIModelProfile(openai_system_prompt_role=&#39;developer&#39;),</span><span class="a">+        provider=OpenAIProvider(openai_client=mock_client),</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    messages: list[ModelRequest | ModelResponse] = [</span><span class="a">+        ModelRequest(</span><span class="a">+            parts=[</span><span class="a">+                SystemPromptPart(content=&#39;System prompt 1&#39;),</span><span class="a">+                SystemPromptPart(content=&#39;System prompt 2&#39;),</span><span class="a">+                UserPromptPart(content=&#39;Hello&#39;),</span><span class="a">+            ],</span><span class="a">+            instructions=&#39;Instructions content&#39;,</span><span class="a">+        ),</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+    instructions, openai_messages = await model._map_messages(  # type: ignore[reportPrivateUsage]</span><span class="a">+        messages,</span><span class="a">+        model_settings=cast(OpenAIResponsesModelSettings, {}),</span><span class="a">+        model_request_parameters=ModelRequestParameters(),</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert instructions == &#39;Instructions content&#39;</span><span class="a">+</span><span class="a">+    assert openai_messages == snapshot(</span><span class="a">+        [</span><span class="a">+            {&#39;role&#39;: &#39;developer&#39;, &#39;content&#39;: &#39;System prompt 1&#39;},</span><span class="a">+            {&#39;role&#39;: &#39;developer&#39;, &#39;content&#39;: &#39;System prompt 2&#39;},</span><span class="a">+            {&#39;role&#39;: &#39;user&#39;, &#39;content&#39;: &#39;Hello&#39;},</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="c"> async def test_reasoning_summary_auto(allow_model_requests: None, openai_api_key: str):</span><span class="c">     model = OpenAIResponsesModel(&#39;gpt-5.2&#39;, provider=OpenAIProvider(api_key=openai_api_key))</span><span class="c">     agent = Agent(model, instructions=&#39;You are a helpful coding assistant.&#39;)</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+13</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/models/openai.py</span><span class="h">index 5365deb688..bda2cb01a8 100644</span><span class="h">@@ -1401,9 +1401,10 @@ class OpenAIResponsesModel(Model):</span><span class="c">             # &gt; Response input messages must contain the word &#39;json&#39; in some form to use &#39;text.format&#39; of type &#39;json_object&#39;.</span><span class="c">             # Apparently they&#39;re only checking input messages for &quot;JSON&quot;, not instructions.</span><span class="c">             assert isinstance(instructions, str)</span><span class="r">-            system_prompt_count = sum(1 for m in openai_messages if m.get(&#39;role&#39;) == &#39;system&#39;)</span><span class="a">+            system_prompt_role = profile.openai_system_prompt_role or &#39;system&#39;</span><span class="a">+            system_prompt_count = sum(1 for m in openai_messages if m.get(&#39;role&#39;) == system_prompt_role)</span><span class="c">             openai_messages.insert(</span><span class="r">-                system_prompt_count, responses.EasyInputMessageParam(role=&#39;system&#39;, content=instructions)</span><span class="a">+                system_prompt_count, responses.EasyInputMessageParam(role=system_prompt_role, content=instructions)</span><span class="c">             )</span><span class="c">             instructions = OMIT</span><span class="c"> </span><span class="h">@@ -1631,7 +1632,15 @@ class OpenAIResponsesModel(Model):</span><span class="c">             if isinstance(message, ModelRequest):</span><span class="c">                 for part in message.parts:</span><span class="c">                     if isinstance(part, SystemPromptPart):</span><span class="r">-                        openai_messages.append(responses.EasyInputMessageParam(role=&#39;system&#39;, content=part.content))</span><span class="a">+                        system_prompt_role = profile.openai_system_prompt_role</span><span class="a">+                        if system_prompt_role == &#39;developer&#39;:</span><span class="a">+                            openai_messages.append(</span><span class="a">+                                responses.EasyInputMessageParam(role=&#39;developer&#39;, content=part.content)</span><span class="a">+                            )</span><span class="a">+                        elif system_prompt_role == &#39;user&#39;:</span><span class="a">+                            openai_messages.append(responses.EasyInputMessageParam(role=&#39;user&#39;, content=part.content))</span><span class="a">+                        else:</span><span class="a">+                            openai_messages.append(responses.EasyInputMessageParam(role=&#39;system&#39;, content=part.content))</span><span class="c">                     elif isinstance(part, UserPromptPart):</span><span class="c">                         openai_messages.append(await self._map_user_prompt(part))</span><span class="c">                     elif isinstance(part, ToolReturnPart):</span><span class="f">pydantic_ai_slim/pydantic_ai/profiles/openai.py</span><span class="h">index 1834052a87..49f7b8e421 100644</span><span class="h">@@ -122,7 +122,7 @@ def openai_model_profile(model_name: str) -&gt; ModelProfile:</span><span class="c"> </span><span class="c">     # The o1-mini model doesn&#39;t support the `system` role, so we default to `user`.</span><span class="c">     # See https://github.com/pydantic/pydantic-ai/issues/974 for more details.</span><span class="r">-    openai_system_prompt_role = &#39;user&#39; if model_name.startswith(&#39;o1-mini&#39;) else None</span><span class="a">+    openai_system_prompt_role = &#39;user&#39; if model_name.startswith(&#39;o1-mini&#39;) else &#39;developer&#39;</span><span class="c"> </span><span class="c">     return OpenAIModelProfile(</span><span class="c">         json_schema_transformer=OpenAIJsonSchemaTransformer,</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The suite is still running (no output yet). I&#39;ll wait for the completion notification.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic-ai/run-20260918-215936/1447/">Previous · #1447</a>
+  <a class="mid" href="/backtests/pydantic-ai/run-20260918-215936/">All tickets in this run</a>
+  <a href="/backtests/pydantic-ai/run-20260918-215936/4425/">Next · #4425</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

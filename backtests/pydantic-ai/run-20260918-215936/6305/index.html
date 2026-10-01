@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#6305 ResponseReasoningTextDeltaEvent handler drops reasoning content — ThinkingPart.content stays empty for raw CoT providers (gpt-oss, vLLM, LM Studio, litellm) — pydantic/pydantic-ai backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #6305 in pydantic/pydantic-ai, run 18 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic-ai/run-20260918-215936/6305/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/">pydantic-ai</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/run-20260918-215936/">run-20260918-215936</a><span aria-hidden="true">/</span><span aria-current="page">#6305</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic-ai/issues/6305" rel="noopener" target="_blank">#6305</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 18 Sep 2026 · <span class="runid">run-20260918-215936</span></span>
+  <span>pydantic/pydantic-ai</span>
+</div>
+<h1 class="ticket-title">ResponseReasoningTextDeltaEvent handler drops reasoning content — ThinkingPart.content stays empty for raw CoT providers (gpt-oss, vLLM, LM Studio, litellm)</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the two paths named in the issue: they add `content=chunk.delta` to the streaming `ResponseReasoningTextDeltaEvent` handler (identical fix), and they populate `ThinkingPart.content` from `raw_content` in the non-streaming path. The decisive differences are consistency and the multiturn round-trip. (1) Join semantics: the streaming path builds content by concatenating deltas with NO separator (`handle_thinking_delta(content=chunk.delta)`), so Patch B&#39;s `&#39;&#39;.join(raw_content)` matches streaming behavior, while Patch A&#39;s `&#39; &#39;.join(raw_content)` makes the non-streaming result inconsistent with its own streaming path — the same reasoning text would render differently depending on transport. (2) Round-trip regression: once `ThinkingPart.content` is non-empty, the send-back logic at ~line 2976 (`if item.content: reasoning_item[&#39;summary&#39;] = ...`) newly fires, so the raw CoT gets sent BOTH as a summary and via the existing raw_content reconstruction — duplicated reasoning on subsequent turns. Patch A never touches this path and thus reintroduces duplication in exactly the multiturn scenario the issue calls out (`test_openai_responses_raw_cot_sent_in_multiturn`). Patch B guards it precisely (`if item.content and item.content != &#39;&#39;.join(raw_content or [])`), and its choice of `&#39;&#39;.join` in the parse path is what makes this equality check reliable — the two edits are coherent. Both update the same tests to fail-before/pass-after. Patch B&#39;s extra edit is a necessary correctness fix, not scope creep. The guard is slightly subtle but justified. Patch B is the more complete and internally consistent fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">10m 59s<small>3 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">7,852 passed · 530 skipped · 8,417 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">15<small>vs 22 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic-ai/issues/6305" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I&#39;m using the <a href="https://github.com/pydantic/pydantic-ai/releases/latest" rel="noopener nofollow" target="_blank">latest version</a> of Pydantic AI</li><li><input type="checkbox" disabled checked> I&#39;ve searched for my issue in <a href="https://github.com/pydantic/pydantic-ai/issues" rel="noopener nofollow" target="_blank">the issue tracker</a> before opening this issue</li></ul>
+<h3>Description</h3>
+<p>When using <code>OpenAIResponsesModel</code> with providers that emit <code>response.reasoning_text.delta</code> events (instead of <code>response.reasoning_summary_text.delta</code>), the reasoning content is dropped — <code>ThinkingPart.content</code> remains empty (or <code>&quot;&quot;</code>).</p>
+<p>This affects providers like:</p>
+<ul><li><strong>gpt-oss</strong> via LM Studio / OpenRouter</li><li><strong>vLLM</strong> (both native <code>/v1/responses</code> and via litellm bridge)</li><li>Any OpenAI-compatible provider that uses <code>reasoning_text</code> content type instead of <code>reasoning_summary_text</code></li></ul>
+<p>The official OpenAI Responses API only emits <code>response.reasoning_summary_text.delta</code>, but third-party implementations use <code>response.reasoning_text.delta</code> for raw chain-of-thought. The <code>ResponseReasoningTextDeltaEvent</code> handler was added in response to #3191, but it is incomplete — it does not pass <code>content=chunk.delta</code> to <code>handle_thinking_delta()</code>.</p>
+<p><strong>Two code paths are affected:</strong></p>
+<ol><li><strong>Streaming</strong> (<code>openai.py</code> ~line 3704): <code>ResponseReasoningTextDeltaEvent</code> handler calls <code>handle_thinking_delta()</code> without <code>content=chunk.delta</code>. The delta text only goes to <code>provider_details</code> via <code>_make_raw_content_updater</code>. Compare with the <code>ResponseReasoningSummaryTextDeltaEvent</code> handler (~line 3690) which correctly passes <code>content=chunk.delta</code>.</li></ol>
+<ol><li><strong>Non-streaming</strong> (<code>openai.py</code> ~line 2004): When <code>item.summary</code> is empty but <code>item.content</code> has <code>reasoning_text</code> entries, <code>ThinkingPart(content=&#39;&#39;)</code> is created. The raw content is only stored in <code>provider_details[&#39;raw_content&#39;]</code>.</li></ol>
+<p><strong>Expected:</strong> <code>ThinkingPart.content</code> should contain the actual reasoning text, not an empty string.</p>
+<h3>Minimal, Reproducible Example</h3>
+<pre><code class="lang-python"># Simulated streaming response with reasoning_text.delta events
+# (as emitted by vLLM, LM Studio with gpt-oss, or litellm bridge)
+
+from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesStreamedResponse
+
+# When a provider sends:
+#   {&quot;type&quot;: &quot;response.reasoning_text.delta&quot;, &quot;item_id&quot;: &quot;rs_123&quot;, &quot;delta&quot;: &quot;Let me think...&quot;, &quot;content_index&quot;: 0}
+#   {&quot;type&quot;: &quot;response.reasoning_text.delta&quot;, &quot;item_id&quot;: &quot;rs_123&quot;, &quot;delta&quot;: &quot;The answer is 4.&quot;, &quot;content_index&quot;: 0}
+#
+# The handler processes the event but NEVER passes chunk.delta as content:
+#
+#   elif isinstance(chunk, responses.ResponseReasoningTextDeltaEvent):
+#       for event in self._parts_manager.handle_thinking_delta(
+#           vendor_part_id=chunk.item_id,
+#           # MISSING: content=chunk.delta,
+#           id=chunk.item_id,
+#           ...
+#       ):
+#
+# Result: ThinkingPart(content=&#39;&#39;) instead of ThinkingPart(content=&#39;Let me think... The answer is 4.&#39;)</code></pre>
+<p>You can verify by running the existing tests <code>test_openai_responses_raw_cot_only</code>, <code>test_openai_responses_raw_cot_stream_openrouter</code>, and <code>test_openai_responses_raw_cot_sent_in_multiturn</code> — all assert <code>content=&#39;&#39;</code> for <code>ThinkingPart</code> when raw CoT is present, which is the bug.</p>
+<h3>Logfire Trace</h3>
+<p>_No Logfire trace available — issue found via curl testing against vLLM + litellm proxy._</p>
+<h3>Python, Pydantic AI &amp; LLM client version</h3>
+<ul><li>Python: 3.13</li><li>Pydantic AI: 2.5.1</li><li>LLM provider SDK: openai&gt;=1.99.0 (via vLLM v0.x + litellm proxy)</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+8</span> <span class="r">−7</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/models/openai.py</span><span class="h">index 7cd80947..ccf0213b 100644</span><span class="h">@@ -2004,7 +2004,7 @@ class OpenAIResponsesModel(Model[AsyncOpenAI]):</span><span class="c">                 elif signature or provider_details:</span><span class="c">                     items.append(</span><span class="c">                         ThinkingPart(</span><span class="r">-                            content=&#39;&#39;,</span><span class="a">+                            content=&#39;&#39;.join(raw_content) if raw_content else &#39;&#39;,</span><span class="c">                             id=item.id,</span><span class="c">                             signature=signature,</span><span class="c">                             provider_name=self.system,</span><span class="h">@@ -2976,7 +2976,7 @@ class OpenAIResponsesModel(Model[AsyncOpenAI]):</span><span class="c">                                 )</span><span class="c">                                 openai_messages.append(reasoning_item)</span><span class="c"> </span><span class="r">-                            if item.content:</span><span class="a">+                            if item.content and item.content != &#39;&#39;.join(raw_content or []):</span><span class="c">                                 # The check above guarantees that `reasoning_item` is not None</span><span class="c">                                 assert reasoning_item is not None</span><span class="c">                                 reasoning_item[&#39;summary&#39;] = [</span><span class="h">@@ -3702,6 +3702,7 @@ class OpenAIResponsesStreamedResponse(StreamedResponse):</span><span class="c">                     # Handle raw CoT from gpt-oss models using callback pattern</span><span class="c">                     for event in self._parts_manager.handle_thinking_delta(</span><span class="c">                         vendor_part_id=chunk.item_id,</span><span class="a">+                        content=chunk.delta,</span><span class="c">                         id=chunk.item_id,</span><span class="c">                         provider_name=self.provider_name,</span><span class="c">                         provider_details=_make_raw_content_updater(chunk.delta, chunk.content_index),</span><span class="f">tests/models/test_openai_responses.py</span><span class="h">index dfeb4396..5ae71c17 100644</span><span class="h">@@ -9957,7 +9957,7 @@ async def test_openai_responses_raw_cot_only(allow_model_requests: None):</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Let me think about this...The answer is 4.&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Let me think about this...&#39;, &#39;The answer is 4.&#39;]},</span><span class="h">@@ -10148,7 +10148,7 @@ async def test_openai_responses_raw_cot_stream_openrouter(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;The user asks: &quot;What is 2+2?&quot; They expect a straightforward answer: 4. Just answer 4.&#39;,</span><span class="c">                         id=&#39;rs_tmp_2kbe7x16sax&#39;,</span><span class="c">                         provider_name=&#39;openrouter&#39;,</span><span class="c">                         provider_details={</span><span class="h">@@ -10294,7 +10294,7 @@ async def test_openai_responses_raw_cot_sent_in_multiturn(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Raw CoT step 1Raw CoT step 2&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Raw CoT step 1&#39;, &#39;Raw CoT step 2&#39;]},</span><span class="h">@@ -10331,7 +10331,7 @@ async def test_openai_responses_raw_cot_sent_in_multiturn(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Raw CoT step 1Raw CoT step 2&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Raw CoT step 1&#39;, &#39;Raw CoT step 2&#39;]},</span><span class="h">@@ -10400,7 +10400,7 @@ async def test_openai_responses_raw_cot_sent_in_multiturn(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Raw CoT step 1Raw CoT step 2&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Raw CoT step 1&#39;, &#39;Raw CoT step 2&#39;]},</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+15</span> <span class="r">−7</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/models/openai.py</span><span class="h">index 7cd8094790..9f38a15fb4 100644</span><span class="h">@@ -2002,9 +2002,14 @@ class OpenAIResponsesModel(Model[AsyncOpenAI]):</span><span class="c">                         signature = None</span><span class="c">                         provider_details = {}</span><span class="c">                 elif signature or provider_details:</span><span class="a">+                    # When there are no summaries but there is raw CoT content</span><span class="a">+                    # (e.g. from gpt-oss models, vLLM, or litellm bridge), use</span><span class="a">+                    # the raw content text as the ThinkingPart content so it is</span><span class="a">+                    # visible to consumers, not just stored in provider_details.</span><span class="a">+                    raw_content_text = &#39; &#39;.join(raw_content) if raw_content else &#39;&#39;</span><span class="c">                     items.append(</span><span class="c">                         ThinkingPart(</span><span class="r">-                            content=&#39;&#39;,</span><span class="a">+                            content=raw_content_text,</span><span class="c">                             id=item.id,</span><span class="c">                             signature=signature,</span><span class="c">                             provider_name=self.system,</span><span class="h">@@ -3699,9 +3704,12 @@ class OpenAIResponsesStreamedResponse(StreamedResponse):</span><span class="c">                         yield event</span><span class="c"> </span><span class="c">                 elif isinstance(chunk, responses.ResponseReasoningTextDeltaEvent):</span><span class="r">-                    # Handle raw CoT from gpt-oss models using callback pattern</span><span class="a">+                    # Handle raw CoT from gpt-oss models and OpenAI-compatible providers</span><span class="a">+                    # (e.g. vLLM, LM Studio, litellm bridge) that use `reasoning_text` events</span><span class="a">+                    # instead of `reasoning_summary_text` events.</span><span class="c">                     for event in self._parts_manager.handle_thinking_delta(</span><span class="c">                         vendor_part_id=chunk.item_id,</span><span class="a">+                        content=chunk.delta,</span><span class="c">                         id=chunk.item_id,</span><span class="c">                         provider_name=self.provider_name,</span><span class="c">                         provider_details=_make_raw_content_updater(chunk.delta, chunk.content_index),</span><span class="f">tests/models/test_openai_responses.py</span><span class="h">index dfeb439621..1c9dc96fea 100644</span><span class="h">@@ -9957,7 +9957,7 @@ async def test_openai_responses_raw_cot_only(allow_model_requests: None):</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Let me think about this... The answer is 4.&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Let me think about this...&#39;, &#39;The answer is 4.&#39;]},</span><span class="h">@@ -10148,7 +10148,7 @@ async def test_openai_responses_raw_cot_stream_openrouter(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;The user asks: &quot;What is 2+2?&quot; They expect a straightforward answer: 4. Just answer 4.&#39;,</span><span class="c">                         id=&#39;rs_tmp_2kbe7x16sax&#39;,</span><span class="c">                         provider_name=&#39;openrouter&#39;,</span><span class="c">                         provider_details={</span><span class="h">@@ -10294,7 +10294,7 @@ async def test_openai_responses_raw_cot_sent_in_multiturn(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Raw CoT step 1 Raw CoT step 2&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Raw CoT step 1&#39;, &#39;Raw CoT step 2&#39;]},</span><span class="h">@@ -10331,7 +10331,7 @@ async def test_openai_responses_raw_cot_sent_in_multiturn(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Raw CoT step 1 Raw CoT step 2&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Raw CoT step 1&#39;, &#39;Raw CoT step 2&#39;]},</span><span class="h">@@ -10400,7 +10400,7 @@ async def test_openai_responses_raw_cot_sent_in_multiturn(allow_model_requests:</span><span class="c">             ModelResponse(</span><span class="c">                 parts=[</span><span class="c">                     ThinkingPart(</span><span class="r">-                        content=&#39;&#39;,</span><span class="a">+                        content=&#39;Raw CoT step 1 Raw CoT step 2&#39;,</span><span class="c">                         id=&#39;rs_123&#39;,</span><span class="c">                         provider_name=&#39;openai&#39;,</span><span class="c">                         provider_details={&#39;raw_content&#39;: [&#39;Raw CoT step 1&#39;, &#39;Raw CoT step 2&#39;]},</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>I&#39;m waiting for the fail-before-fix test run (monitored) to report. Standing by.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic-ai/run-20260918-215936/5895/">Previous · #5895</a>
+  <a class="mid" href="/backtests/pydantic-ai/run-20260918-215936/">All tickets in this run</a>
+  <a href="/backtests/pydantic-ai/run-20260918-215936/6376/">Next · #6376</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

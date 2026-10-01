@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15048 Scoped slot transforms array argument if rendered conditionally — vuejs/core backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #15048 in vuejs/core, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261001-022054/15048/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261001-022054/">run-20261001-022054</a><span aria-hidden="true">/</span><span aria-current="page">#15048</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15048" rel="noopener" target="_blank">#15048</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20261001-022054</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">Scoped slot transforms array argument if rendered conditionally</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The test suite was unusable at the base commit.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">—<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 0 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15048" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.0</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNqFUk1v00AQ/SvDXgxSYqsEDgSnEqBKwAEQReLAoiq1J+m2+6XdtZvK8n/v7Dp2oyptb7Pz3s68mTcd+2Rt3jbIlqz0lRM2gMfQ2FOuhbLGBejA4QZ62DijICNqNkFfjLL7fF7ER6yUfeSa68poH0D5Lazi/9fZV5TSwF/jZP0qe8N1WQztqBE9Aior1wHpBVCmuu3cSxNWnAkCPWcJAug6SAno+8RNfQkri4MabMaCJwkbsc2vvdE0XRfZnFXEFhLdTxsESeRsCQmJ2JoU3n5PueAanI356gqrmyP5a7+LOc5+OfToWuRswsLabTEM8Nn5D9xRPIHK1I0k9jPgb/RGNlHjQPvc6JpkH/CS2m/JCKG3f/zZLqD241BRaGT2ic8ZGRMX9dToD3IX+bv0j+uetjiaeuQ8BocHL1bwL4vRSTaDFLwdg0X2n+7hObNr0e6tLb1d69Nzcp1ORtfosAZtnKJJ76hCBMtLB8VEj8x2fil0/XAme7gsxrqxAfhwJ5FIiuYUeh6MXcKJQzWd1bHeNGEt4q5eECA2B+1f0PP4TC9adNE0WvAif58vPrD+HmmCLos=" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNqFUk1v00AQ/SvDXgxSYqsEDgSnEqBKwAEQReLAoiq1J+m2+6XdtZvK8n/v7Dp2oyptb7Pz3s68mTcd+2Rt3jbIlqz0lRM2gMfQ2FOuhbLGBejA4QZ62DijICNqNkFfjLL7fF7ER6yUfeSa68poH0D5Lazi/9fZV5TSwF/jZP0qe8N1WQztqBE9Aior1wHpBVCmuu3cSxNWnAkCPWcJAug6SAno+8RNfQkri4MabMaCJwkbsc2vvdE0XRfZnFXEFhLdTxsESeRsCQmJ2JoU3n5PueAanI356gqrmyP5a7+LOc5+OfToWuRswsLabTEM8Nn5D9xRPIHK1I0k9jPgb/RGNlHjQPvc6JpkH/CS2m/JCKG3f/zZLqD241BRaGT2ic8ZGRMX9dToD3IX+bv0j+uetjiaeuQ8BocHL1bwL4vRSTaDFLwdg0X2n+7hObNr0e6tLb1d69Nzcp1ORtfosAZtnKJJ76hCBMtLB8VEj8x2fil0/XAme7gsxrqxAfhwJ5FIiuYUeh6MXcKJQzWd1bHeNGEt4q5eECA2B+1f0PP4TC9adNE0WvAif58vPrD+HmmCLos=</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>Create a component with a scoped slot that is rendered conditionally</li><li>Pass an array as the sole argument to the slot </li></ol>
+<h3>What is expected?</h3>
+<p>Array is rendered normally.<br>If you render items of that array in <code>v-for</code> loop, you only see items inside that array</p>
+<h3>What is actually happening?</h3>
+<p>Array is transformed into object. Items and their indexes are staying the same, <code>key</code> field is added</p>
+<p>&lt;img width=&quot;383&quot; height=&quot;111&quot; alt=&quot;Image&quot; src=&quot;https://github.com/user-attachments/assets/338bc873-5c20-4fb3-aed9-88f9f8e8cd98&quot; /&gt;</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell"></code></pre>
+<h3>Any additional comments?</h3>
+<p><code>key</code> attribute is generated by the compiler for the slot rendered with <code>v-if</code>.</p>
+<p>&lt;img width=&quot;781&quot; height=&quot;243&quot; alt=&quot;Image&quot; src=&quot;https://github.com/user-attachments/assets/99704cf9-71cb-435d-ba6f-92578b65ff5d&quot; /&gt;</p>
+<p>While this is not explicitly mentioned in documentation, one can assume that the expectation is that <code>slotProps</code> is always an object, as this is what will be passed to the slot if you use multiple <code>v-bind</code> directives on the slot.<br>This issue is rather pointing out the difference in behavior of the slot when <code>v-if</code> is present or not present.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261001-022054/15009/">Previous · #15009</a>
+  <a class="mid" href="/backtests/vue/run-20261001-022054/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261001-022054/15070/">Next · #15070</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

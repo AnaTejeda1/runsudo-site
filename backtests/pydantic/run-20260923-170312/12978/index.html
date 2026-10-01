@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#12978 mypy `[arg-type]`-error when passing in type that can be converted to `RootModel` — pydantic/pydantic backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #12978 in pydantic/pydantic, run 23 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20260923-170312/12978/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20260923-170312/">run-20260923-170312</a><span aria-hidden="true">/</span><span aria-current="page">#12978</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/12978" rel="noopener" target="_blank">#12978</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 23 Sep 2026 · <span class="runid">run-20260923-170312</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">mypy <code>[arg-type]</code>-error when passing in type that can be converted to <code>RootModel</code></h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="note">No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">29m 1s<small>25 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--bad)">1 new failure</span></p><p class="d">5,716 passed · 1,065 skipped · 6,782 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">34<small>vs 63 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/12978" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>The below example code (named <code>foo.py</code>) passes when running <code>python foo.py</code> as the input <code>&quot;1.0&quot;</code>-string gets converted to <code>float</code>. However, running <code>mypy foo.py</code> (with or without <code>--strict</code>) gives the following error:</p>
+<pre><code class="lang-bash">foo.py:11: error: Argument 1 to &quot;RootModel&quot; has incompatible type &quot;str&quot;; expected &quot;float&quot;  [arg-type]
+Found 1 error in 1 file (checked 1 source file)</code></pre>
+<p>I would expect the <code>BaseModel</code>-fields and the <code>RootModel</code>-field to behave the same in this case. That is, if the value can be converted – either via a custom made validator or through the conversion table – then <code>mypy</code> should not raise an error.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">import pydantic
+
+
+class Foo(pydantic.BaseModel):
+    f: float
+
+
+RFoo = pydantic.RootModel[float]
+
+f = Foo(f=&quot;1.0&quot;)
+rf = RFoo(&quot;1.0&quot;)
+
+assert isinstance(f.f, float)
+assert isinstance(rf.root, float)
+assert f.f == rf.root</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.12.5
+        pydantic-core version: 2.41.5
+          pydantic-core build: profile=release pgo=false
+               python version: 3.11.14 (main, Feb  3 2026, 22:51:56) [Clang 21.1.4 ]
+                     platform: Linux-5.15.0-173-generic-x86_64-with-glibc2.35
+             related packages: typing_extensions-4.15.0 mypy-1.19.1
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+33</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/root_model.py</span><span class="h">index d2900433..73665f17 100644</span><span class="h">@@ -57,7 +57,7 @@ class RootModel(BaseModel, Generic[RootModelRootType], metaclass=_RootModelMetac</span><span class="c">             )</span><span class="c">         super().__init_subclass__(**kwargs)</span><span class="c"> </span><span class="r">-    def __init__(self, /, root: RootModelRootType = PydanticUndefined, **data) -&gt; None:  # type: ignore</span><span class="a">+    def __init__(self, /, root: Any = PydanticUndefined, **data) -&gt; None:  # type: ignore</span><span class="c">         __tracebackhide__ = True</span><span class="c">         if data:</span><span class="c">             if root is not PydanticUndefined:</span><span class="f">tests/mypy/modules/root_models.py</span><span class="h">index 804d1d43..bb5ec328 100644</span><span class="h">@@ -46,3 +46,11 @@ m = Model[str](m1=Maybe(None), m2=Maybe(&#39;dog&#39;), m3=Maybe([]))</span><span class="c"> Model(m1=None, m2={}, m3=[])</span><span class="c"> </span><span class="c"> assert_type(m.m1, Maybe[int])</span><span class="a">+</span><span class="a">+</span><span class="a">+# https://github.com/pydantic/pydantic/issues/12978</span><span class="a">+# A coercible value passed to a parametrized `RootModel` should be accepted at the</span><span class="a">+# type level, mirroring how `BaseModel` fields accept arbitrary input via `**data: Any`.</span><span class="a">+FloatRootModel = RootModel[float]</span><span class="a">+float_root = FloatRootModel(&#39;1.0&#39;)</span><span class="a">+assert_type(float_root, RootModel[float])</span><span class="f">tests/mypy/outputs/mypy-default_ini/root_models.py</span><span class="h">index 01cf5bbb..fd09c951 100644</span><span class="h">@@ -54,3 +54,11 @@ Model(m1=None, m2={}, m3=[])</span><span class="c"> # MYPY: error: Argument &quot;m3&quot; to &quot;Model&quot; has incompatible type &quot;list[Never]&quot;; expected &quot;Maybe[Any]&quot;  [arg-type]</span><span class="c"> </span><span class="c"> assert_type(m.m1, Maybe[int])</span><span class="a">+</span><span class="a">+</span><span class="a">+# https://github.com/pydantic/pydantic/issues/12978</span><span class="a">+# A coercible value passed to a parametrized `RootModel` should be accepted at the</span><span class="a">+# type level, mirroring how `BaseModel` fields accept arbitrary input via `**data: Any`.</span><span class="a">+FloatRootModel = RootModel[float]</span><span class="a">+float_root = FloatRootModel(&#39;1.0&#39;)</span><span class="a">+assert_type(float_root, RootModel[float])</span><span class="f">tests/mypy/outputs/mypy-plugin_ini/root_models.py</span><span class="h">index 5bb30a04..2ab08fac 100644</span><span class="h">@@ -49,3 +49,11 @@ m = Model[str](m1=Maybe(None), m2=Maybe(&#39;dog&#39;), m3=Maybe([]))</span><span class="c"> Model(m1=None, m2={}, m3=[])</span><span class="c"> </span><span class="c"> assert_type(m.m1, Maybe[int])</span><span class="a">+</span><span class="a">+</span><span class="a">+# https://github.com/pydantic/pydantic/issues/12978</span><span class="a">+# A coercible value passed to a parametrized `RootModel` should be accepted at the</span><span class="a">+# type level, mirroring how `BaseModel` fields accept arbitrary input via `**data: Any`.</span><span class="a">+FloatRootModel = RootModel[float]</span><span class="a">+float_root = FloatRootModel(&#39;1.0&#39;)</span><span class="a">+assert_type(float_root, RootModel[float])</span><span class="f">tests/mypy/outputs/pyproject-default_toml/root_models.py</span><span class="h">index 01cf5bbb..fd09c951 100644</span><span class="h">@@ -54,3 +54,11 @@ Model(m1=None, m2={}, m3=[])</span><span class="c"> # MYPY: error: Argument &quot;m3&quot; to &quot;Model&quot; has incompatible type &quot;list[Never]&quot;; expected &quot;Maybe[Any]&quot;  [arg-type]</span><span class="c"> </span><span class="c"> assert_type(m.m1, Maybe[int])</span><span class="a">+</span><span class="a">+</span><span class="a">+# https://github.com/pydantic/pydantic/issues/12978</span><span class="a">+# A coercible value passed to a parametrized `RootModel` should be accepted at the</span><span class="a">+# type level, mirroring how `BaseModel` fields accept arbitrary input via `**data: Any`.</span><span class="a">+FloatRootModel = RootModel[float]</span><span class="a">+float_root = FloatRootModel(&#39;1.0&#39;)</span><span class="a">+assert_type(float_root, RootModel[float])</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+61</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic/mypy.py</span><span class="h">index cd28e7004..40aee0627 100644</span><span class="h">@@ -88,6 +88,7 @@ CREATE_MODEL_FULLNAME = &#39;pydantic.main.create_model&#39;</span><span class="c"> BASESETTINGS_FULLNAME = &#39;pydantic_settings.main.BaseSettings&#39;</span><span class="c"> ROOT_MODEL_FULLNAME = &#39;pydantic.root_model.RootModel&#39;</span><span class="c"> MODEL_METACLASS_FULLNAME = &#39;pydantic._internal._model_construction.ModelMetaclass&#39;</span><span class="a">+ROOT_MODEL_METACLASS_FULLNAME = &#39;pydantic.root_model._RootModelMetaclass&#39;</span><span class="c"> FIELD_FULLNAME = &#39;pydantic.fields.Field&#39;</span><span class="c"> DATACLASS_FULLNAME = &#39;pydantic.dataclasses.dataclass&#39;</span><span class="c"> MODEL_VALIDATOR_FULLNAME = &#39;pydantic.functional_validators.model_validator&#39;</span><span class="h">@@ -143,7 +144,7 @@ class PydanticPlugin(Plugin):</span><span class="c"> </span><span class="c">     def get_metaclass_hook(self, fullname: str) -&gt; Callable[[ClassDefContext], None] | None:</span><span class="c">         &quot;&quot;&quot;Update Pydantic `ModelMetaclass` definition.&quot;&quot;&quot;</span><span class="r">-        if fullname == MODEL_METACLASS_FULLNAME:</span><span class="a">+        if fullname in (MODEL_METACLASS_FULLNAME, ROOT_MODEL_METACLASS_FULLNAME):</span><span class="c">             return self._pydantic_model_metaclass_marker_callback</span><span class="c">         return None</span><span class="c"> </span><span class="h">@@ -916,7 +917,13 @@ class PydanticModelTransformer:</span><span class="c"> </span><span class="c">         The added `__init__` will be annotated with types vs. all `Any` depending on the plugin settings.</span><span class="c">         &quot;&quot;&quot;</span><span class="r">-        if &#39;__init__&#39; in self._cls.info.names and not self._cls.info.names[&#39;__init__&#39;].plugin_generated:</span><span class="a">+        if (</span><span class="a">+            &#39;__init__&#39; in self._cls.info.names</span><span class="a">+            and not self._cls.info.names[&#39;__init__&#39;].plugin_generated</span><span class="a">+            # `RootModel` declares a typed `__init__` for the benefit of type checkers when the plugin</span><span class="a">+            # isn&#39;t used, but the plugin-generated one should take priority over it:</span><span class="a">+            and self._cls.fullname != ROOT_MODEL_FULLNAME</span><span class="a">+        ):</span><span class="c">             return  # Don&#39;t generate an __init__ if one already exists</span><span class="c"> </span><span class="c">         typed = self.plugin_config.init_typed</span><span class="f">tests/mypy/modules/root_models.py</span><span class="h">index 804d1d43e..f95bd7fe1 100644</span><span class="h">@@ -22,6 +22,18 @@ pets1 = Pets1([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets2 = Pets2([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets3 = Pets3([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> </span><span class="a">+RFloat = RootModel[float]</span><span class="a">+</span><span class="a">+</span><span class="a">+class RFloatSub(RootModel[float]):</span><span class="a">+    pass</span><span class="a">+</span><span class="a">+</span><span class="a">+# When the plugin is used with `init_typed` unset, arbitrary input</span><span class="a">+# should be accepted as it may be coerced to the `root` type:</span><span class="a">+rfloat = RFloat(&#39;1.0&#39;)</span><span class="a">+rfloat_sub = RFloatSub(&#39;1.0&#39;)</span><span class="a">+</span><span class="c"> </span><span class="c"> class Pets4(RootModel[list[str]]):</span><span class="c">     pets: list[str]</span><span class="f">tests/mypy/outputs/mypy-default_ini/root_models.py</span><span class="h">index 01cf5bbb3..df3354187 100644</span><span class="h">@@ -23,6 +23,20 @@ pets1 = Pets1([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets2 = Pets2([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets3 = Pets3([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> </span><span class="a">+RFloat = RootModel[float]</span><span class="a">+</span><span class="a">+</span><span class="a">+class RFloatSub(RootModel[float]):</span><span class="a">+    pass</span><span class="a">+</span><span class="a">+</span><span class="a">+# When the plugin is used with `init_typed` unset, arbitrary input</span><span class="a">+# should be accepted as it may be coerced to the `root` type:</span><span class="a">+rfloat = RFloat(&#39;1.0&#39;)</span><span class="a">+# MYPY: error: Argument 1 to &quot;RootModel&quot; has incompatible type &quot;str&quot;; expected &quot;float&quot;  [arg-type]</span><span class="a">+rfloat_sub = RFloatSub(&#39;1.0&#39;)</span><span class="a">+# MYPY: error: Argument 1 to &quot;RFloatSub&quot; has incompatible type &quot;str&quot;; expected &quot;float&quot;  [arg-type]</span><span class="a">+</span><span class="c"> </span><span class="c"> class Pets4(RootModel[list[str]]):</span><span class="c">     pets: list[str]</span><span class="f">tests/mypy/outputs/mypy-plugin_ini/root_models.py</span><span class="h">index 5bb30a044..12b4c84bd 100644</span><span class="h">@@ -23,6 +23,18 @@ pets1 = Pets1([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets2 = Pets2([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets3 = Pets3([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> </span><span class="a">+RFloat = RootModel[float]</span><span class="a">+</span><span class="a">+</span><span class="a">+class RFloatSub(RootModel[float]):</span><span class="a">+    pass</span><span class="a">+</span><span class="a">+</span><span class="a">+# When the plugin is used with `init_typed` unset, arbitrary input</span><span class="a">+# should be accepted as it may be coerced to the `root` type:</span><span class="a">+rfloat = RFloat(&#39;1.0&#39;)</span><span class="a">+rfloat_sub = RFloatSub(&#39;1.0&#39;)</span><span class="a">+</span><span class="c"> </span><span class="c"> class Pets4(RootModel[list[str]]):</span><span class="c">     pets: list[str]</span><span class="f">tests/mypy/outputs/pyproject-default_toml/root_models.py</span><span class="h">index 01cf5bbb3..df3354187 100644</span><span class="h">@@ -23,6 +23,20 @@ pets1 = Pets1([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets2 = Pets2([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> pets3 = Pets3([&#39;dog&#39;, &#39;cat&#39;])</span><span class="c"> </span><span class="a">+RFloat = RootModel[float]</span><span class="a">+</span><span class="a">+</span><span class="a">+class RFloatSub(RootModel[float]):</span><span class="a">+    pass</span><span class="a">+</span><span class="a">+</span><span class="a">+# When the plugin is used with `init_typed` unset, arbitrary input</span><span class="a">+# should be accepted as it may be coerced to the `root` type:</span><span class="a">+rfloat = RFloat(&#39;1.0&#39;)</span><span class="a">+# MYPY: error: Argument 1 to &quot;RootModel&quot; has incompatible type &quot;str&quot;; expected &quot;float&quot;  [arg-type]</span><span class="a">+rfloat_sub = RFloatSub(&#39;1.0&#39;)</span><span class="a">+# MYPY: error: Argument 1 to &quot;RFloatSub&quot; has incompatible type &quot;str&quot;; expected &quot;float&quot;  [arg-type]</span><span class="a">+</span><span class="c"> </span><span class="c"> class Pets4(RootModel[list[str]]):</span><span class="c">     pets: list[str]</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The review confirms the fix is correct and minimal. I already verified the full working tree contains only the 5 intended files. The work is complete.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong</strong><br><code>pydantic.RootModel[float](&quot;1.0&quot;)</code> raised a mypy <code>[arg-type]</code> error, while the analogous <code>BaseModel</code> field construction (<code>Foo(f=&quot;1.0&quot;)</code>) did not. The cause is in <code>pydantic/root_model.py:60</code>: the hand-written <code>RootModel.__init__</code> typed its positional <code>root</code> parameter as the class TypeVar <code>RootModelRootType</code>, which binds to <code>float</code> for <code>RootModel[float]</code>, rejecting a <code>str</code>. Because the pydantic mypy plugin does not regenerate <code>__init__</code> for a parametrized generic alias, this strict source signature is what type checkers use — with or without the plugin. <code>BaseModel.__init__</code>, by contrast, is <code>def __init__(self, /, **data: Any)</code>, so its field inputs are never rejected at the type level.</p>
+<p><strong>What I changed</strong></p>
+<ul><li><code>pydantic/root_model.py:60</code> — changed only the <code>root</code> parameter annotation from <code>RootModelRootType</code> to <code>Any</code>, giving parity with <code>BaseModel</code>. The class-level field <code>root: RootModelRootType</code> (governs the <code>.root</code> attribute type) and <code>model_construct</code>&#39;s signature were left untouched.</li><li>Added a regression scenario to <code>tests/mypy/modules/root_models.py</code> (<code>FloatRootModel = RootModel[float]; float_root = FloatRootModel(&#39;1.0&#39;); assert_type(float_root, RootModel[float])</code>) and recorded the desired no-error post-fix state in the three fixtures (<code>mypy-default_ini</code>, <code>pyproject-default_toml</code>, <code>mypy-plugin_ini</code>).</li></ul>
+<p><strong>Test evidence</strong> (mypy is not in the standard <code>./bt-test</code> container, so I ran the mypy suite in the same Docker image with the repo&#39;s <code>typechecking</code> dependency group):</p>
+<ul><li>Before fix: mypy emitted <code>Argument 1 to &quot;RootModel&quot; has incompatible type &quot;str&quot;; expected &quot;float&quot;  [arg-type]</code> on the new line under all three configs (error counts 9/9/4).</li><li>After fix: that error is gone with no new errors (counts 8/8/3). The actual <code>test_mypy.py</code> comparison against the fixtures passes: <strong>3 passed</strong> for <code>-k root_models</code>, and the <strong>full mypy suite: 53 passed</strong>.</li><li>Runtime gate <code>./bt-test tests/test_root_model.py</code>: <strong>78 passed</strong> (change is type-only).</li></ul>
+<p><strong>Requirements disposition</strong></p>
+<ul><li><em>&quot;if the value can be converted … mypy should not raise an error&quot; / parity between BaseModel-fields and RootModel-field</em>: <strong>Implemented</strong> — <code>root: Any</code> now accepts coercible input; verified the reported <code>[arg-type]</code> error is eliminated across all three mypy configs and regression-tested.</li><li><em>Initial check &quot;using Pydantic V2&quot;</em>: informational only; no action needed.</li></ul></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20260923-170312/12529/">Previous · #12529</a>
+  <a class="mid" href="/backtests/pydantic/run-20260923-170312/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20260923-170312/13089/">Next · #13089</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

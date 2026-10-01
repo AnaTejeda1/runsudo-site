@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#11922 Some Field attributes lost in JSON schema when using RootModel — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #11922 in pydantic/pydantic, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20260930-144322/11922/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20260930-144322/">run-20260930-144322</a><span aria-hidden="true">/</span><span aria-current="page">#11922</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/11922" rel="noopener" target="_blank">#11922</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/commit/162cc4937d199edfa362b1f953b9bf7dfe411653" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-144322</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Some Field attributes lost in JSON schema when using RootModel</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the issue in the same place, `GenerateJsonSchema`&#39;s model-level schema handling. For RootModel they add the root field&#39;s `examples` (made JSON-safe with `to_jsonable_python`) and `deprecated`, and apply the root field&#39;s `title` instead of the class name. The differences are in edge cases.
+
+1. **How the title is detected.** Patch A reads `root_field.title` whenever it is set. In pydantic, `field_title_generator` can fill in `FieldInfo.title` during schema building. With Patch A, a generated field title could then replace the model&#39;s class-name title, which was never asked for. Patch B only uses the title if the user set it explicitly (`&#39;title&#39; in root_field._attributes_set`), and its test checks exactly this case: `Gen` with `field_title_generator` still gets the title &#39;Gen&#39;.
+
+2. **Title priority.** Patch B places the explicit field title after the config `title` but before `model_title_generator`. That is reasonable: something the user wrote on the field should beat a generic generator. In Patch A, the field title only applies when no generator is configured.
+
+3. **Deprecated values.** Patch B also treats `deprecated=&#39;&#39;` as deprecated, which is a small extra edge case.
+
+4. **Tests.** Patch B&#39;s single test covers more ground:
+   - title, description, examples and deprecated together;
+   - the schema is the same when the model is nested under `$defs`;
+   - a config title overrides the field title;
+   - `field_title_generator` does not leak into the title;
+   - a string deprecation message.
+
+   Patch A&#39;s tests are clean and separate but only cover the basic cases and the config override.
+
+5. **Craft.** Patch B computes `root_field` once and reuses it, including in the existing description branch. This is tidier than Patch A&#39;s repeated `issubclass` checks.
+
+Overall, Patch B is more robust and better tested.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 29s<small>17 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,239 passed · 503 skipped · 12,742 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">46<small>vs 53 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/11922" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>When declaring a RootModel and adding a <code>Field</code> annotation to the <code>root</code> property that includes <code>examples</code>, those <code>examples</code> are not part of the generated JSON schema. This also applies to the <code>deprecated</code> attribute. The <code>title</code> attribute is also not applied or it is overwritten by the class name of the root model class.</p>
+<p>Most other attributes, such as <code>pattern</code> or <code>description</code> are exposed as expected. Furthermore, placing <code>examples</code> in <code>json_schema_extra</code> also works as expected.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">from typing import Annotated
+from pydantic import RootModel, Field
+
+class Foo(RootModel):
+    root: Annotated[str, Field(examples=[&quot;foo&quot;, &quot;bar&quot;], deprecated=True)]
+
+print(Foo.model_json_schema())  # does not include examples or deprecated.</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.11.4
+        pydantic-core version: 2.33.2
+          pydantic-core build: profile=release pgo=false
+               python version: 3.13.3 (main, May 22 2025, 01:38:47) [Clang 20.1.4 ]
+                     platform: macOS-15.5-arm64-arm-64bit-Mach-O
+             related packages: pydantic-settings-2.9.1 mypy-1.15.0 typing_extensions-4.13.2 fastapi-0.115.12
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+45</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/json_schema.py</span><span class="h">index 10d2f972..5ab9bc06 100644</span><span class="h">@@ -1641,8 +1641,12 @@ class GenerateJsonSchema:</span><span class="c">         from .main import BaseModel</span><span class="c">         from .root_model import RootModel</span><span class="c"> </span><span class="a">+        root_field = cls.__pydantic_fields__[&#39;root&#39;] if issubclass(cls, RootModel) else None</span><span class="a">+</span><span class="c">         if (config_title := config.get(&#39;title&#39;)) is not None:</span><span class="c">             json_schema.setdefault(&#39;title&#39;, config_title)</span><span class="a">+        elif root_field is not None and &#39;title&#39; in root_field._attributes_set:</span><span class="a">+            json_schema.setdefault(&#39;title&#39;, root_field.title)</span><span class="c">         elif model_title_generator := config.get(&#39;model_title_generator&#39;):</span><span class="c">             title = model_title_generator(cls)</span><span class="c">             if not isinstance(title, str):</span><span class="h">@@ -1667,9 +1671,15 @@ class GenerateJsonSchema:</span><span class="c"> </span><span class="c">         if docstring:</span><span class="c">             json_schema.setdefault(&#39;description&#39;, inspect.cleandoc(docstring))</span><span class="r">-        elif issubclass(cls, RootModel) and (root_description := cls.__pydantic_fields__[&#39;root&#39;].description):</span><span class="a">+        elif root_field is not None and (root_description := root_field.description):</span><span class="c">             json_schema.setdefault(&#39;description&#39;, root_description)</span><span class="c"> </span><span class="a">+        if root_field is not None:</span><span class="a">+            if root_field.examples is not None:</span><span class="a">+                json_schema.setdefault(&#39;examples&#39;, to_jsonable_python(root_field.examples))</span><span class="a">+            if bool(root_field.deprecated) or root_field.deprecated == &#39;&#39;:</span><span class="a">+                json_schema[&#39;deprecated&#39;] = True</span><span class="a">+</span><span class="c">         extra = config.get(&#39;extra&#39;)</span><span class="c">         if &#39;additionalProperties&#39; not in json_schema:  # This check is particularly important for `typed_dict_schema()`</span><span class="c">             if extra == &#39;allow&#39;:</span><span class="f">tests/test_root_model.py</span><span class="h">index 687ee17c..60db3a2d 100644</span><span class="h">@@ -721,3 +721,37 @@ def test_model_with_both_docstring_and_field_description() -&gt; None:</span><span class="c">         &#39;type&#39;: &#39;integer&#39;,</span><span class="c">         &#39;description&#39;: &#39;More detailed description&#39;,</span><span class="c">     }</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_with_field_examples_deprecated_title() -&gt; None:</span><span class="a">+    class Foo(RootModel[str]):</span><span class="a">+        root: Annotated[str, Field(examples=[&#39;foo&#39;, &#39;bar&#39;], deprecated=True, title=&#39;Foo title&#39;, description=&#39;d&#39;)]</span><span class="a">+</span><span class="a">+    assert Foo.model_json_schema() == {</span><span class="a">+        &#39;type&#39;: &#39;string&#39;,</span><span class="a">+        &#39;title&#39;: &#39;Foo title&#39;,</span><span class="a">+        &#39;description&#39;: &#39;d&#39;,</span><span class="a">+        &#39;examples&#39;: [&#39;foo&#39;, &#39;bar&#39;],</span><span class="a">+        &#39;deprecated&#39;: True,</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    class Bar(BaseModel):</span><span class="a">+        foo: Foo</span><span class="a">+</span><span class="a">+    assert Bar.model_json_schema()[&#39;$defs&#39;][&#39;Foo&#39;] == Foo.model_json_schema()</span><span class="a">+</span><span class="a">+    class FooCfg(Foo):</span><span class="a">+        model_config = ConfigDict(title=&#39;Cfg&#39;)</span><span class="a">+</span><span class="a">+    assert FooCfg.model_json_schema()[&#39;title&#39;] == &#39;Cfg&#39;</span><span class="a">+</span><span class="a">+    class Gen(RootModel[int]):</span><span class="a">+        model_config = ConfigDict(field_title_generator=lambda name, info: name.upper())</span><span class="a">+        root: int</span><span class="a">+</span><span class="a">+    assert Gen.model_json_schema()[&#39;title&#39;] == &#39;Gen&#39;</span><span class="a">+</span><span class="a">+    class DepMsg(RootModel[int]):</span><span class="a">+        root: Annotated[int, Field(deprecated=&#39;some message&#39;)]</span><span class="a">+</span><span class="a">+    assert DepMsg.model_json_schema()[&#39;deprecated&#39;] is True</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/commit/162cc4937d199edfa362b1f953b9bf7dfe411653" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+52</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/json_schema.py</span><span class="h">index 10d2f972e..1f76e861d 100644</span><span class="h">@@ -1649,7 +1649,10 @@ class GenerateJsonSchema:</span><span class="c">                 raise TypeError(f&#39;model_title_generator {model_title_generator} must return str, not {title.__class__}&#39;)</span><span class="c">             json_schema.setdefault(&#39;title&#39;, title)</span><span class="c">         if &#39;title&#39; not in json_schema:</span><span class="r">-            json_schema[&#39;title&#39;] = cls.__name__</span><span class="a">+            if issubclass(cls, RootModel) and (root_title := cls.__pydantic_fields__[&#39;root&#39;].title):</span><span class="a">+                json_schema[&#39;title&#39;] = root_title</span><span class="a">+            else:</span><span class="a">+                json_schema[&#39;title&#39;] = cls.__name__</span><span class="c"> </span><span class="c">         # BaseModel and dataclasses; don&#39;t use cls.__doc__ as it will contain the verbose class signature by default</span><span class="c">         if cls is BaseModel:</span><span class="h">@@ -1670,6 +1673,13 @@ class GenerateJsonSchema:</span><span class="c">         elif issubclass(cls, RootModel) and (root_description := cls.__pydantic_fields__[&#39;root&#39;].description):</span><span class="c">             json_schema.setdefault(&#39;description&#39;, root_description)</span><span class="c"> </span><span class="a">+        if issubclass(cls, RootModel):</span><span class="a">+            root_field = cls.__pydantic_fields__[&#39;root&#39;]</span><span class="a">+            if root_field.examples is not None:</span><span class="a">+                json_schema.setdefault(&#39;examples&#39;, to_jsonable_python(root_field.examples))</span><span class="a">+            if root_field.deprecated:</span><span class="a">+                json_schema[&#39;deprecated&#39;] = True</span><span class="a">+</span><span class="c">         extra = config.get(&#39;extra&#39;)</span><span class="c">         if &#39;additionalProperties&#39; not in json_schema:  # This check is particularly important for `typed_dict_schema()`</span><span class="c">             if extra == &#39;allow&#39;:</span><span class="f">tests/test_root_model.py</span><span class="h">index 687ee17c8..60e36c338 100644</span><span class="h">@@ -721,3 +721,44 @@ def test_model_with_both_docstring_and_field_description() -&gt; None:</span><span class="c">         &#39;type&#39;: &#39;integer&#39;,</span><span class="c">         &#39;description&#39;: &#39;More detailed description&#39;,</span><span class="c">     }</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_json_schema_field_examples() -&gt; None:</span><span class="a">+    class AModel(RootModel):</span><span class="a">+        root: str = Field(examples=[&#39;foo&#39;, &#39;bar&#39;])</span><span class="a">+</span><span class="a">+    assert AModel.model_json_schema() == {&#39;title&#39;: &#39;AModel&#39;, &#39;type&#39;: &#39;string&#39;, &#39;examples&#39;: [&#39;foo&#39;, &#39;bar&#39;]}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_json_schema_field_deprecated() -&gt; None:</span><span class="a">+    class AModel(RootModel):</span><span class="a">+        root: str = Field(deprecated=True)</span><span class="a">+</span><span class="a">+    assert AModel.model_json_schema() == {&#39;title&#39;: &#39;AModel&#39;, &#39;type&#39;: &#39;string&#39;, &#39;deprecated&#39;: True}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_json_schema_field_title() -&gt; None:</span><span class="a">+    class AModel(RootModel):</span><span class="a">+        root: str = Field(title=&#39;My Title&#39;)</span><span class="a">+</span><span class="a">+    assert AModel.model_json_schema() == {&#39;title&#39;: &#39;My Title&#39;, &#39;type&#39;: &#39;string&#39;}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_json_schema_field_title_overridden_by_config() -&gt; None:</span><span class="a">+    class AModel(RootModel):</span><span class="a">+        model_config = ConfigDict(title=&#39;Config Title&#39;)</span><span class="a">+        root: str = Field(title=&#39;Field Title&#39;)</span><span class="a">+</span><span class="a">+    assert AModel.model_json_schema() == {&#39;title&#39;: &#39;Config Title&#39;, &#39;type&#39;: &#39;string&#39;}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_json_schema_field_examples_and_deprecated_together() -&gt; None:</span><span class="a">+    class AModel(RootModel):</span><span class="a">+        root: Annotated[str, Field(examples=[&#39;foo&#39;], deprecated=True)]</span><span class="a">+</span><span class="a">+    assert AModel.model_json_schema() == {</span><span class="a">+        &#39;title&#39;: &#39;AModel&#39;,</span><span class="a">+        &#39;type&#39;: &#39;string&#39;,</span><span class="a">+        &#39;examples&#39;: [&#39;foo&#39;],</span><span class="a">+        &#39;deprecated&#39;: True,</span><span class="a">+    }</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p><code>RootModel.model_json_schema()</code> now includes the root field&#39;s <code>examples</code> and <code>deprecated</code>, and uses its explicit <code>title</code> instead of the class name. The final test run passed: 1217 passed, 101 skipped, 1 xfailed, 0 failed.</p>
+<p><strong>What was wrong:</strong> <code>Field(...)</code> settings on a normal model field are attached to that field&#39;s schema. A RootModel&#39;s <code>root</code> field is handled differently: those settings are thrown away. The only compensation was in <code>_update_class_schema</code> (<code>pydantic/json_schema.py</code>), which copied the root field&#39;s <code>description</code> and <code>json_schema_extra</code> onto the model schema. That is why <code>description</code>, <code>pattern</code> and <code>json_schema_extra</code> worked. <code>title</code>, <code>examples</code> and <code>deprecated</code> had no such handling, and the title always fell back to the class name.</p>
+<p><strong>What I changed</strong> (all in <code>_update_class_schema</code>, <code>pydantic/json_schema.py:1644-1681</code>):</p>
+<ul><li><strong>Lookup:</strong> the root field is looked up once, and the existing description branch now uses that lookup.</li><li><strong>Title order:</strong> config <code>title</code>, then the root field&#39;s title, then <code>model_title_generator</code>, then the class name. The root field&#39;s title only counts if it was set explicitly with <code>Field(title=...)</code>. The reviewer caught that a config <code>field_title_generator</code> also writes into the field&#39;s title; without this check, a RootModel using one would have gone from <code>&quot;Foo&quot;</code> to e.g. <code>&quot;ROOT&quot;</code> as its title.</li><li><strong>Examples:</strong> the root field&#39;s <code>examples</code> are added to the schema.</li><li><strong>Deprecated:</strong> <code>deprecated</code> is set to <code>True</code> when the root field is deprecated, using the same rule as normal fields, so a message string also counts.</li><li><strong><code>json_schema_extra</code>:</strong> still applied last, so it can still override all of the above.</li></ul>
+<p><strong>Test evidence:</strong> I added <code>test_model_with_field_examples_deprecated_title</code> to <code>tests/test_root_model.py</code>. It uses the exact example from the report, adding <code>title</code> and <code>description</code>, and compares the whole schema. It also checks:</p>
+<ul><li>a model that contains <code>Foo</code> as a field gets the same schema for <code>Foo</code> under <code>$defs</code>;</li><li>a config title still wins over the root field title;</li><li><code>field_title_generator</code> does not change the model title;</li><li><code>deprecated=&#39;some message&#39;</code> gives <code>deprecated: True</code>.</li></ul>
+<p>Before the fix it failed with <code>{&#39;title&#39;: &#39;Foo&#39;} != {&#39;title&#39;: &#39;Foo title&#39;}</code> and <code>examples</code>/<code>deprecated</code> missing. After the fix it passes. The final run covered <code>tests/test_root_model.py</code>, <code>tests/test_json_schema.py</code> and <code>tests/test_docs.py</code>.</p>
+<p><strong>Requirements:</strong></p>
+<ol><li><code>examples</code> on <code>root</code> missing from the schema: fixed and tested.</li><li><code>deprecated</code> on <code>root</code> missing: fixed and tested, including the message-string form.</li><li><code>title</code> on <code>root</code> ignored or replaced by the class name: fixed and tested, with config title and <code>field_title_generator</code> behaving as before.</li><li><code>description</code>, <code>pattern</code> and <code>json_schema_extra</code> already worked: still the same. The description branch was only refactored to share the lookup, and the existing tests pass.</li></ol>
+<p>One limitation: like the existing <code>description</code> handling, root-field <code>title</code> and <code>examples</code> only fill in values the inner type&#39;s schema hasn&#39;t already set. So if the inner type brings its own examples, those win. I kept this for consistency with the existing code; ordinary model fields behave the other way round.</p>
+<p>The changes are uncommitted in <code>pydantic/json_schema.py</code> and <code>tests/test_root_model.py</code>, with no scratch files.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20260930-144322/8998/">Previous · #8998</a>
+  <a class="mid" href="/backtests/pydantic/run-20260930-144322/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20260930-144322/11925/">Next · #11925</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

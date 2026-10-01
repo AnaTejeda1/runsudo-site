@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15189 Issue with chained resource transformations — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15189 in gohugoio/hugo, run 17 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260917-015623/15189/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260917-015623/">run-20260917-015623</a><span aria-hidden="true">/</span><span aria-current="page">#15189</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15189" rel="noopener" target="_blank">#15189</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 17 Sep 2026 · <span class="runid">run-20260917-015623</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Issue with chained resource transformations</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches produce correct content for the reported scenario, but they take different structural approaches and A is the cleaner root-cause fix. The bug is that once a chain runs, the inner `target` is replaced by the transformed resource, yet TransformWithContext still appends the new transform to the FULL chain (`append(r.transformations, t...)`), so the already-applied transforms (e.g. css.Build) get re-applied on top of an already-transformed target — exactly the &#39;wrongly including the full chain&#39; the issue describes. Patch A recognizes the transformed state (atomic `transformed` flag set in doInit) and, when set, starts a fresh chain of ONLY the new transforms against the already-transformed target: [css.Build] is dropped, [fingerprint] is applied once to the built CSS. This is the conceptually correct model (the target already embodies the prior chain) and it avoids re-executing the prior transforms and re-publishing their side effects — a real concern here since the trigger (`.Data.Artifacts`) already published artifacts. Patch B instead keeps the full [t1,t2] chain but redirects `target` back to a newly-tracked original `sourceTarget`, re-running the entire chain (including css.Build) from scratch. That yields correct content but re-does expensive work and risks duplicate publishing of the artifacts that were already emitted; it also adds a latent hazard: cloneTo sets `sourceTarget = newtTarget` from `r.target`, which if cloneTo runs after a transform captures a transformed target as the supposed &#39;source&#39;. On tests, A&#39;s unit test is at the exact transformation layer, fails-before (would yield &#39;start-t1-t1-t2&#39;) / passes-after, and crucially asserts `assertNoDuplicateWrites`, guarding the side-effect concern; B&#39;s integration test faithfully reproduces the issue with SHA assertions and also fails-before/passes-after, but does not guard against duplicate writes. Scope and craft are comparable in size, but A uses atomic access (appropriate given Hugo&#39;s concurrent rendering) and clear issue-referencing comments, while B&#39;s cloneTo mutation and re-run semantics are riskier. A resolves the issue at the root with less wasted work and a safer side-effect profile.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">21m 7s<small>20 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,691 passed · 99 skipped · 3,803 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">61<small>vs 53 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15189" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>See the fix in #15188.</p>
+<p>This has been an issue since we added this feature, but we haven&#39;t noticed it (or gotten reports about it) because the common setup is to set up the entire chain before starting to use it:</p>
+<pre><code class="lang-handlebars">{{- with . | css.Build $opts }}
+	{{- if hugo.IsDevelopment }}
+		&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot;&gt;
+	{{- else }}
+		{{- with . | fingerprint }}
+			&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot; integrity=&quot;{{ .Data.Integrity }}&quot;&gt;
+		{{- end }}
+	{{- end }}
+{{- end }}</code></pre>
+<p>In the above:</p>
+<ul><li><code>.RelPermalink</code> triggers the transformation of the entire chain in a streaming way.</li></ul>
+<p>With the recently added <code>.Data.Artifacts</code> in <code>css.Build</code> I discovered this issue by accident when doing something ala:</p>
+<pre><code class="lang-handlebars">{{- with . | css.Build $opts }}
+	{{ range .Data.Artifacts }}
+		{{ if eq .MediaType.MainType &quot;font&quot; }}
+			&lt;link rel=&quot;preload&quot; href=&quot;{{ .RelPermalink }}&quot; as=&quot;font&quot; type=&quot;{{ .MediaType.Type }}&quot;&gt;
+		{{ end }}
+	{{ end }}
+	{{- if hugo.IsDevelopment }}
+		&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot;&gt;
+	{{- else }}
+		{{- with . | fingerprint }}
+			&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot; integrity=&quot;{{ .Data.Integrity }}&quot;&gt;
+		{{- end }}
+	{{- end }}
+{{- end }}</code></pre>
+<p>In the above:</p>
+<ul><li><code>.Data</code> triggers the <code>css.Build</code> transformation.</li><li>Then <code>fingerprint</code> starts a new transformation with correct <code>.Content</code>, but wrongly including the full chain, including <code>css.Build</code></li></ul>
+<p>The above could be rewritten to the below and it would work as expected:</p>
+<pre><code class="lang-handlebars">{{- with . | css.Build $opts }}
+	{{- if hugo.IsDevelopment }}
+		&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot;&gt;
+	{{- else }}
+		{{- with . | fingerprint }}
+			{{ range .Data.Artifacts }}
+				{{ if eq .MediaType.MainType &quot;font&quot; }}
+					&lt;link rel=&quot;preload&quot; href=&quot;{{ .RelPermalink }}&quot; as=&quot;font&quot; type=&quot;{{ .MediaType.Type }}&quot;&gt;
+				{{ end }}
+			{{ end }}
+			&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot; integrity=&quot;{{ .Data.Integrity }}&quot;&gt;
+		{{- end }}
+	{{- end }}
+{{- end }}
+{{- end }}</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+60</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">resources/transform.go</span><span class="h">index 18c768b36..7d9dc94eb 100644</span><span class="h">@@ -22,6 +22,7 @@ import (</span><span class="c"> 	&quot;path&quot;</span><span class="c"> 	&quot;strings&quot;</span><span class="c"> 	&quot;sync&quot;</span><span class="a">+	&quot;sync/atomic&quot;</span><span class="c"> </span><span class="c"> 	&quot;github.com/gohugoio/hugo/common/constants&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/common/hashing&quot;</span><span class="h">@@ -370,8 +371,19 @@ func (r resourceAdapter) Transform(t ...ResourceTransformation) (ResourceTransfo</span><span class="c"> }</span><span class="c"> </span><span class="c"> func (r resourceAdapter) TransformWithContext(ctx context.Context, t ...ResourceTransformation) (ResourceTransformer, error) {</span><span class="a">+	var transformations []ResourceTransformation</span><span class="a">+	if r.transformed.Load() {</span><span class="a">+		// The existing transformations have already been applied to the</span><span class="a">+		// target; start a new chain from the transformed target with only</span><span class="a">+		// the newly supplied transformations. Otherwise the entire chain</span><span class="a">+		// would be re-applied. See issue #15189.</span><span class="a">+		transformations = t</span><span class="a">+	} else {</span><span class="a">+		transformations = append(r.transformations, t...)</span><span class="a">+	}</span><span class="a">+</span><span class="c"> 	r.resourceTransformations = &amp;resourceTransformations{</span><span class="r">-		transformations: append(r.transformations, t...),</span><span class="a">+		transformations: transformations,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	r.resourceAdapterInner = &amp;resourceAdapterInner{</span><span class="h">@@ -728,6 +740,7 @@ func (r *resourceAdapter) doInit(publish, setContent bool) error {</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		r.transformationsErr = r.getOrTransform(publish, setContent)</span><span class="a">+		r.transformed.Store(true)</span><span class="c"> 	})</span><span class="c"> </span><span class="c"> 	if publish &amp;&amp; r.publishOnce != nil {</span><span class="h">@@ -764,6 +777,10 @@ type resourceTransformations struct {</span><span class="c"> 	transformationsInit sync.Once</span><span class="c"> 	transformationsErr  error</span><span class="c"> 	transformations     []ResourceTransformation</span><span class="a">+</span><span class="a">+	// transformed reports whether the transformations in this chain have</span><span class="a">+	// already been applied to the target.</span><span class="a">+	transformed atomic.Bool</span><span class="c"> }</span><span class="c"> </span><span class="c"> // hasTransformationPermalinkHash reports whether any of the transformations</span><span class="f">resources/transform_test.go</span><span class="h">index feae43e41..53d3c0f16 100644</span><span class="h">@@ -329,6 +329,48 @@ func TestTransform(t *testing.T) {</span><span class="c"> 		assertNoDuplicateWrites(c, spec)</span><span class="c"> 	})</span><span class="c"> </span><span class="a">+	c.Run(&quot;Content read then chained transform&quot;, func(c *qt.C) {</span><span class="a">+		c.Parallel()</span><span class="a">+</span><span class="a">+		spec := newTestResourceSpec(specDescriptor{c: c})</span><span class="a">+</span><span class="a">+		createContentAppender := func(name, suffix string) resources.ResourceTransformation {</span><span class="a">+			return &amp;testTransformation{</span><span class="a">+				name: name,</span><span class="a">+				transform: func(ctx *resources.ResourceTransformationCtx) error {</span><span class="a">+					in := helpers.ReaderToString(ctx.From)</span><span class="a">+					fmt.Fprint(ctx.To, in+suffix)</span><span class="a">+					return nil</span><span class="a">+				},</span><span class="a">+			}</span><span class="a">+		}</span><span class="a">+</span><span class="a">+		t1 := createContentAppender(&quot;t1&quot;, &quot;-t1&quot;)</span><span class="a">+		t2 := createContentAppender(&quot;t2&quot;, &quot;-t2&quot;)</span><span class="a">+</span><span class="a">+		r := createTransformer(c, spec, &quot;f1.txt&quot;, &quot;start&quot;)</span><span class="a">+</span><span class="a">+		tr1, err := r.Transform(t1)</span><span class="a">+		c.Assert(err, qt.IsNil)</span><span class="a">+</span><span class="a">+		// Trigger the first transformation (as .Content or .Data would) before</span><span class="a">+		// chaining the next transformation onto it.</span><span class="a">+		content1, err := tr1.(resource.ContentProvider).Content(context.Background())</span><span class="a">+		c.Assert(err, qt.IsNil)</span><span class="a">+		c.Assert(content1, qt.Equals, &quot;start-t1&quot;)</span><span class="a">+</span><span class="a">+		tr2, err := tr1.Transform(t2)</span><span class="a">+		c.Assert(err, qt.IsNil)</span><span class="a">+</span><span class="a">+		content2, err := tr2.(resource.ContentProvider).Content(context.Background())</span><span class="a">+		c.Assert(err, qt.IsNil)</span><span class="a">+		// t1 must NOT be applied a second time: the new transformation applies</span><span class="a">+		// only to the already-transformed content.</span><span class="a">+		c.Assert(content2, qt.Equals, &quot;start-t1-t2&quot;)</span><span class="a">+</span><span class="a">+		assertNoDuplicateWrites(c, spec)</span><span class="a">+	})</span><span class="a">+</span><span class="c"> 	c.Run(&quot;Content many&quot;, func(c *qt.C) {</span><span class="c"> 		c.Parallel()</span><span class="c"> </span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+52</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">resources/transform.go</span><span class="h">index 18c768b36..cee11f8ba 100644</span><span class="h">@@ -82,6 +82,7 @@ func newResourceAdapter(spec *Spec, lazyPublish bool, target transformableResour</span><span class="c"> 	return &amp;resourceAdapter{</span><span class="c"> 		resourceTransformations: &amp;resourceTransformations{},</span><span class="c"> 		metaProvider:            target,</span><span class="a">+		sourceTarget:            target,</span><span class="c"> 		resourceAdapterInner: &amp;resourceAdapterInner{</span><span class="c"> 			ctx:         context.Background(),</span><span class="c"> 			spec:        spec,</span><span class="h">@@ -186,6 +187,12 @@ type resourceAdapter struct {</span><span class="c"> 	commonResource</span><span class="c"> 	*resourceTransformations</span><span class="c"> 	*resourceAdapterInner</span><span class="a">+</span><span class="a">+	// The original untransformed target. The inner target is replaced with the</span><span class="a">+	// transformed resource once the transformation chain has run, so any new</span><span class="a">+	// transformations appended to the chain must start from this.</span><span class="a">+	sourceTarget transformableResource</span><span class="a">+</span><span class="c"> 	metaProvider resource.ResourceMetaProvider</span><span class="c"> }</span><span class="c"> </span><span class="h">@@ -230,6 +237,7 @@ func (r *resourceAdapter) GetDependencyManager() identity.Manager {</span><span class="c"> </span><span class="c"> func (r resourceAdapter) cloneTo(targetPath string) resource.Resource {</span><span class="c"> 	newtTarget := r.target.cloneTo(targetPath)</span><span class="a">+	r.sourceTarget = newtTarget.(transformableResource)</span><span class="c"> 	newInner := &amp;resourceAdapterInner{</span><span class="c"> 		ctx:    r.ctx,</span><span class="c"> 		spec:   r.spec,</span><span class="h">@@ -379,7 +387,7 @@ func (r resourceAdapter) TransformWithContext(ctx context.Context, t ...Resource</span><span class="c"> 		spec:        r.spec,</span><span class="c"> 		Staler:      r.Staler,</span><span class="c"> 		publishOnce: &amp;publishOnce{},</span><span class="r">-		target:      r.target,</span><span class="a">+		target:      r.sourceTarget,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	return &amp;r, nil</span><span class="f">tpl/css/build_integration_test.go</span><span class="h">index 6ddb23331..e72a1bb03 100644</span><span class="h">@@ -537,6 +537,49 @@ ARTIFACT: {{ .RelPermalink }}|{{ .Permalink }}|{{ .MediaType.Type }}</span><span class="c"> 	b.AssertFileExists(&quot;public/css/main.css.map&quot;, true)</span><span class="c"> }</span><span class="c"> </span><span class="a">+func TestCSSBuildDataArtifactsAndThenFingerprint(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &quot;https://example.org/mysite/&quot;</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- assets/css/main.css --</span><span class="a">+@import &quot;/fonts/fonts.css&quot;;</span><span class="a">+body { color: #222; }</span><span class="a">+-- assets/fonts/fonts.css --</span><span class="a">+@font-face {</span><span class="a">+  font-family: &#39;Comic Neue&#39;;</span><span class="a">+  src: url(ComicNeue-Regular.woff2) format(&#39;woff2&#39;), url(ComicNeue-Regular.ttf) format(&#39;truetype&#39;);</span><span class="a">+}</span><span class="a">+-- assets/fonts/ComicNeue-Regular.ttf --</span><span class="a">+fakefontdata</span><span class="a">+-- assets/fonts/ComicNeue-Regular.woff2 --</span><span class="a">+fakefontdata2</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ with resources.Get &quot;css/main.css&quot; }}</span><span class="a">+ORIG CSS SHA256: {{ .Content | crypto.Hash &quot;sha256&quot; }}|</span><span class="a">+{{ with . | css.Build (dict &quot;minify&quot; true) }}</span><span class="a">+{{ range .Data.Artifacts }}</span><span class="a">+ARTIFACT: {{ .RelPermalink }}|{{ .Permalink }}|{{ .MediaType.Type }}</span><span class="a">+{{ end }}</span><span class="a">+BUILT CSS SHA256: {{ .Content | crypto.Hash &quot;sha256&quot; }}|</span><span class="a">+{{ with . | fingerprint }}</span><span class="a">+FINGERPRINTED: {{ .RelPermalink }}|</span><span class="a">+{{ end }}</span><span class="a">+{{ end }}</span><span class="a">+{{ end }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files, hugolib.TestOptOsFs())</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+		&quot;ARTIFACT: /mysite/css/ComicNeue-Regular-UA4ODE7N.ttf|&quot;,</span><span class="a">+		&quot;ORIG CSS SHA256: a2b878c05df0f346c3854caebd21f00bb0965b46628440b8ccb31ce675af6bfe|&quot;,</span><span class="a">+		&quot;BUILT CSS SHA256: 5f8757d5579386b8755e0df759c7eecfd069c385294dfe7bc3695862d7f218b1|&quot;,</span><span class="a">+		&quot;FINGERPRINTED: /mysite/css/main.5f8757d5579386b8755e0df759c7eecfd069c385294dfe7bc3695862d7f218b1.css|&quot;,</span><span class="a">+	)</span><span class="a">+}</span><span class="a">+</span><span class="c"> // Issue #14623</span><span class="c"> func TestCSSBuildLoadersPartial(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The background task&#39;s exit code 1 was just the final <code>grep</code> finding no failures (grep returns 1 on no match) — the results I already captured confirm everything passed. The reviewer confirmed the fix is correct, minimal, and complete.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong</strong></p>
+<p>In <code>resources/transform.go</code>, <code>TransformWithContext</code> unconditionally did <code>append(r.transformations, t...)</code> when chaining a new transformation onto a resource. That is fine when the whole chain is built before first use (the common pattern), but broken when the chain is executed partway — e.g. accessing <code>.Data</code>/<code>.Content</code> runs <code>css.Build</code> and bakes the result into the adapter&#39;s <code>target</code>, yet the <code>transformations</code> slice still lists <code>css.Build</code>. Chaining <code>| fingerprint</code> then produced a chain of <code>[css.Build, fingerprint]</code> applied to the already-built target, wrongly re-running <code>css.Build</code>.</p>
+<p><strong>What I changed</strong> (<code>resources/transform.go</code>, minimal 3-part fix)</p>
+<ol><li>Added a <code>transformed atomic.Bool</code> field to <code>resourceTransformations</code> (and the <code>sync/atomic</code> import). Since that struct is embedded as a pointer, the flag is shared across the value-copied adapter.</li><li>In <code>doInit</code>, set <code>r.transformed.Store(true)</code> inside the <code>transformationsInit.Do</code> closure once the chain has actually executed.</li><li>In <code>TransformWithContext</code>, when <code>r.transformed.Load()</code> is true, start a fresh chain from the already-transformed target using only the newly supplied transformations <code>t</code>; otherwise keep the original append behavior. This leaves the &quot;build chain before first use&quot; path (existing <code>Content two</code>/<code>Content two chained</code> subtests) unchanged.</li></ol>
+<p><strong>Test evidence</strong> (<code>resources/transform_test.go</code>)</p>
+<p>Added regression subtest <code>TestTransform/Content read then chained transform</code>, using non-idempotent append transformations and reading <code>.Content</code> <em>between</em> the two <code>Transform</code> calls to trigger the bug.</p>
+<ul><li>Before the fix: <strong>FAIL</strong> — got <code>start-t1-t1-t2</code> (t1 applied twice), wanted <code>start-t1-t2</code>.</li><li>After the fix: <strong>PASS</strong>. The full <code>TestTransform</code> and the entire <code>resources</code> package pass, with <strong>0 failures</strong> across the whole <code>-run TestTransform ./...</code> build.</li></ul>
+<p><strong>Reviewer verdict:</strong> correct, minimal, and complete; no unrelated changes. One low-risk out-of-scope observation was noted (a rebuild-granularity optimization in <code>hasTransformationPermalinkHash</code> for an unusual reverse ordering; no effect on output correctness or the reported bug) — I intentionally left it untouched to keep the change minimal.</p>
+<p>All changes are left uncommitted in the working tree. (The <code>AGENTS.md</code>/<code>CLAUDE.md</code> deletions shown in <code>git diff</code> were pre-existing before this task and are unrelated.)</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260917-015623/15174/">Previous · #15174</a>
+  <a class="mid" href="/backtests/hugo/run-20260917-015623/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260917-015623/15199/">Next · #15199</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

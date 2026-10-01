@@ -272,3 +272,8 @@ html.js .collapse[data-collapsed] .toggle,html.js .collapse[data-expanded] .togg
 .pager .mid{text-align:center;flex:1}
 .pager .disabled{color:#444}
 .pending{border:1px dashed #333;border-radius:14px;padding:32px;color:var(--muted);text-align:center}
+
+/* Run ids: runs are addressed by their harness run id, shown small beside the date */
+.runid{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:0}
+.run summary .date .runid{display:block;margin:2px 0 0 19px;white-space:nowrap}
+.card.summary .k .runid,.tk-head .runid{font-size:inherit}
