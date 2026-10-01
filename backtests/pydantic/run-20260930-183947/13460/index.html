@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13460 Unexpected serialization schema with `ValidateAs` — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13460 in pydantic/pydantic, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20260930-183947/13460/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20260930-183947/">run-20260930-183947</a><span aria-hidden="true">/</span><span aria-current="page">#13460</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13460" rel="noopener" target="_blank">#13460</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13487" rel="noopener" target="_blank">PR #13487</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-183947</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Unexpected serialization schema with <code>ValidateAs</code></h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way. They generate a schema for the annotated `source` type and attach it as a wrap-serializer on the after-validator, so `model_dump` stops warning. Both fall back to an any-type serializer when the source type cannot produce a schema.
+
+Patch B is more complete in three ways.
+
+1. It fixes the serialization-mode JSON schema. The `pydantic_js_annotation_functions` metadata makes serialization mode report `integer` instead of the `list[int]` validation schema. Its test checks both modes. Patch A leaves serialization-mode JSON schema describing the wrong type, a closely related inconsistency the issue implies.
+
+2. It suppresses the spurious `ArbitraryTypeWarning` that may come from probing the source type. Its tests run with warnings turned into errors, so they would fail before the fix, when the `PydanticSerializationUnexpectedValue` warning was emitted.
+
+3. It catches only `PydanticSchemaGenerationError`. Patch A catches the broader `GENERATE_SCHEMA_ERRORS` tuple, which could quietly swallow errors such as undefined forward annotations.
+
+On tests, Patch A&#39;s known-serialization test only checks `model_dump_json` output, which was `{&quot;x&quot;:8}` even before the fix; the bug was only a warning. It therefore likely would not fail before the change. Patch A also renames an existing test (minor churn) and adds only a TODO comment for a related concern. Patch B&#39;s tests are stronger and cover the fallback path.
+
+Overall, Patch B is the better-tested and more correct fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">8m 44s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,301 passed · 501 skipped · 12,802 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">80<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13460" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>From <a href="https://github.com/pydantic/pydantic/discussions/13232" rel="noopener nofollow" target="_blank">https://github.com/pydantic/pydantic/discussions/13232</a>:</p>
+<pre><code class="lang-python">import pydantic as p
+import typing as t
+
+def first_even(nums: list[int]) -&gt; int:
+    for i in nums:
+        if i%2 == 0:
+            return i
+    raise ValueError(&quot;Even not found.&quot;)
+
+class Foo(p.BaseModel):
+    x: t.Annotated[int, p.ValidateAs(list[int], first_even)]
+
+d = Foo(x=[1, 3, 5, 8, 6, 7])
+print(d)
+# x=8
+print(d.model_dump())
+# PydanticSerializationUnexpectedValue(Expected `list[int]` - serialized value may not be as expected [field_name=&#39;x&#39;, input_value=8, input_type=int])
+# {&#39;x&#39;: 8}</code></pre>
+<h3>Example Code</h3>
+<pre><code class="lang-Python"></code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">main</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+79</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/functional_validators.py</span><span class="h">index 6a38f619..07c3088d 100644</span><span class="h">@@ -14,7 +14,7 @@ from typing_extensions import Self</span><span class="c"> </span><span class="c"> from ._internal import _decorators, _generics</span><span class="c"> from .annotated_handlers import GetCoreSchemaHandler</span><span class="r">-from .errors import PydanticUserError</span><span class="a">+from .errors import PydanticSchemaGenerationError, PydanticUserError</span><span class="c"> from .version import version_short</span><span class="c"> from .warnings import ArbitraryTypeWarning, PydanticDeprecatedSince212</span><span class="c"> </span><span class="h">@@ -895,7 +895,31 @@ class ValidateAs:</span><span class="c"> </span><span class="c">     def __get_pydantic_core_schema__(self, source: Any, handler: GetCoreSchemaHandler) -&gt; core_schema.CoreSchema:</span><span class="c">         schema = handler(self.from_type)</span><span class="a">+</span><span class="a">+        # The validated value is an instance of the source type (not `from_type`),</span><span class="a">+        # so serialization should be performed according to the source type:</span><span class="a">+        try:</span><span class="a">+            with warnings.catch_warnings():</span><span class="a">+                warnings.simplefilter(&#39;ignore&#39;, ArbitraryTypeWarning)</span><span class="a">+                source_schema = handler(source)</span><span class="a">+        except PydanticSchemaGenerationError:</span><span class="a">+            # The source type isn&#39;t natively supported by Pydantic (e.g. an arbitrary type),</span><span class="a">+            # fall back to inferring the serialization from the value at runtime:</span><span class="a">+            serialization = core_schema.simple_ser_schema(&#39;any&#39;)</span><span class="a">+            metadata = None</span><span class="a">+        else:</span><span class="a">+            serialization = core_schema.wrap_serializer_function_ser_schema(</span><span class="a">+                function=lambda v, h: h(v), schema=source_schema</span><span class="a">+            )</span><span class="a">+            metadata = {</span><span class="a">+                &#39;pydantic_js_annotation_functions&#39;: [</span><span class="a">+                    lambda c, h: h(source_schema) if h.mode == &#39;serialization&#39; else h(c)</span><span class="a">+                ]</span><span class="a">+            }</span><span class="a">+</span><span class="c">         return core_schema.no_info_after_validator_function(</span><span class="c">             self.instantiation_hook,</span><span class="c">             schema=schema,</span><span class="a">+            serialization=serialization,</span><span class="a">+            metadata=metadata,</span><span class="c">         )</span><span class="f">tests/test_types.py</span><span class="h">index e70a0102..fcd4a357 100644</span><span class="h">@@ -6096,6 +6096,60 @@ def test_validate_from() -&gt; None:</span><span class="c">     assert ta.validate_python({&#39;a&#39;: 1}) == Arbitrary(1)</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_validate_as_serialization_uses_source_type() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/discussions/13232.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    def first_even(nums: list[int]) -&gt; int:</span><span class="a">+        return next(i for i in nums if i % 2 == 0)</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        x: Annotated[int, ValidateAs(list[int], first_even)]</span><span class="a">+</span><span class="a">+    m = Model(x=[1, 3, 8, 6])</span><span class="a">+    assert m.x == 8</span><span class="a">+</span><span class="a">+    with warnings.catch_warnings():</span><span class="a">+        warnings.simplefilter(&#39;error&#39;)</span><span class="a">+        assert m.model_dump() == {&#39;x&#39;: 8}</span><span class="a">+        assert m.model_dump_json() == &#39;{&quot;x&quot;:8}&#39;</span><span class="a">+</span><span class="a">+    assert Model.model_json_schema(mode=&#39;validation&#39;) == {</span><span class="a">+        &#39;properties&#39;: {&#39;x&#39;: {&#39;items&#39;: {&#39;type&#39;: &#39;integer&#39;}, &#39;title&#39;: &#39;X&#39;, &#39;type&#39;: &#39;array&#39;}},</span><span class="a">+        &#39;required&#39;: [&#39;x&#39;],</span><span class="a">+        &#39;title&#39;: &#39;Model&#39;,</span><span class="a">+        &#39;type&#39;: &#39;object&#39;,</span><span class="a">+    }</span><span class="a">+    assert Model.model_json_schema(mode=&#39;serialization&#39;) == {</span><span class="a">+        &#39;properties&#39;: {&#39;x&#39;: {&#39;title&#39;: &#39;X&#39;, &#39;type&#39;: &#39;integer&#39;}},</span><span class="a">+        &#39;required&#39;: [&#39;x&#39;],</span><span class="a">+        &#39;title&#39;: &#39;Model&#39;,</span><span class="a">+        &#39;type&#39;: &#39;object&#39;,</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_validate_as_serialization_arbitrary_source_type() -&gt; None:</span><span class="a">+    class Arbitrary:</span><span class="a">+        def __init__(self, a: int) -&gt; None:</span><span class="a">+            self.a = a</span><span class="a">+</span><span class="a">+    class ArbitraryModel(BaseModel):</span><span class="a">+        a: int</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Annotated[Arbitrary, ValidateAs(ArbitraryModel, instantiation_hook=lambda v: Arbitrary(a=v.a))])</span><span class="a">+</span><span class="a">+    value = ta.validate_python({&#39;a&#39;: 1})</span><span class="a">+    with warnings.catch_warnings():</span><span class="a">+        warnings.simplefilter(&#39;error&#39;)</span><span class="a">+        assert ta.dump_python(value) is value</span><span class="a">+</span><span class="a">+    assert ta.json_schema() == {</span><span class="a">+        &#39;properties&#39;: {&#39;a&#39;: {&#39;title&#39;: &#39;A&#39;, &#39;type&#39;: &#39;integer&#39;}},</span><span class="a">+        &#39;required&#39;: [&#39;a&#39;],</span><span class="a">+        &#39;title&#39;: &#39;ArbitraryModel&#39;,</span><span class="a">+        &#39;type&#39;: &#39;object&#39;,</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.skipif(sys.version_info &lt; (3, 12), reason=&quot;`Annotated` doesn&#39;t allow instances in &lt;3.12&quot;)</span><span class="c"> def test_skip_validation_arbitrary_type_object() -&gt; None:</span><span class="c">     &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/11997.</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13487" rel="noopener" target="_blank">PR #13487</a></span><span class="pm"><span class="a">+52</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">pydantic/functional_validators.py</span><span class="h">index 6a38f6195..336eff24d 100644</span><span class="h">@@ -794,6 +794,7 @@ else:</span><span class="c"> </span><span class="c">         @classmethod</span><span class="c">         def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -&gt; core_schema.CoreSchema:</span><span class="a">+            # Lazy import to avoid cycle:</span><span class="c">             from pydantic._internal._generate_schema import GENERATE_SCHEMA_ERRORS</span><span class="c"> </span><span class="c">             # use the generic _origin_ as the second argument to isinstance when appropriate</span><span class="h">@@ -894,8 +895,24 @@ class ValidateAs:</span><span class="c">         self.instantiation_hook = instantiation_hook</span><span class="c"> </span><span class="c">     def __get_pydantic_core_schema__(self, source: Any, handler: GetCoreSchemaHandler) -&gt; core_schema.CoreSchema:</span><span class="r">-        schema = handler(self.from_type)</span><span class="r">-        return core_schema.no_info_after_validator_function(</span><span class="a">+        # Lazy import to avoid cycle:</span><span class="a">+        from pydantic._internal._generate_schema import GENERATE_SCHEMA_ERRORS</span><span class="a">+</span><span class="a">+        from_type_schema = handler(self.from_type)</span><span class="a">+        schema = core_schema.no_info_after_validator_function(</span><span class="c">             self.instantiation_hook,</span><span class="r">-            schema=schema,</span><span class="a">+            schema=from_type_schema,</span><span class="a">+        )</span><span class="a">+        try:</span><span class="a">+            ser_schema = handler(source)</span><span class="a">+        except GENERATE_SCHEMA_ERRORS:</span><span class="a">+            ser_schema = core_schema.any_schema()</span><span class="a">+</span><span class="a">+        # TODO: pydantic-core currently doesn&#39;t accept it, but we should be able to provide an</span><span class="a">+        # arbitrary core schema for serialization (currently `simple_ser_schema()` can be used,</span><span class="a">+        # but only allow specifying a specific `&#39;type`). Working around this with a wrap serializer</span><span class="a">+        # is already done in other parts of the code base, so grep for similar cases when fixing:</span><span class="a">+        schema[&#39;serialization&#39;] = core_schema.wrap_serializer_function_ser_schema(</span><span class="a">+            function=lambda v, h: h(v), schema=ser_schema</span><span class="c">         )</span><span class="a">+        return schema</span><span class="f">tests/test_types.py</span><span class="h">index e70a0102e..df4d5f060 100644</span><span class="h">@@ -6080,7 +6080,7 @@ def test_skip_validation_json_schema():</span><span class="c">     }</span><span class="c"> </span><span class="c"> </span><span class="r">-def test_validate_from() -&gt; None:</span><span class="a">+def test_validate_as() -&gt; None:</span><span class="c">     class Arbitrary:</span><span class="c">         def __init__(self, a: int) -&gt; None:</span><span class="c">             self.a = a</span><span class="h">@@ -6096,6 +6096,37 @@ def test_validate_from() -&gt; None:</span><span class="c">     assert ta.validate_python({&#39;a&#39;: 1}) == Arbitrary(1)</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_validate_as_known_serialization() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13460&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    def first_even(nums: list[int]) -&gt; int:</span><span class="a">+        for i in nums:</span><span class="a">+            if i % 2 == 0:</span><span class="a">+                return i</span><span class="a">+        raise ValueError(&#39;Even not found.&#39;)</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        x: Annotated[int, ValidateAs(list[int], first_even)]</span><span class="a">+</span><span class="a">+    m = Model(x=[1, 2])</span><span class="a">+</span><span class="a">+    assert m.model_dump_json() == &#39;{&quot;x&quot;:2}&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_validate_as_unknown_serialization() -&gt; None:</span><span class="a">+</span><span class="a">+    class Arbitrary:</span><span class="a">+        def __init__(self, a: int) -&gt; None:</span><span class="a">+            self.a = a</span><span class="a">+</span><span class="a">+        def __eq__(self, other) -&gt; bool:</span><span class="a">+            return self.a == other.a</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Annotated[Arbitrary, ValidateAs(int, instantiation_hook=Arbitrary)])</span><span class="a">+</span><span class="a">+    assert ta.dump_python(Arbitrary(1)) == Arbitrary(1)</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.skipif(sys.version_info &lt; (3, 12), reason=&quot;`Annotated` doesn&#39;t allow instances in &lt;3.12&quot;)</span><span class="c"> def test_skip_validation_arbitrary_type_object() -&gt; None:</span><span class="c">     &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/11997.</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20260930-183947/13453/">Previous · #13453</a>
+  <a class="mid" href="/backtests/pydantic/run-20260930-183947/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20260930-183947/13465/">Next · #13465</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

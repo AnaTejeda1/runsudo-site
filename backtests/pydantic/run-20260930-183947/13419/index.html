@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13419 &quot;dictionary changed size during iteration&quot; during `model_rebuild` — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13419 in pydantic/pydantic, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20260930-183947/13419/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20260930-183947/">run-20260930-183947</a><span aria-hidden="true">/</span><span aria-current="page">#13419</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13419" rel="noopener" target="_blank">#13419</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13438" rel="noopener" target="_blank">PR #13438</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-183947</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">&quot;dictionary changed size during iteration&quot; during <code>model_rebuild</code></h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Patch A fixes the reported failure at the point where it happens. `LazyLocalNamespace.data` now builds its merged dict from `.copy()` snapshots of the live `dict` or `mappingproxy` namespaces. The copy is a single C-level operation, so it cannot hit &#39;dictionary changed size during iteration&#39;. The same snapshot is applied to `_decorator_infos_for_class`. A also fixes the sibling `AttributeError` race the issue mentions: the mock check now reads `cls.__dict__.get(attr)` instead of `getattr`, and `delattr` is wrapped in a try/except, in both `model_rebuild` and `rebuild_dataclass`. Its tests target the bug directly. One mutates a class dict from another thread while building `LazyLocalNamespace`, which would fail before the fix. Another is a scaled-down version of the issue&#39;s own concurrent deferred-rebuild reproducer. Two deterministic metaclass tests simulate the concurrent delattr. Patch B instead puts a global reentrant lock around `model_rebuild`, with a double-checked completeness test. This probably prevents the reported race, because the nested `Box.model_rebuild()` triggered by `__class_getitem__` re-enters on the same thread while other threads block. But it is a broader design change with more risk. It serializes every model rebuild process-wide. It can deadlock if user `__get_pydantic_core_schema__` code waits on another thread that rebuilds a model. It leaves `rebuild_dataclass` and other class-dict mutation paths unlocked. B&#39;s tests check reentrancy and the double-check behavior, but none reproduces the dictionary-iteration error or the delattr `AttributeError`. A is the more targeted, lower-risk fix with stronger regression tests.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">9m 15s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,263 passed · 501 skipped · 12,764 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">150<small>vs 168 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13419" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>This just hit us in production:</p>
+<pre><code>Traceback (most recent call last):
+  ...
+  File &quot;fastapi/routing.py&quot;, line 120, in app
+    response = await f(request)
+  File &quot;fastapi/routing.py&quot;, line 674, in app
+    raw_response = await run_endpoint_function(
+  File &quot;fastapi/routing.py&quot;, line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+  File &quot;starlette/concurrency.py&quot;, line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+  File &quot;anyio/to_thread.py&quot;, line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File &quot;anyio/_backends/_asyncio.py&quot;, line 2518, in run_sync_in_worker_thread
+    return await future
+  File &quot;anyio/_backends/_asyncio.py&quot;, line 1002, in run
+    result = context.run(func, *args)
+  ...
+  File &quot;...&quot;, line 157, in ...
+    MyPydanticClass(
+  File &quot;pydantic/_internal/_mock_val_ser.py&quot;, line 165, in handler
+    if cls.model_rebuild(raise_errors=False, _parent_namespace_depth=5) is not False:
+  File &quot;pydantic/main.py&quot;, line 683, in model_rebuild
+    return _model_construction.complete_model_class(
+  File &quot;pydantic/_internal/_model_construction.py&quot;, line 642, in complete_model_class
+    cls.__pydantic_fields__, cls.__pydantic_extra_info__ = rebuild_model_fields(
+  File &quot;pydantic/_internal/_fields.py&quot;, line 464, in rebuild_model_fields
+    new_field = _recreate_field_info(
+  File &quot;pydantic/_internal/_fields.py&quot;, line 502, in _recreate_field_info
+    ann = _typing_extra.eval_type(
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 442, in eval_type
+    return eval_type_backport(value, globalns, localns)
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 474, in eval_type_backport
+    return _eval_type_backport(value, globalns, localns, type_params)
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 511, in _eval_type_backport
+    return _eval_type(value, globalns, localns, type_params)
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 543, in _eval_type
+    evaluated = typing._eval_type(  # type: ignore
+  File &quot;typing.py&quot;, line 461, in _eval_type
+    return evaluate_forward_ref(t, globals=globalns, locals=localns,
+  File &quot;typing.py&quot;, line 1000, in evaluate_forward_ref
+    value = forward_ref.evaluate(globals=globals, locals=locals,
+  File &quot;annotationlib.py&quot;, line 207, in evaluate
+    return eval(code, globals=globals, locals=locals)
+  File &quot;&lt;string&gt;&quot;, line 1, in &lt;module&gt;
+    from __future__ import annotations
+  File &quot;pydantic/_internal/_namespace_utils.py&quot;, line 97, in __getitem__
+    return self.data[key]
+  File &quot;functools.py&quot;, line 1126, in __get__
+    val = self.func(instance)
+  File &quot;pydantic/_internal/_namespace_utils.py&quot;, line 91, in data
+    return {k: v for ns in self._namespaces for k, v in ns.items()}
+RuntimeError: dictionary changed size during iteration</code></pre>
+<p>Reproducer below.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">&quot;&quot;&quot;
+NOTE: Repro script generated with Claude Fable
+
+Repro: concurrent lazy `model_rebuild()` raises
+`RuntimeError: dictionary changed size during iteration`.
+
+Setup: a module using `from __future__ import annotations` defines models whose
+field types are only defined *later* in the same module. Building such a model&#39;s
+schema fails during class creation, so pydantic leaves it incomplete (mock
+validator) and defers the build to the first instantiation via
+`model_rebuild(raise_errors=False)`.
+
+If the first instantiations happen concurrently (e.g. FastAPI&#39;s threadpool
+serving the first requests after process start), multiple threads enter
+`model_rebuild()` for the same class simultaneously. `model_rebuild()` mutates
+the class `__dict__` (delattr/setattr of `__pydantic_core_schema__`,
+`__pydantic_validator__`, `__pydantic_serializer__`), while
+`NsResolver.types_namespace` includes the live `vars(cls)` of that class in the
+`LazyLocalNamespace` another thread is iterating during annotation evaluation
+(`LazyLocalNamespace.data`). Result:
+
+    RuntimeError: dictionary changed size during iteration
+
+The same race also intermittently produces
+    AttributeError: type object &#39;Box0&#39; has no attribute &#39;__pydantic_core_schema__&#39;
+from the delattr block at the top of `model_rebuild()`.
+
+Each round executes the module source into a fresh module (fresh, incomplete
+classes -- like a freshly started process) and races threads instantiating the
+models. Typically fires within a few dozen rounds (&lt; 1 min).
+
+Run: python pydantic_rebuild_race_repro.py
+&quot;&quot;&quot;
+
+import sys
+import threading
+import time
+import traceback
+import types
+
+import pydantic
+
+print(f&quot;python {sys.version}&quot;)
+print(f&quot;pydantic {pydantic.VERSION}&quot;)
+
+sys.setswitchinterval(1e-5)  # more frequent thread preemption; widens the race window
+
+N_GENERICS = 2  # generic origins shared by all models (parametrizing triggers origin.model_rebuild)
+N_LEAVES = 16  # leaf models, defined at the end of the module so everything before stays incomplete
+N_MODELS = 4  # top-level models, the ones instantiated by the racing threads
+N_METHODS = 60  # dummy methods to enlarge each class __dict__ (the dict iterated during annotation eval)
+N_THREADS = 32
+ROUNDS = 200
+RACE_WINDOW_S = 0.5
+
+
+def make_module_source() -&gt; str:
+    boxes = &quot; | &quot;.join(f&quot;Box{g}[Leaf{l}]&quot; for g in range(N_GENERICS) for l in range(N_LEAVES))
+    methods = [f&quot;    def method{m}(self) -&gt; None: ...&quot; for m in range(N_METHODS)]
+    lines = [&quot;from __future__ import annotations&quot;, &quot;from pydantic import BaseModel&quot;, &quot;&quot;]
+    # Top-level models come first: all their field types are still undefined here,
+    # so their schema build is deferred until first instantiation.
+    for i in range(N_MODELS):
+        lines += [f&quot;class Model{i}(BaseModel):&quot;, f&quot;    items: list[{boxes}] = []&quot;, *methods, &quot;&quot;]
+    for g in range(N_GENERICS):
+        lines += [f&quot;class Box{g}[T](BaseModel):&quot;, &quot;    value: T | None = None&quot;, &quot;    ref: Leaf0 | None = None&quot;, *methods, &quot;&quot;]
+    for l in range(N_LEAVES):
+        lines += [f&quot;class Leaf{l}(BaseModel):&quot;, &quot;    x: int = 0&quot;, &quot;&quot;]
+    return &quot;\n&quot;.join(lines)
+
+
+MODULE_SOURCE = make_module_source()
+
+errors: list[str] = []
+errors_lock = threading.Lock()
+
+
+def worker(barrier: threading.Barrier, model: type) -&gt; None:
+    barrier.wait()
+    end = time.monotonic() + RACE_WINDOW_S
+    while time.monotonic() &lt; end:
+        try:
+            model()  # first call hits the mock validator -&gt; lazy model_rebuild()
+        except Exception:
+            with errors_lock:
+                errors.append(traceback.format_exc())
+
+
+for rnd in range(ROUNDS):
+    # Fresh module =&gt; fresh incomplete classes, like a freshly started process.
+    mod = types.ModuleType(f&quot;repro_generated_{rnd}&quot;)
+    sys.modules[mod.__name__] = mod
+    exec(compile(MODULE_SOURCE, mod.__name__, &quot;exec&quot;), mod.__dict__)
+    models = [getattr(mod, f&quot;Model{i}&quot;) for i in range(N_MODELS)]
+    assert not models[0].__pydantic_complete__
+
+    barrier = threading.Barrier(N_THREADS)
+    threads = [threading.Thread(target=worker, args=(barrier, models[i % N_MODELS])) for i in range(N_THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    hits = [tb for tb in errors if &quot;changed size during iteration&quot; in tb]
+    if hits:
+        print(hits[0], file=sys.stderr)
+        print(f&quot;REPRODUCED in round {rnd}: RuntimeError: dictionary changed size during iteration&quot;)
+        sys.exit(1)
+    if errors:
+        first_line = errors[0].strip().splitlines()[-1]
+        print(f&quot;round {rnd}: {len(errors)} sibling race errors (e.g. {first_line})&quot;)
+        errors.clear()
+
+print(&quot;not reproduced&quot;)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">In Prod: Ubuntu Docker, in Dev:
+
+             pydantic version: 2.13.4
+        pydantic-core version: 2.46.4
+          pydantic-core build: profile=release pgo=false
+               python version: 3.14.6 | packaged by conda-forge | (main, Jun 12 2026, 08:47:56) [Clang 20.1.8 ]
+                     platform: macOS-26.5.1-arm64-arm-64bit-Mach-O
+             related packages: pyright-1.1.410 fastapi-0.136.3 pydantic-extra-types-2.11.1 email-validator-2.3.0 pydantic-settings-2.14.1 typing_extensions-4.15.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+144</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_decorators.py</span><span class="h">index 3b8f847e..f954ec37 100644</span><span class="h">@@ -502,7 +502,8 @@ def _decorator_infos_for_class(</span><span class="c">     res = DecoratorInfos()</span><span class="c">     to_replace: list[tuple[str, Any]] = []</span><span class="c"> </span><span class="r">-    for var_name, var_value in vars(typ).items():</span><span class="a">+    # Iterate over a snapshot, as the class namespace can be mutated concurrently (e.g. by `model_rebuild()`):</span><span class="a">+    for var_name, var_value in vars(typ).copy().items():</span><span class="c">         if isinstance(var_value, PydanticDescriptorProxy):</span><span class="c">             info = var_value.decorator_info</span><span class="c">             if isinstance(info, ValidatorDecoratorInfo):</span><span class="f">pydantic/_internal/_namespace_utils.py</span><span class="h">index d308f7e4..46b34b10 100644</span><span class="h">@@ -4,6 +4,7 @@ import sys</span><span class="c"> from collections.abc import Callable, Generator, Iterator, Mapping</span><span class="c"> from contextlib import contextmanager</span><span class="c"> from functools import cached_property</span><span class="a">+from types import MappingProxyType</span><span class="c"> from typing import Any, NamedTuple, TypeAlias, TypeVar</span><span class="c"> </span><span class="c"> from typing_extensions import ParamSpec, TypeAliasType, TypeVarTuple</span><span class="h">@@ -88,7 +89,12 @@ class LazyLocalNamespace(Mapping[str, Any]):</span><span class="c"> </span><span class="c">     @cached_property</span><span class="c">     def data(self) -&gt; dict[str, Any]:</span><span class="r">-        return {k: v for ns in self._namespaces for k, v in ns.items()}</span><span class="a">+        data: dict[str, Any] = {}</span><span class="a">+        for ns in self._namespaces:</span><span class="a">+            # The namespaces can be live mappings (e.g. `vars(cls)` of a class being rebuilt in another thread),</span><span class="a">+            # so we take an atomic snapshot using `copy()` instead of iterating over them directly:</span><span class="a">+            data.update(ns.copy() if isinstance(ns, (dict, MappingProxyType)) else ns)</span><span class="a">+        return data</span><span class="c"> </span><span class="c">     def __len__(self) -&gt; int:</span><span class="c">         return len(self.data)</span><span class="f">pydantic/dataclasses.py</span><span class="h">index 62d380f5..52fd3fd6 100644</span><span class="h">@@ -330,10 +330,14 @@ def rebuild_dataclass(</span><span class="c">         return None</span><span class="c"> </span><span class="c">     for attr in (&#39;__pydantic_core_schema__&#39;, &#39;__pydantic_validator__&#39;, &#39;__pydantic_serializer__&#39;):</span><span class="r">-        if attr in cls.__dict__ and not isinstance(getattr(cls, attr), _mock_val_ser.MockValSer):</span><span class="a">+        if attr in cls.__dict__ and not isinstance(cls.__dict__.get(attr), _mock_val_ser.MockValSer):</span><span class="c">             # Deleting the validator/serializer is necessary as otherwise they can get reused in</span><span class="c">             # pydantic-core. Same applies for the core schema that can be reused in schema generation.</span><span class="r">-            delattr(cls, attr)</span><span class="a">+            try:</span><span class="a">+                delattr(cls, attr)</span><span class="a">+            except AttributeError:</span><span class="a">+                # The attribute was concurrently deleted by a `rebuild_dataclass()` call in another thread.</span><span class="a">+                pass</span><span class="c"> </span><span class="c">     cls.__pydantic_complete__ = False</span><span class="c"> </span><span class="f">pydantic/main.py</span><span class="h">index 758a839c..b27dfbb5 100644</span><span class="h">@@ -688,12 +688,16 @@ class BaseModel(metaclass=_model_construction.ModelMetaclass):</span><span class="c">         cls.__pydantic_complete__ = False</span><span class="c"> </span><span class="c">         for attr in (&#39;__pydantic_core_schema__&#39;, &#39;__pydantic_validator__&#39;, &#39;__pydantic_serializer__&#39;):</span><span class="r">-            if attr in cls.__dict__ and not isinstance(getattr(cls, attr), _mock_val_ser.MockValSer):</span><span class="a">+            if attr in cls.__dict__ and not isinstance(cls.__dict__.get(attr), _mock_val_ser.MockValSer):</span><span class="c">                 # Deleting the validator/serializer is necessary as otherwise they can get reused in</span><span class="c">                 # pydantic-core. We do so only if they aren&#39;t mock instances, otherwise — as `model_rebuild()`</span><span class="c">                 # isn&#39;t thread-safe — concurrent model instantiations can lead to the parent validator being used.</span><span class="c">                 # Same applies for the core schema that can be reused in schema generation.</span><span class="r">-                delattr(cls, attr)</span><span class="a">+                try:</span><span class="a">+                    delattr(cls, attr)</span><span class="a">+                except AttributeError:</span><span class="a">+                    # The attribute was concurrently deleted by a `model_rebuild()` call in another thread.</span><span class="a">+                    pass</span><span class="c"> </span><span class="c">         if _types_namespace is not None:</span><span class="c">             rebuild_ns = _types_namespace</span><span class="f">tests/test_dataclasses.py</span><span class="h">index a32bc7ae..4e9e79ea 100644</span><span class="h">@@ -2618,6 +2618,23 @@ def test_rebuild_dataclass():</span><span class="c">     assert MyDataClass2.__pydantic_complete__</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_rebuild_dataclass_concurrent_attribute_deletion() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Simulate another thread deleting the core schema, validator and serializer during `rebuild_dataclass()`.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class RacingMeta(type):</span><span class="a">+        def __delattr__(cls, name: str) -&gt; None:</span><span class="a">+            # Another thread deletes the attribute first:</span><span class="a">+            super().__delattr__(name)</span><span class="a">+            super().__delattr__(name)</span><span class="a">+</span><span class="a">+    @pydantic.dataclasses.dataclass</span><span class="a">+    class MyDataClass(metaclass=RacingMeta):</span><span class="a">+        x: int</span><span class="a">+</span><span class="a">+    assert rebuild_dataclass(MyDataClass, force=True) is True</span><span class="a">+    assert dataclasses.asdict(MyDataClass(x=&#39;1&#39;)) == {&#39;x&#39;: 1}</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     &#39;dataclass_decorator&#39;,</span><span class="c">     [</span><span class="f">tests/test_forward_ref.py</span><span class="h">index 9b0325d2..32869ddf 100644</span><span class="h">@@ -2,6 +2,8 @@ import dataclasses</span><span class="c"> import platform</span><span class="c"> import re</span><span class="c"> import sys</span><span class="a">+import threading</span><span class="a">+import time</span><span class="c"> import typing</span><span class="c"> from typing import Annotated, Any, Generic, Optional, TypeVar, Union</span><span class="c"> </span><span class="h">@@ -1144,6 +1146,94 @@ def test_lazy_local_namespace_len() -&gt; None:</span><span class="c">     assert len(namespace) == 2</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_lazy_local_namespace_concurrent_class_mutation() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;The class namespace can be mutated by another thread (e.g. during `model_rebuild()`)</span><span class="a">+    while it is being merged in a `LazyLocalNamespace`.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    cls = type(&#39;Cls&#39;, (), {f&#39;attr_{i}&#39;: i for i in range(200)})</span><span class="a">+    stop = threading.Event()</span><span class="a">+</span><span class="a">+    def mutate() -&gt; None:</span><span class="a">+        # Continuously grow the class namespace:</span><span class="a">+        i = 0</span><span class="a">+        while not stop.is_set() and i &lt; 100_000:</span><span class="a">+            setattr(cls, f&#39;tmp_{i}&#39;, i)</span><span class="a">+            i += 1</span><span class="a">+</span><span class="a">+    old_switch_interval = sys.getswitchinterval()</span><span class="a">+    sys.setswitchinterval(1e-6)</span><span class="a">+    thread = threading.Thread(target=mutate)</span><span class="a">+    thread.start()</span><span class="a">+    try:</span><span class="a">+        end = time.monotonic() + 0.5</span><span class="a">+        while time.monotonic() &lt; end:</span><span class="a">+            namespace = LazyLocalNamespace({&#39;a&#39;: int}, vars(cls))</span><span class="a">+            assert namespace[&#39;attr_0&#39;] == 0</span><span class="a">+            assert namespace[&#39;a&#39;] is int</span><span class="a">+    finally:</span><span class="a">+        stop.set()</span><span class="a">+        thread.join()</span><span class="a">+        sys.setswitchinterval(old_switch_interval)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_concurrent_deferred_model_rebuild(create_module) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Instantiating models whose schema build was deferred from multiple threads at the same time</span><span class="a">+    triggers concurrent `model_rebuild()` calls, which should not fail.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    source = &#39;\n&#39;.join(</span><span class="a">+        [</span><span class="a">+            &#39;from __future__ import annotations&#39;,</span><span class="a">+            &#39;from typing import Generic, TypeVar&#39;,</span><span class="a">+            &#39;from pydantic import BaseModel&#39;,</span><span class="a">+            &#39;&#39;,</span><span class="a">+            &#39;class Model(BaseModel):&#39;,</span><span class="a">+            &#39;    items: list[Box[Leaf0] | Box[Leaf1] | Leaf0] = []&#39;,</span><span class="a">+            *(f&#39;    def method_{i}(self) -&gt; None: ...&#39; for i in range(60)),</span><span class="a">+            &#39;&#39;,</span><span class="a">+            &#39;T = TypeVar(&quot;T&quot;)&#39;,</span><span class="a">+            &#39;class Box(BaseModel, Generic[T]):&#39;,</span><span class="a">+            &#39;    value: T | None = None&#39;,</span><span class="a">+            &#39;    ref: Leaf0 | None = None&#39;,</span><span class="a">+            *(f&#39;    def method_{i}(self) -&gt; None: ...&#39; for i in range(60)),</span><span class="a">+            &#39;&#39;,</span><span class="a">+            &#39;class Leaf0(BaseModel):&#39;,</span><span class="a">+            &#39;    x: int = 0&#39;,</span><span class="a">+            &#39;&#39;,</span><span class="a">+            &#39;class Leaf1(BaseModel):&#39;,</span><span class="a">+            &#39;    y: int = 0&#39;,</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    old_switch_interval = sys.getswitchinterval()</span><span class="a">+    sys.setswitchinterval(1e-6)</span><span class="a">+    try:</span><span class="a">+        for _ in range(10):</span><span class="a">+            module = create_module(source)</span><span class="a">+            assert not module.Model.__pydantic_complete__</span><span class="a">+</span><span class="a">+            errors: list[BaseException] = []</span><span class="a">+            barrier = threading.Barrier(8)</span><span class="a">+</span><span class="a">+            def instantiate() -&gt; None:</span><span class="a">+                barrier.wait()</span><span class="a">+                try:</span><span class="a">+                    for _ in range(20):</span><span class="a">+                        m = module.Model(items=[{&#39;value&#39;: {&#39;x&#39;: 1}}])</span><span class="a">+                        assert m.items[0].value.x == 1</span><span class="a">+                except BaseException as e:</span><span class="a">+                    errors.append(e)</span><span class="a">+</span><span class="a">+            threads = [threading.Thread(target=instantiate) for _ in range(8)]</span><span class="a">+            for thread in threads:</span><span class="a">+                thread.start()</span><span class="a">+            for thread in threads:</span><span class="a">+                thread.join()</span><span class="a">+</span><span class="a">+            assert errors == []</span><span class="a">+    finally:</span><span class="a">+        sys.setswitchinterval(old_switch_interval)</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.xfail(</span><span class="c">     reason=&#39;While `get_cls_type_hints` uses the correct module ns for each base, `collect_model_fields` &#39;</span><span class="c">     &#39;will still use the `FieldInfo` instances from each base (see the `parent_fields_lookup` logic). &#39;</span><span class="f">tests/test_main.py</span><span class="h">index c87dae79..84390a64 100644</span><span class="h">@@ -2557,6 +2557,22 @@ def test_model_rebuild_zero_depth():</span><span class="c">     assert m.model_dump() == {&#39;x&#39;: 42}</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_model_rebuild_concurrent_attribute_deletion() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Simulate another thread deleting the core schema, validator and serializer during `model_rebuild()`.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class RacingMeta(type(BaseModel)):</span><span class="a">+        def __delattr__(cls, name: str) -&gt; None:</span><span class="a">+            # Another thread deletes the attribute first:</span><span class="a">+            super().__delattr__(name)</span><span class="a">+            super().__delattr__(name)</span><span class="a">+</span><span class="a">+    class Model(BaseModel, metaclass=RacingMeta):</span><span class="a">+        x: int</span><span class="a">+</span><span class="a">+    assert Model.model_rebuild(force=True) is True</span><span class="a">+    assert Model(x=&#39;1&#39;).model_dump() == {&#39;x&#39;: 1}</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.fixture(scope=&#39;session&#39;, name=&#39;InnerEqualityModel&#39;)</span><span class="c"> def inner_equality_fixture():</span><span class="c">     class InnerEqualityModel(BaseModel):</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13438" rel="noopener" target="_blank">PR #13438</a></span><span class="pm"><span class="a">+138</span> <span class="r">−30</span></span></div><pre class="diff"><span class="f">pydantic/dataclasses.py</span><span class="h">index 62d380f54..474289ec3 100644</span><span class="h">@@ -330,9 +330,13 @@ def rebuild_dataclass(</span><span class="c">         return None</span><span class="c"> </span><span class="c">     for attr in (&#39;__pydantic_core_schema__&#39;, &#39;__pydantic_validator__&#39;, &#39;__pydantic_serializer__&#39;):</span><span class="r">-        if attr in cls.__dict__ and not isinstance(getattr(cls, attr), _mock_val_ser.MockValSer):</span><span class="a">+        if attr in cls.__dict__ and not isinstance(</span><span class="a">+            getattr(cls, attr), (_mock_val_ser.MockCoreSchema, _mock_val_ser.MockValSer)</span><span class="a">+        ):</span><span class="c">             # Deleting the validator/serializer is necessary as otherwise they can get reused in</span><span class="c">             # pydantic-core. Same applies for the core schema that can be reused in schema generation.</span><span class="a">+            # We do so only if they aren&#39;t mock instances, otherwise concurrent reads of these attributes</span><span class="a">+            # (e.g. when instantiating the dataclass in another thread) can resolve them from the parent class.</span><span class="c">             delattr(cls, attr)</span><span class="c"> </span><span class="c">     cls.__pydantic_complete__ = False</span><span class="f">pydantic/main.py</span><span class="h">index 758a839c6..6bb1554e5 100644</span><span class="h">@@ -8,6 +8,7 @@ from __future__ import annotations as _annotations</span><span class="c"> </span><span class="c"> import operator</span><span class="c"> import sys</span><span class="a">+import threading</span><span class="c"> import types</span><span class="c"> import warnings</span><span class="c"> from collections.abc import Generator, Mapping</span><span class="h">@@ -78,6 +79,18 @@ IncEx: TypeAlias = set[int] | set[str] | Mapping[int, Union[&#39;IncEx&#39;, bool]] | Ma</span><span class="c"> </span><span class="c"> _object_setattr = _model_construction.object_setattr</span><span class="c"> </span><span class="a">+_rebuild_lock = threading.RLock()</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+A lock used to make model rebuilds thread-safe when first instantiating an incomplete model.</span><span class="a">+</span><span class="a">+Rebuilding a model isn&#39;t thread-safe (the class attributes are mutated during the rebuild,</span><span class="a">+while other threads may be reading them to perform validation/serialization), so `model_rebuild()`</span><span class="a">+calls are serialized using this lock. The lock is reentrant, as rebuilding a model can trigger the</span><span class="a">+rebuild of another one (e.g. when a generic origin is rebuilt during parametrization in</span><span class="a">+`__class_getitem__()`). For the same reason, the lock is global and not per-class: two threads</span><span class="a">+holding their own class&#39;s lock could otherwise request the other&#39;s and deadlock.</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+</span><span class="c"> </span><span class="c"> def _check_frozen(model_cls: type[BaseModel], name: str, value: Any) -&gt; None:</span><span class="c">     if model_cls.model_config.get(&#39;frozen&#39;):</span><span class="h">@@ -681,42 +694,54 @@ class BaseModel(metaclass=_model_construction.ModelMetaclass):</span><span class="c">             Returns `None` if the schema is already &quot;complete&quot; and rebuilding was not required.</span><span class="c">             If rebuilding _was_ required, returns `True` if rebuilding was successful, otherwise `False`.</span><span class="c">         &quot;&quot;&quot;</span><span class="r">-        already_complete = cls.__pydantic_complete__</span><span class="r">-        if already_complete and not force:</span><span class="a">+        # As the rebuild lock is global (not per model class), avoid needlessly holding it if the model is</span><span class="a">+        # already complete:</span><span class="a">+        if cls.__pydantic_complete__ and not force:</span><span class="c">             return None</span><span class="c"> </span><span class="r">-        cls.__pydantic_complete__ = False</span><span class="a">+        with _rebuild_lock:</span><span class="a">+            # Re-check inside the lock, as another thread may have rebuilt the model while we were waiting:</span><span class="a">+            already_complete = cls.__pydantic_complete__</span><span class="a">+            if already_complete and not force:</span><span class="a">+                return None</span><span class="c"> </span><span class="r">-        for attr in (&#39;__pydantic_core_schema__&#39;, &#39;__pydantic_validator__&#39;, &#39;__pydantic_serializer__&#39;):</span><span class="r">-            if attr in cls.__dict__ and not isinstance(getattr(cls, attr), _mock_val_ser.MockValSer):</span><span class="r">-                # Deleting the validator/serializer is necessary as otherwise they can get reused in</span><span class="r">-                # pydantic-core. We do so only if they aren&#39;t mock instances, otherwise — as `model_rebuild()`</span><span class="r">-                # isn&#39;t thread-safe — concurrent model instantiations can lead to the parent validator being used.</span><span class="r">-                # Same applies for the core schema that can be reused in schema generation.</span><span class="r">-                delattr(cls, attr)</span><span class="a">+            cls.__pydantic_complete__ = False</span><span class="c"> </span><span class="r">-        if _types_namespace is not None:</span><span class="r">-            rebuild_ns = _types_namespace</span><span class="r">-        elif _parent_namespace_depth &gt; 0:</span><span class="r">-            rebuild_ns = _typing_extra.parent_frame_namespace(parent_depth=_parent_namespace_depth, force=True) or {}</span><span class="r">-        else:</span><span class="r">-            rebuild_ns = {}</span><span class="a">+            for attr in (&#39;__pydantic_core_schema__&#39;, &#39;__pydantic_validator__&#39;, &#39;__pydantic_serializer__&#39;):</span><span class="a">+                if attr in cls.__dict__ and not isinstance(</span><span class="a">+                    getattr(cls, attr), (_mock_val_ser.MockCoreSchema, _mock_val_ser.MockValSer)</span><span class="a">+                ):</span><span class="a">+                    # Deleting the validator/serializer is necessary as otherwise they can get reused in</span><span class="a">+                    # pydantic-core. Same applies for the core schema that can be reused in schema generation.</span><span class="a">+                    # We do so only if they aren&#39;t mock instances, otherwise concurrent reads of these attributes</span><span class="a">+                    # — performed without holding the rebuild lock (e.g. when instantiating the model) — can</span><span class="a">+                    # resolve them from the parent class.</span><span class="a">+                    delattr(cls, attr)</span><span class="a">+</span><span class="a">+            if _types_namespace is not None:</span><span class="a">+                rebuild_ns = _types_namespace</span><span class="a">+            elif _parent_namespace_depth &gt; 0:</span><span class="a">+                rebuild_ns = (</span><span class="a">+                    _typing_extra.parent_frame_namespace(parent_depth=_parent_namespace_depth, force=True) or {}</span><span class="a">+                )</span><span class="a">+            else:</span><span class="a">+                rebuild_ns = {}</span><span class="c"> </span><span class="r">-        parent_ns = _model_construction.unpack_lenient_weakvaluedict(cls.__pydantic_parent_namespace__) or {}</span><span class="a">+            parent_ns = _model_construction.unpack_lenient_weakvaluedict(cls.__pydantic_parent_namespace__) or {}</span><span class="c"> </span><span class="r">-        ns_resolver = _namespace_utils.NsResolver(</span><span class="r">-            parent_namespace={**rebuild_ns, **parent_ns},</span><span class="r">-        )</span><span class="a">+            ns_resolver = _namespace_utils.NsResolver(</span><span class="a">+                parent_namespace={**rebuild_ns, **parent_ns},</span><span class="a">+            )</span><span class="c"> </span><span class="r">-        return _model_construction.complete_model_class(</span><span class="r">-            cls,</span><span class="r">-            _config.ConfigWrapper(cls.model_config, check=False),</span><span class="r">-            ns_resolver,</span><span class="r">-            raise_errors=raise_errors,</span><span class="r">-            # If the model was already complete, we don&#39;t need to call the hook again.</span><span class="r">-            call_on_complete_hook=not already_complete,</span><span class="r">-            is_force_rebuild=force,</span><span class="r">-        )</span><span class="a">+            return _model_construction.complete_model_class(</span><span class="a">+                cls,</span><span class="a">+                _config.ConfigWrapper(cls.model_config, check=False),</span><span class="a">+                ns_resolver,</span><span class="a">+                raise_errors=raise_errors,</span><span class="a">+                # If the model was already complete, we don&#39;t need to call the hook again.</span><span class="a">+                call_on_complete_hook=not already_complete,</span><span class="a">+                is_force_rebuild=force,</span><span class="a">+            )</span><span class="c"> </span><span class="c">     @classmethod</span><span class="c">     def model_validate(</span><span class="f">tests/test_main.py</span><span class="h">index c87dae793..f924cec99 100644</span><span class="h">@@ -2,6 +2,7 @@ import json</span><span class="c"> import platform</span><span class="c"> import re</span><span class="c"> import sys</span><span class="a">+import threading</span><span class="c"> import typing</span><span class="c"> import warnings</span><span class="c"> from collections import defaultdict</span><span class="h">@@ -2541,6 +2542,84 @@ def test_model_rebuild_localns():</span><span class="c">         C.model_rebuild(_types_namespace={&#39;A&#39;: A})</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.timeout(5)</span><span class="a">+def test_model_rebuild_nested_during_parametrization():</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        b: Optional[&#39;Box[Leaf]&#39;] = None</span><span class="a">+</span><span class="a">+    class Box(BaseModel, Generic[T]):</span><span class="a">+        leaf: Optional[&#39;Leaf&#39;] = None</span><span class="a">+</span><span class="a">+    class Leaf(BaseModel):</span><span class="a">+        x: int = 0</span><span class="a">+</span><span class="a">+    assert not Model.__pydantic_complete__</span><span class="a">+    assert not Box.__pydantic_complete__</span><span class="a">+</span><span class="a">+    # Rebuilding `Model` evaluates `Box[Leaf]`, and `__class_getitem__` then calls</span><span class="a">+    # `Box.model_rebuild()` on the same thread. Any locking added to the rebuild logic</span><span class="a">+    # must support this reentrancy:</span><span class="a">+    m = Model(b={&#39;leaf&#39;: {&#39;x&#39;: 1}})</span><span class="a">+    assert m.b.leaf.x == 1</span><span class="a">+    assert Model.__pydantic_complete__</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.skipif(sys.platform == &#39;emscripten&#39;, reason=&#39;no threading on emscripten&#39;)</span><span class="a">+def test_model_rebuild_already_rebuilt_by_other_thread():</span><span class="a">+    schema_gen_entered = threading.Event()</span><span class="a">+    resume_schema_gen = threading.Event()</span><span class="a">+    hook_calls: list[type] = []</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        x: &#39;Gate&#39;</span><span class="a">+</span><span class="a">+        @classmethod</span><span class="a">+        def __pydantic_on_complete__(cls) -&gt; None:</span><span class="a">+            hook_calls.append(cls)</span><span class="a">+</span><span class="a">+    class Gate:</span><span class="a">+        @classmethod</span><span class="a">+        def __get_pydantic_core_schema__(cls, source_type, handler):</span><span class="a">+            schema_gen_entered.set()</span><span class="a">+            resume_schema_gen.wait(timeout=10)</span><span class="a">+            return core_schema.int_schema()</span><span class="a">+</span><span class="a">+    assert not Model.__pydantic_complete__</span><span class="a">+</span><span class="a">+    results: dict[str, bool | None] = {}</span><span class="a">+    t2_started = threading.Event()</span><span class="a">+</span><span class="a">+    def rebuild(key: str) -&gt; None:</span><span class="a">+        if key == &#39;t2&#39;:</span><span class="a">+            t2_started.set()</span><span class="a">+        results[key] = Model.model_rebuild(_types_namespace={&#39;Gate&#39;: Gate})</span><span class="a">+</span><span class="a">+    # The first thread acquires the rebuild lock and waits in schema generation:</span><span class="a">+    t1 = threading.Thread(target=rebuild, args=(&#39;t1&#39;,), daemon=True)</span><span class="a">+    t1.start()</span><span class="a">+    assert schema_gen_entered.wait(timeout=10)</span><span class="a">+</span><span class="a">+    # While the first thread is waiting on `resume_schema_gen`, `Model` can&#39;t become complete,</span><span class="a">+    # so the second thread is guaranteed to pass the unlocked completeness check and block on the lock:</span><span class="a">+    t2 = threading.Thread(target=rebuild, args=(&#39;t2&#39;,), daemon=True)</span><span class="a">+    t2.start()</span><span class="a">+    assert t2_started.wait(timeout=10)</span><span class="a">+    assert t2.is_alive()</span><span class="a">+    assert &#39;t2&#39; not in results</span><span class="a">+</span><span class="a">+    resume_schema_gen.set()</span><span class="a">+    t1.join(timeout=10)</span><span class="a">+    t2.join(timeout=10)</span><span class="a">+    assert not t1.is_alive()</span><span class="a">+    assert not t2.is_alive()</span><span class="a">+</span><span class="a">+    assert results == {&#39;t1&#39;: True, &#39;t2&#39;: None}</span><span class="a">+    assert hook_calls == [Model]</span><span class="a">+    assert Model(x=1).x == 1</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_model_rebuild_zero_depth():</span><span class="c">     class Model(BaseModel):</span><span class="c">         x: &#39;X_Type&#39;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20260930-183947/13376/">Previous · #13376</a>
+  <a class="mid" href="/backtests/pydantic/run-20260930-183947/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20260930-183947/13422/">Next · #13422</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

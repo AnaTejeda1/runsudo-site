@@ -12,6 +12,20 @@
       "runs": [
         {
           "date": "2026-09-30",
+          "id": "run-20260930-183947",
+          "source_runs": [
+            "run-20260930-183947"
+          ],
+          "tickets": 30,
+          "better": 25,
+          "par": 0,
+          "worse": 2,
+          "error": 3,
+          "notes": "Foreman lane (the factory solver) on the same sample as the Opus 5.5 run",
+          "footnote": "This run used a different solver, the foreman factory lane, on the same 30 tickets as the Opus 5.5 run of the same day. The three errors are all tooling, not judgement: on two Rust tickets (13621, 13661) the agent's test gate ran against a stale compiled extension, so it saw its own regression tests fail and declined to commit; on 13257 the agent hung itself on a huge number in a probe and was killed at the step time limit. Every other ticket passed verification and audited clean."
+        },
+        {
+          "date": "2026-09-30",
           "id": "run-20260930-144322",
           "source_runs": [
             "run-20260930-134012",
