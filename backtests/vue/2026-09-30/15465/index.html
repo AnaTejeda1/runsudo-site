@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15465 [compiler-sfc] Typo &#39;exit&#39; instead of &#39;leave&#39; in estree-walker causes missing ASI guard and runtime error with consecutive awaits — vuejs/core backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #15465 in vuejs/core, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/2026-09-30/15465/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/2026-09-30/">2026-09-30</a><span aria-hidden="true">/</span><span aria-current="page">#15465</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15465" rel="noopener" target="_blank">#15465</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/commit/54097087a0918b98f16c84599b1a6d654e952ca7" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026</span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">[compiler-sfc] Typo &#39;exit&#39; instead of &#39;leave&#39; in estree-walker causes missing ASI guard and runtime error with consecutive awaits</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same source change: `exit` becomes `leave` in the estree-walker options in compileScript.ts. This fixes the root cause the issue identifies. `scope.pop()` now runs when leaving a BlockStatement, so the scope stack stays correct and the ASI guard is emitted for later awaits. Correctness is therefore identical, and the difference comes down to the tests. Patch A&#39;s test reproduces the issue&#39;s scenario: a nested block followed by two consecutive awaits. It then runs the compiled output via `new Function` with a stubbed `_withAsyncContext` and asserts that `setup` resolves. That checks the user-visible failure directly, the `TypeError: (...) is not a function` caused by the missing semicolon. It would fail before the fix and pass after it, and it does not depend on exact output formatting. Patch B&#39;s test builds a similar scenario but asserts on exact substrings of the generated code, including a hard-coded newline and 8-space indentation (`__restore()\n)\n        ;(`). It does catch the regression, but it is tied to whitespace and codegen layout and only checks for the semicolon, not runtime behaviour. Patch B&#39;s placement next to the related await-detection tests is slightly more in keeping with the file, but that does not outweigh Patch A&#39;s more robust behavioural test. Scope is minimal and equal in both. Overall, A is moderately better on test quality.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1m 50s<small>8 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,720 passed · 6 skipped · 3,726 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">16<small>vs 21 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15465" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.40</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNp9kk9PAyEQxb/KhIttUln/xYNumqjxoAc12ngiMevuuEVZIDBsa0y/u8M21h60J8j8HsN7A1/iwnvZJxRnoox10J4gIiU/VbYo4FDChf0Ei5GwgVfj6g8Y+RTnGIEcxNp5nMBrIpb0GMA7H6FJmCHNkUk7Vla/wYhCwjF8KQtQOxudQWlcO9rbbr3H2pWyw81HEmYLN2ixTqT73NPvG77GQLWoNEVlhxUegut0RBmQ2/Y4Ohyf/4eOMiqLdVCOWBJ23lSE07LR/XTGZsoi78piQ8REEAe1b7qV79FZntQQQ4nadV4bDPeeNPtU4mwdMLPKGLe4HWo5+uSnXs+x/vij/h6XuabEA3vF0KMSG0ZVaJHW+PrpDpe838DONcmwegd8zOl5hs6uZZfJNmx7Sze4vem8C6RtO4vXS0Ibf0Jlo1m5GvRK8He52hH91+6xPBnO8bPyFF8oPmPIXXmEp/JAHovVNzTb1oo=" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNp9kk9PAyEQxb/KhIttUln/xYNumqjxoAc12ngiMevuuEVZIDBsa0y/u8M21h60J8j8HsN7A1/iwnvZJxRnoox10J4gIiU/VbYo4FDChf0Ei5GwgVfj6g8Y+RTnGIEcxNp5nMBrIpb0GMA7H6FJmCHNkUk7Vla/wYhCwjF8KQtQOxudQWlcO9rbbr3H2pWyw81HEmYLN2ixTqT73NPvG77GQLWoNEVlhxUegut0RBmQ2/Y4Ohyf/4eOMiqLdVCOWBJ23lSE07LR/XTGZsoi78piQ8REEAe1b7qV79FZntQQQ4nadV4bDPeeNPtU4mwdMLPKGLe4HWo5+uSnXs+x/vij/h6XuabEA3vF0KMSG0ZVaJHW+PrpDpe838DONcmwegd8zOl5hs6uZZfJNmx7Sze4vem8C6RtO4vXS0Ibf0Jlo1m5GvRK8He52hH91+6xPBnO8bPyFF8oPmPIXXmEp/JAHovVNzTb1oo=</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>Open the SFC Playground link.</li><li>Click on the <strong>&quot;JS&quot;</strong> tab in the right panel to view the compiled output.</li><li>Observe the compiled code for the two <code>await</code> statements.</li><li>Notice that there is no semicolon (<code>;</code>) inserted between the two <code>_withAsyncContext</code> blocks.</li></ol>
+<h3>What is expected?</h3>
+<ol><li>Open the SFC Playground link.</li><li>Click on the <strong>&quot;JS&quot;</strong> tab in the right panel to view the compiled output.</li><li>Observe the compiled code for the two <code>await</code> statements.</li><li>Notice that there is no semicolon (<code>;</code>) inserted between the two <code>_withAsyncContext</code> blocks.</li></ol>
+<h3>What is actually happening?</h3>
+<h3><strong>What is actually happening? *</strong></h3>
+<pre><code class="lang-markdown">The ASI guard (`;`) is missing. 
+
+Because of this, the JavaScript engine interprets the second statement as a function call invoked on the result of the first statement, causing a runtime error: `TypeError: (...) is not a function`.
+</code></pre>
+<p>([<strong>temp,</strong>restore] = _withAsyncContext(() =&gt; Promise.resolve(1))),<br>await __temp,<br>__restore()<br>)( // &lt;--- RUNTIME ERROR<br>([<strong>temp,</strong>restore] = _withAsyncContext(() =&gt; Promise.resolve(2))),<br>await __temp,<br>__restore()<br>)</p>
+<pre><code>
+### System Info
+</code></pre>
+<p>System:<br>OS: Linux 5.10 Debian GNU/Linux 11 (bullseye) 11 (bullseye)<br>CPU: (4) x64 AMD EPYC 9575F 64-Core Processor<br>Memory: 6.69 GB / 11.65 GB<br>Container: Yes<br>Shell: 5.1.4 - /bin/bash<br>Binaries:<br>Node: 24.14.1 - /root/.nvm/versions/node/v24.14.1/bin/node<br>Yarn: 1.22.22 - /root/.yarn/bin/yarn<br>npm: 11.11.0 - /root/.nvm/versions/node/v24.14.1/bin/npm<br>pnpm: 10.33.0 - /root/.nvm/versions/node/v24.14.1/bin/pnpm<br>Browsers:<br>Chrome: 150.0.7871.181<br>npmPackages:<br>vue: ^3.5.40 =&gt; 3.5.40</p>
+<pre><code>
+### Any additional comments?
+
+**Root Cause:**
+The bug is caused by a typo in the AST walker configuration inside `compiler-sfc`. The compiler uses `estree-walker` which expects the hooks `{ enter, leave }`. However, the code currently passes `{ enter, exit }`.
+
+Since `exit` is not a valid hook in `estree-walker`, it is never called. Consequently, `scope.pop()` is never executed when leaving a `BlockStatement` (like the `if` block in the reproduction). This corrupts the `scope` stack, causing the `needsSemi` calculation to fail for all subsequent `AwaitExpression` nodes.
+
+**Proposed Fix:**
+Simply change `exit` to `leave` in the walker options:
+</code></pre>
+<ul><li>exit(node2) {</li><li>leave(node2) { if (node2.type === &quot;BlockStatement&quot;) scope.pop(); }</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+15</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/compiler-sfc/__tests__/compileScript.spec.ts</span><span class="h">index d54541019..2338d5ee9 100644</span><span class="h">@@ -960,6 +960,20 @@ describe(&#39;SFC compile &lt;script setup&gt;&#39;, () =&gt; {</span><span class="c">       assertAwaitDetection(`if (ok) { await foo } else { await bar }`)</span><span class="c">     })</span><span class="c"> </span><span class="a">+    // should prepend semicolon after leaving a nested block</span><span class="a">+    test(&#39;consecutive awaits after a nested block statement&#39;, () =&gt; {</span><span class="a">+      // not using assertAwaitDetection to avoid a snapshot</span><span class="a">+      const { content } = compile(`&lt;script setup&gt;if (ok) {</span><span class="a">+        if (a) { foo() }</span><span class="a">+        await 1</span><span class="a">+        await 2</span><span class="a">+      }&lt;/script&gt;`)</span><span class="a">+      expect(content).toMatch(`let __temp, __restore`)</span><span class="a">+      expect(content).toMatch(`async setup(`)</span><span class="a">+      expect(content).toMatch(`__restore()\n)\n        ;(`)</span><span class="a">+      expect(content).not.toMatch(`__restore()\n)\n        (`)</span><span class="a">+    })</span><span class="a">+</span><span class="c">     test(&#39;multiple `if` nested statements&#39;, () =&gt; {</span><span class="c">       assertAwaitDetection(`if (ok) {</span><span class="c">         let a = &#39;foo&#39;</span><span class="f">packages/compiler-sfc/src/compileScript.ts</span><span class="h">index d2047c5b2..901196235 100644</span><span class="h">@@ -669,7 +669,7 @@ export function compileScript(</span><span class="c">             )</span><span class="c">           }</span><span class="c">         },</span><span class="r">-        exit(node: Node) {</span><span class="a">+        leave(node: Node) {</span><span class="c">           if (node.type === &#39;BlockStatement&#39;) scope.pop()</span><span class="c">         },</span><span class="c">       })</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/commit/54097087a0918b98f16c84599b1a6d654e952ca7" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+20</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/compiler-sfc/__tests__/compileScript.spec.ts</span><span class="h">index d54541019..a1cc885cd 100644</span><span class="h">@@ -1026,6 +1026,25 @@ describe(&#39;SFC compile &lt;script setup&gt;&#39;, () =&gt; {</span><span class="c">         false,</span><span class="c">       )</span><span class="c">     })</span><span class="a">+</span><span class="a">+    // #15465</span><span class="a">+    test(&#39;await statements after a nested block should be separated&#39;, async () =&gt; {</span><span class="a">+      const { content } = compile(</span><span class="a">+        `&lt;script setup&gt;</span><span class="a">+        if (true) {</span><span class="a">+          if (false) {}</span><span class="a">+          await Promise.resolve(1)</span><span class="a">+          await Promise.resolve(2)</span><span class="a">+        }</span><span class="a">+        &lt;/script&gt;`,</span><span class="a">+        { genDefaultAs: &#39;_sfc_&#39; },</span><span class="a">+      )</span><span class="a">+      const component = new Function(</span><span class="a">+        &#39;_withAsyncContext&#39;,</span><span class="a">+        `${content.replace(/^import .*\n/, &#39;&#39;)};return _sfc_`,</span><span class="a">+      )((getAwaitable: () =&gt; unknown) =&gt; [getAwaitable(), () =&gt; {}])</span><span class="a">+      await expect(component.setup({}, { expose() {} })).resolves.toEqual({})</span><span class="a">+    })</span><span class="c">   })</span><span class="c"> </span><span class="c">   describe(&#39;errors&#39;, () =&gt; {</span><span class="f">packages/compiler-sfc/src/compileScript.ts</span><span class="h">index d2047c5b2..901196235 100644</span><span class="h">@@ -669,7 +669,7 @@ export function compileScript(</span><span class="c">             )</span><span class="c">           }</span><span class="c">         },</span><span class="r">-        exit(node: Node) {</span><span class="a">+        leave(node: Node) {</span><span class="c">           if (node.type === &#39;BlockStatement&#39;) scope.pop()</span><span class="c">         },</span><span class="c">       })</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>I fixed the bug: in <code>compileScript.ts</code> the &quot;leaving a block&quot; hook was named <code>exit</code>, which the AST walker never calls. I renamed it to <code>leave</code>, added a regression test for it, and the tests pass.</p>
+<p><strong>What was wrong:</strong> The compiler keeps a stack of the blocks it is inside, and uses it to decide whether a compiled <code>await</code> needs a <code>;</code> in front of it. The walker in <code>node_modules/estree-walker</code> only calls <code>enter</code> and <code>leave</code>, so the code that pops a block off the stack never ran. After the walker left a nested <code>{ }</code> block, it kept checking against that inner block. As a result, a later <code>await</code> that needed the <code>;</code> didn&#39;t get one. Two compiled awaits in a row then read as a function call, which causes the <code>TypeError: (...) is not a function</code> in the report.</p>
+<p><strong>What I changed:</strong></p>
+<ul><li><code>packages/compiler-sfc/src/compileScript.ts:672</code>: <code>exit(node: Node)</code> is now <code>leave(node: Node)</code>. This is the fix proposed in the report.</li><li><code>packages/compiler-sfc/__tests__/compileScript.spec.ts</code>: a new test, &quot;consecutive awaits after a nested block statement&quot;. It compiles: <code>if (ok) { if (a) { foo() } await 1 await 2 }</code> It checks that the second compiled await starts with <code>;(</code> and that the bad form <code>)\n(</code> is gone. It calls <code>compile</code> directly rather than the usual <code>assertAwaitDetection</code> helper: that helper also compares against a snapshot, and the test runner won&#39;t save new snapshots, so the test would fail on the snapshot step instead of the real check.</li></ul>
+<p><strong>Test evidence:</strong></p>
+<ul><li>On the original code the new test fails with an assertion error, and the compiled output shows <code>)\n(</code> between the two awaits. With <code>leave</code> it passes. I checked it both ways.</li><li>All <code>compileScript.spec.ts</code> tests and everything under <code>__tests__/compileScript/</code> pass: 11 files, 326 passed, 1 skipped (that skip already existed). The existing saved outputs for nested-block awaits are unchanged.</li></ul>
+<p><strong>The playground example:</strong> The block stack is reset for each top-level statement. In the report&#39;s example, the <code>if</code> block and the two awaits are separate top-level statements, and the source already ends each await with <code>;</code>. So I&#39;d expect that exact input to compile correctly even without the fix, though I didn&#39;t run it. The bug shows up when a nested block and the following awaits are inside the same top-level statement, which is what the new test covers.</p>
+<p><strong>Requirements:</strong></p>
+<ol><li>Rename <code>exit</code> to <code>leave</code> so the stack is popped when leaving a block: done, at line 672.</li><li>Put the <code>;</code> back between consecutive awaits after a nested block: done. The new test fails before the fix and passes after.</li><li>No <code>TypeError</code> from two compiled awaits being read as a call: covered, since the test asserts the <code>)\n(</code> form no longer appears.</li><li>Keep the change minimal: one line of production code plus one test. No existing tests or saved outputs changed, and no extra files were left behind.</li></ol>
+<p>I reviewed the final diff myself instead of sending it to the reviewer agent, since it is two lines of production code plus one test. All changes are uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/2026-09-30/15332/">Previous · #15332</a>
+  <a class="mid" href="/backtests/vue/2026-09-30/">All tickets in this run</a>
+  <a href="/backtests/vue/2026-09-30/15478/">Next · #15478</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
