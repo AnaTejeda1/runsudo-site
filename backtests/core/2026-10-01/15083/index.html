@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15083 EffectScope stop() causes runtime crash (Cannot read properties of undefined) when dynamic scope cleanup mutates parent.scopes array during traversal — vuejs/core backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #15083 in vuejs/core, run 1 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/core/2026-10-01/15083/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/core/">core</a><span aria-hidden="true">/</span><a href="/backtests/core/2026-10-01/">2026-10-01</a><span aria-hidden="true">/</span><span aria-current="page">#15083</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15083" rel="noopener" target="_blank">#15083</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15084" rel="noopener" target="_blank">PR #15084</a></span>
+  <span>Run 1 Oct 2026</span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">EffectScope stop() causes runtime crash (Cannot read properties of undefined) when dynamic scope cleanup mutates parent.scopes array during traversal</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way: they iterate over a shallow copy (`slice()`) of `this.scopes` in `pause()`, `resume()` and `stop()`. Both `stop()` regression tests are valid; each would throw before the fix and pass after. Patch B&#39;s test asserts a little more, such as the sibling&#39;s dispose spy firing once and the scopes being cleared. Patch A goes further on the issue&#39;s own complaint about the `resume()` loop: it also copies `this.effects` before calling `effect.resume()`. That loop has the same crash. A resumed sync watcher can run its callback, which stops a sibling watcher, and the watcher handle&#39;s stop removes that effect from `scope.effects`. The cached-length loop then reads past the end of the array. Patch A adds a test for exactly this case (pause, trigger, resume with `flush: &#39;sync&#39;` watchers), and that test would fail without the change. So Patch A fixes a second real path to the same mutation-during-traversal crash, with low risk and code consistent with the rest of the fix. Patch B leaves that path vulnerable. Apart from this, the two patches are essentially identical in craft and scope, so the extra resume coverage gives A the edge.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2m 26s<small>8 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,615 passed · 6 skipped · 3,623 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">39<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15083" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.28</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNqFVN1u0zAUfpUjCymdtKVsBYRCW37GLuAC0DrBTS6WOaeJN9e2bKftVPWCR+SNOHaStmzTkNrY8fnOd36+E2/YR2PSZYMsY2PHrTAeHPrGTHMlFkZbDxvA+Ry5n3Ft8Bi0ipvPwhnt6N3iHLYwt3oBCfEkucoV18oRjy9842ASIIPkXAp+B96KqkILf37bwtXgNdhGga8RPDqfJkd79w56HoETGBzBZAqbXEFHnC4L2SBZkstGKaGqSEHxAcK/JTGFReUJdFDDIAaBzpZSAoMD8t6T10KWp489HyDO/osYPR2dMDHC4/itt5aYSl0NdtW18NChFvSvED1FrL1jifmlzmtDxuGQ2iwcrISUsemrGlXfgxbTu267XbuGZ1i9ve8zfMLroSazhnN0LsqxBV54XsMArT3qOR44XPOoc4meGoVlBi82hE4XxFFUuL3etzU0hkzaRrrInyv6jYft/NLk0ovHhZGFR3oDGJdiSQHvJU5yZoqypH5mcPbSrN/lLCIIU4+mPymVEVzsxaKiiyVaV0ho87NorC4b7oWmgOTSOd803msFH3iYcgpyOLw5exz7rVnD6RuKD7yxTtsMjBbKo90nBHDVfSwtSxto2Ebq45od9aKwlVAnJEkGp68D81wrf7JCUdU+gxsty0PuWWx/BmNnCgVZz7KhFsuQTicPLda7X8LXgyR2IDmC95BYLBPIIKksokpIADbdbPoPfrslKYi1z3EYLpOwkgq0Gw932rBj5h1pOhdVeuu0oksoTkfOuF4YIdF+N6HTLmdZPzc5K6TUq6/xzNsGj/tzXiO/e+L81q3DWc5+WHRol5iznY3Kq9C35ovZN1zTfmdckNKS0M8YL5HmsQk5trBPjSop7QNczPZLvEpJ+St3sfaoXF9USDSOcMTnjG7Q82dK36c7Sl/1o8+2fwEpfeZ+" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNqFVN1u0zAUfpUjCymdtKVsBYRCW37GLuAC0DrBTS6WOaeJN9e2bKftVPWCR+SNOHaStmzTkNrY8fnOd36+E2/YR2PSZYMsY2PHrTAeHPrGTHMlFkZbDxvA+Ry5n3Ft8Bi0ipvPwhnt6N3iHLYwt3oBCfEkucoV18oRjy9842ASIIPkXAp+B96KqkILf37bwtXgNdhGga8RPDqfJkd79w56HoETGBzBZAqbXEFHnC4L2SBZkstGKaGqSEHxAcK/JTGFReUJdFDDIAaBzpZSAoMD8t6T10KWp489HyDO/osYPR2dMDHC4/itt5aYSl0NdtW18NChFvSvED1FrL1jifmlzmtDxuGQ2iwcrISUsemrGlXfgxbTu267XbuGZ1i9ve8zfMLroSazhnN0LsqxBV54XsMArT3qOR44XPOoc4meGoVlBi82hE4XxFFUuL3etzU0hkzaRrrInyv6jYft/NLk0ovHhZGFR3oDGJdiSQHvJU5yZoqypH5mcPbSrN/lLCIIU4+mPymVEVzsxaKiiyVaV0ho87NorC4b7oWmgOTSOd803msFH3iYcgpyOLw5exz7rVnD6RuKD7yxTtsMjBbKo90nBHDVfSwtSxto2Ebq45od9aKwlVAnJEkGp68D81wrf7JCUdU+gxsty0PuWWx/BmNnCgVZz7KhFsuQTicPLda7X8LXgyR2IDmC95BYLBPIIKksokpIADbdbPoPfrslKYi1z3EYLpOwkgq0Gw932rBj5h1pOhdVeuu0oksoTkfOuF4YIdF+N6HTLmdZPzc5K6TUq6/xzNsGj/tzXiO/e+L81q3DWc5+WHRol5iznY3Kq9C35ovZN1zTfmdckNKS0M8YL5HmsQk5trBPjSop7QNczPZLvEpJ+St3sfaoXF9USDSOcMTnjG7Q82dK36c7Sl/1o8+2fwEpfeZ+</a></p>
+<h3>Steps to reproduce</h3>
+<p>Open the reproduction link.<br>Click the &quot;Trigger сrash&quot; button.<br>Observe the output status on the screen or check the browser console.</p>
+<h3>What is expected?</h3>
+<p>The parent scope should stop all its children successfully. When a child scope stops a sibling scope during the cleanup phase, the parent traversal loop should handle the array mutation gracefully without throwing errors.</p>
+<h3>What is actually happening?</h3>
+<p>The application crashes with the following error: TypeError: Cannot read properties of undefined (reading &#39;stop&#39;)</p>
+<p>This happens because EffectScope.stop loops over this.scopes using a cached length l. During iteration, one child&#39;s onScopeDispose calls stop() on its sibling. The sibling removes itself from the parent&#39;s scopes array, reducing the array size. When the parent loop continues to the cached index l, it tries to access an element out of bounds (which is undefined), causing the runtime crash.</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell">System: OS: macOS, Browser: Chrome, Node: v20.19.5</code></pre>
+<h3>Any additional comments?</h3>
+<p>The bug lies in packages/reactivity/src/effectScope.ts.</p>
+<p>Inside EffectScope, the methods pause(), resume(), and stop() loop over this.scopes using a cached length without accounting for array mutations. Creating a shallow copy of the array before iterating (e.g. const scopes = this.scopes.slice()) safely resolves the issue.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+33</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">packages/reactivity/__tests__/effectScope.spec.ts</span><span class="h">index 071c8286c..ebf37acbf 100644</span><span class="h">@@ -229,6 +229,30 @@ describe(&#39;reactivity/effect/scope&#39;, () =&gt; {</span><span class="c">     expect(parent.scopes!.includes(child)).toBe(false)</span><span class="c">   })</span><span class="c"> </span><span class="a">+  it(&#39;should not throw when a child scope stops a sibling scope during parent stop&#39;, () =&gt; {</span><span class="a">+    const parent = effectScope()</span><span class="a">+    const spy = vi.fn()</span><span class="a">+    let child1!: EffectScope</span><span class="a">+    let child2!: EffectScope</span><span class="a">+    parent.run(() =&gt; {</span><span class="a">+      child1 = effectScope()</span><span class="a">+      child2 = effectScope()</span><span class="a">+      child1.run(() =&gt; {</span><span class="a">+        onScopeDispose(() =&gt; child2.stop())</span><span class="a">+      })</span><span class="a">+      child2.run(() =&gt; {</span><span class="a">+        onScopeDispose(spy)</span><span class="a">+      })</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    expect(() =&gt; parent.stop()).not.toThrow()</span><span class="a">+    expect(parent.active).toBe(false)</span><span class="a">+    expect(child1.active).toBe(false)</span><span class="a">+    expect(child2.active).toBe(false)</span><span class="a">+    expect(spy).toHaveBeenCalledTimes(1)</span><span class="a">+    expect(parent.scopes?.length ?? 0).toBe(0)</span><span class="a">+  })</span><span class="a">+</span><span class="c">   it(&#39;test with higher level APIs&#39;, async () =&gt; {</span><span class="c">     const r = ref(1)</span><span class="c"> </span><span class="f">packages/reactivity/src/effectScope.ts</span><span class="h">index 03c15ed2f..549972a5c 100644</span><span class="h">@@ -70,8 +70,9 @@ export class EffectScope {</span><span class="c">       this._isPaused = true</span><span class="c">       let i, l</span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].pause()</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].pause()</span><span class="c">         }</span><span class="c">       }</span><span class="c">       for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="h">@@ -89,8 +90,9 @@ export class EffectScope {</span><span class="c">         this._isPaused = false</span><span class="c">         let i, l</span><span class="c">         if (this.scopes) {</span><span class="r">-          for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-            this.scopes[i].resume()</span><span class="a">+          const scopes = this.scopes.slice()</span><span class="a">+          for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+            scopes[i].resume()</span><span class="c">           }</span><span class="c">         }</span><span class="c">         for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="h">@@ -171,8 +173,9 @@ export class EffectScope {</span><span class="c">       this.cleanups.length = 0</span><span class="c"> </span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].stop(true)</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].stop(true)</span><span class="c">         }</span><span class="c">         this.scopes.length = 0</span><span class="c">       }</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15084" rel="noopener" target="_blank">PR #15084</a></span><span class="pm"><span class="a">+48</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">packages/reactivity/__tests__/effectScope.spec.ts</span><span class="h">index 071c8286c..0bb752659 100644</span><span class="h">@@ -435,4 +435,40 @@ describe(&#39;reactivity/effect/scope&#39;, () =&gt; {</span><span class="c">     expect(rs.value.stage).toBe(1)</span><span class="c">     expect(renderCount).toBe(5)</span><span class="c">   })</span><span class="a">+</span><span class="a">+  it(&#39;should stop child scopes when cleanup stops a sibling scope&#39;, () =&gt; {</span><span class="a">+    const parent = effectScope()</span><span class="a">+    let sibling!: EffectScope</span><span class="a">+</span><span class="a">+    parent.run(() =&gt; {</span><span class="a">+      effectScope().run(() =&gt; {</span><span class="a">+        onScopeDispose(() =&gt; sibling.stop())</span><span class="a">+      })</span><span class="a">+      sibling = effectScope()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    expect(() =&gt; parent.stop()).not.toThrow()</span><span class="a">+    expect(sibling.active).toBe(false)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  it(&#39;should resume effects when a watcher stops a sibling watcher&#39;, () =&gt; {</span><span class="a">+    const count = ref(0)</span><span class="a">+    const scope = effectScope()</span><span class="a">+    let stopSecond = () =&gt; {}</span><span class="a">+    const firstSpy = vi.fn(() =&gt; stopSecond())</span><span class="a">+    const secondSpy = vi.fn()</span><span class="a">+</span><span class="a">+    scope.run(() =&gt; {</span><span class="a">+      watch(count, firstSpy, { flush: &#39;sync&#39; })</span><span class="a">+      stopSecond = watch(count, secondSpy, { flush: &#39;sync&#39; })</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    scope.pause()</span><span class="a">+    count.value++</span><span class="a">+</span><span class="a">+    expect(() =&gt; scope.resume()).not.toThrow()</span><span class="a">+    expect(firstSpy).toHaveBeenCalledTimes(1)</span><span class="a">+    expect(secondSpy).not.toHaveBeenCalled()</span><span class="a">+    expect(scope.effects).toHaveLength(1)</span><span class="a">+  })</span><span class="c"> })</span><span class="f">packages/reactivity/src/effectScope.ts</span><span class="h">index 03c15ed2f..6fc587de1 100644</span><span class="h">@@ -70,8 +70,9 @@ export class EffectScope {</span><span class="c">       this._isPaused = true</span><span class="c">       let i, l</span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].pause()</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].pause()</span><span class="c">         }</span><span class="c">       }</span><span class="c">       for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="h">@@ -89,12 +90,14 @@ export class EffectScope {</span><span class="c">         this._isPaused = false</span><span class="c">         let i, l</span><span class="c">         if (this.scopes) {</span><span class="r">-          for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-            this.scopes[i].resume()</span><span class="a">+          const scopes = this.scopes.slice()</span><span class="a">+          for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+            scopes[i].resume()</span><span class="c">           }</span><span class="c">         }</span><span class="r">-        for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="r">-          this.effects[i].resume()</span><span class="a">+        const effects = this.effects.slice()</span><span class="a">+        for (i = 0, l = effects.length; i &lt; l; i++) {</span><span class="a">+          effects[i].resume()</span><span class="c">         }</span><span class="c">       }</span><span class="c">     }</span><span class="h">@@ -171,8 +174,9 @@ export class EffectScope {</span><span class="c">       this.cleanups.length = 0</span><span class="c"> </span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].stop(true)</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].stop(true)</span><span class="c">         }</span><span class="c">         this.scopes.length = 0</span><span class="c">       }</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>Calling <code>parent.stop()</code> no longer crashes when one child scope stops a sibling during cleanup. The new regression test failed before the fix and passes after it, and the wider test run passes.</p>
+<p><strong>What was wrong:</strong> In <code>packages/reactivity/src/effectScope.ts</code>, <code>stop()</code> walks <code>this.scopes</code> using the length it read before the loop started. Child scopes are stopped with <code>stop(true)</code>, so they normally stay in the parent&#39;s list. But when a child&#39;s <code>onScopeDispose</code> calls <code>stop()</code> on a sibling without that flag, the sibling removes itself from the parent&#39;s <code>scopes</code> array. The array gets shorter, the loop reaches an index past the end, gets <code>undefined</code>, and throws <code>TypeError: Cannot read properties of undefined (reading &#39;stop&#39;)</code>.</p>
+<p><strong>What changed:</strong></p>
+<ul><li><strong>Fix:</strong> <code>pause()</code>, <code>resume()</code> and <code>stop()</code> now loop over a shallow copy (<code>const scopes = this.scopes.slice()</code>) instead of the live array. In <code>stop()</code>, a sibling that already stopped itself is still in the copy, but stopping it again does nothing because it is already inactive. <code>stop()</code> still empties <code>this.scopes</code> afterwards. The loops over effects and cleanups are unchanged.</li><li><strong>Test:</strong> I added one test to <code>packages/reactivity/__tests__/effectScope.spec.ts</code>, &quot;should not throw when a child scope stops a sibling scope during parent stop&quot;. It builds a parent with <code>child1</code> and <code>child2</code>, where <code>child1</code>&#39;s <code>onScopeDispose</code> calls <code>child2.stop()</code>. It then checks that <code>parent.stop()</code> doesn&#39;t throw, that all three scopes are inactive, that <code>child2</code>&#39;s cleanup ran exactly once, and that <code>parent.scopes</code> ends up empty.</li></ul>
+<p><strong>Test evidence:</strong></p>
+<ul><li><strong>Before the fix:</strong> the new test failed with exactly the reported error. The other 20 tests in the file passed.</li><li><strong>After the fix:</strong> the file passes, 21 of 21.</li><li><strong>Wider check:</strong> every component and watcher uses <code>EffectScope</code>, so I also ran <code>./bt-test packages/reactivity packages/runtime-core</code>: 59 test files passed and 1 was skipped; 1475 tests passed and 4 were skipped. No existing test was changed.</li><li><strong>Review:</strong> a read-only review found the fix correct and in scope. <code>git diff --stat</code> shows only the two files above changed.</li></ul>
+<p><strong>Requirements:</strong></p>
+<ol><li><strong>The parent stops all its children without throwing when one child stops a sibling during cleanup:</strong> done, and covered by the new test (failed before, passes after).</li><li><strong>Fix the loop in <code>stop()</code> with a shallow copy, as the report suggests:</strong> done.</li><li><strong>Apply the same fix to <code>pause()</code> and <code>resume()</code>, which the report also names:</strong> done, without dedicated tests.</li><li><code>resume()</code> can run queued effects, which is user code that could stop a sibling scope, so the copy protects a real path. I didn&#39;t write a test for that path.</li><li><code>pause()</code> never runs user code, so its copy is only for consistency with the other two methods and the report&#39;s suggestion.</li><li>The existing pause/resume tests still pass.</li></ol>
+<p>Everything is left as uncommitted edits in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/core/2026-10-01/15081/">Previous · #15081</a>
+  <a class="mid" href="/backtests/core/2026-10-01/">All tickets in this run</a>
+  <a href="/backtests/core/2026-10-01/15091/">Next · #15091</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

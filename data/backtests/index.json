@@ -104,6 +104,31 @@
           "footnote": ""
         }
       ]
+    },
+    {
+      "slug": "core",
+      "name": "vuejs/core",
+      "description": "Vue.js, the progressive JavaScript framework (core packages).",
+      "languages": [
+        "TypeScript"
+      ],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-10-01",
+          "id": "run-20261001-022054",
+          "source_runs": [
+            "run-20261001-022054"
+          ],
+          "tickets": 30,
+          "better": 13,
+          "par": 0,
+          "worse": 15,
+          "error": 2,
+          "notes": "First vuejs/core run",
+          "footnote": "The two errors are tickets lost before the agent ran: their base commits pinned a pnpm release that refuses to install, and setting up a working environment for them timed out. Every judged ticket passed verification and audited clean."
+        }
+      ]
     }
   ],
   "events": [
