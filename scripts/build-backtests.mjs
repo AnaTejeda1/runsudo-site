@@ -392,7 +392,8 @@ function chart() {
   const step = Math.ceil(uniq.length / 8);
   uniq.forEach((d, k) => {
     if (k % step) return;
-    parts.push(`<text class="axis" x="${x(dateMs(d))}" y="${H - mb + 20}" text-anchor="middle">${fmtShort(d)}</text>`);
+    // Centre the label on noon, since points sit at their run's time of day.
+    parts.push(`<text class="axis" x="${x(dateMs(d) + DAY / 2)}" y="${H - mb + 20}" text-anchor="middle">${fmtShort(d)}</text>`);
   });
   // events
   // Labels alternate between sitting above the plot and hanging inside it at
@@ -466,9 +467,7 @@ const CHART_JS = `<script>
 // ---------------------------------------------------------------------------
 
 function overviewPage() {
-  const withRuns = index.repos.filter((r) => r.runs.length);
-  const names = withRuns.map((r) => esc(r.slug));
-  const chartTitle = names.length ? `Our progress on ${names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]}:` : 'Our progress:';
+  const chartTitle = 'Our progress:';
 
   const verdictCards = `<div class="verdicts">
   <div class="vcard better">${pill('better')}<p>Our patch passes the full test suite and the judge preferred it to the merged fix.</p></div>

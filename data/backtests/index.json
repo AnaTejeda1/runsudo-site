@@ -131,11 +131,5 @@
       ]
     }
   ],
-  "events": [
-    {
-      "date": "2026-09-30",
-      "label": "Updated to Opus 5.5",
-      "kind": "product"
-    }
-  ]
+  "events": []
 }
