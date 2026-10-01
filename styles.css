@@ -195,7 +195,8 @@ html:not(.js) .filters{display:none}
 .chart .axis{fill:var(--muted)}
 .chart .axis.title{fill:var(--fg);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
 .chart .ev-line{stroke:#3a3a3a;stroke-dasharray:3 4;stroke-width:1}
-.chart .ev-label{fill:var(--muted)}
+.chart .ev-label{fill:var(--fg)}
+.chart .ev-bg{fill:#0d0d0d;opacity:.92}
 .chart .ev-dot.product{fill:var(--fg);stroke:var(--fg)}
 .chart .ev-dot.measurement{fill:var(--bg);stroke:var(--fg);stroke-width:1.5}
 .chart .line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}

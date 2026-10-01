@@ -368,12 +368,21 @@ function chart() {
     parts.push(`<text class="axis" x="${x(dateMs(d))}" y="${H - mb + 20}" text-anchor="middle">${fmtShort(d)}</text>`);
   });
   // events
+  // Labels alternate between sitting above the plot and hanging inside it at
+  // staggered heights, and swap sides of the line, so nearby events don't collide.
+  const LEVELS = [mt - 14, mt + 24, mt + 60, mt + 96];
   (index.events || []).slice().sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((e, k) => {
     const ex = x(dateMs(e.date));
-    const ly = mt - 16 - (k % 2) * 16;
-    const anchor = ex < ml + 60 ? 'start' : ex > W - mr - 60 ? 'end' : 'middle';
+    const ly = LEVELS[k % LEVELS.length];
+    const textW = e.label.length * 6.8 + 12;
+    let side = k % 2 ? 'start' : 'end';
+    if (side === 'end' && ex - textW < ml) side = 'start';
+    if (side === 'start' && ex + textW > W - mr) side = 'end';
+    const tx = side === 'start' ? ex + 8 : ex - 8;
+    const bx = side === 'start' ? tx - 4 : tx - textW + 4;
     parts.push(`<line class="ev-line" x1="${ex}" x2="${ex}" y1="${mt - 4}" y2="${H - mb}"><title>${esc(fmtDate(e.date))}: ${esc(e.label)}</title></line>`);
-    parts.push(`<text class="ev-label" x="${ex}" y="${ly}" text-anchor="${anchor}">${esc(e.label)}</text>`);
+    parts.push(`<rect class="ev-bg" x="${bx}" y="${ly - 11}" width="${textW}" height="16" rx="3"/>`);
+    parts.push(`<text class="ev-label" x="${tx}" y="${ly}" text-anchor="${side}">${esc(e.label)}</text>`);
   });
   // lines and points
   for (const s of series) {
