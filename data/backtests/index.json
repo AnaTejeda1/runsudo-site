@@ -106,7 +106,7 @@
       ]
     },
     {
-      "slug": "core",
+      "slug": "vue",
       "name": "vuejs/core",
       "description": "Vue.js, the progressive JavaScript framework (core packages).",
       "languages": [
