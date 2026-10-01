@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13257 &#39;fraction_validator&#39; raises unhandled &#39;ZeroDivisionError&#39; for zero-denominator string input instead of &#39;ValidationError&#39; — pydantic/pydantic backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #13257 in pydantic/pydantic, run 29 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-29/13257/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/2026-09-29/">2026-09-29</a><span aria-hidden="true">/</span><span aria-current="page">#13257</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13257" rel="noopener" target="_blank">#13257</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 29 Sep 2026</span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">&#39;fraction_validator&#39; raises unhandled &#39;ZeroDivisionError&#39; for zero-denominator string input instead of &#39;ValidationError&#39;</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The test suite was unusable at the base commit.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">—<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 0 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13257" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p><strong>Bug description</strong></p>
+<p>The <code>fraction_validator</code> in <code>pydantic/_internal/_validators.py</code> only catches <code>ValueError</code> when constructing a <code>fractions.Fraction</code> from user input. However, Python&#39;s standard <code>fractions.Fraction</code> raises <code>ZeroDivisionError</code> when the denominator is zero (e.g., the string <code>&quot;6/0&quot;</code>). Because this exception is not caught, it bubbles up as a raw Python exception instead of being converted into a <code>ValidationError</code>, violating Pydantic&#39;s contract that all invalid user input should result in a <code>ValidationError</code>.</p>
+<p>This was discovered during fuzzing of <code>TypeAdapter.validate_strings()</code> with the Atheris fuzzer.</p>
+<p><strong>Expected behavior</strong></p>
+<p>A <code>pydantic.ValidationError</code> should be raised with a message indicating that the input is not a valid fraction.</p>
+<p><strong>Actual behavior</strong></p>
+<pre><code class="lang-python">Traceback (most recent call last):
+  File &quot;.../pydantic/_internal/_validators.py&quot;, line 253, in fraction_validator
+    return Fraction(input_value)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File &quot;.../fractions.py&quot;, line 281, in __new__
+    raise ZeroDivisionError(&#39;Fraction(%s, 0)&#39; % numerator)
+ZeroDivisionError: Fraction(6, 0)</code></pre>
+<p><strong>Root cause</strong></p>
+<p>In <code>pydantic/_internal/_validators.py</code>, line 247-254:</p>
+<pre><code class="lang-python">def fraction_validator(input_value: Any, /) -&gt; Fraction:
+    if isinstance(input_value, Fraction):
+        return input_value
+
+    try:
+        return Fraction(input_value)
+    except ValueError:
+        raise PydanticCustomError(&#39;fraction_parsing&#39;, &#39;Input is not a valid fraction&#39;)</code></pre>
+<p>The <code>except</code> clause only catches <code>ValueError</code>, but <code>Fraction(&quot;6/0&quot;)</code> raises <code>ZeroDivisionError</code>.</p>
+<p><strong>Proposed fix</strong></p>
+<p>Add <code>ZeroDivisionError</code> to the exception tuple:</p>
+<pre><code class="lang-diff">--- a/pydantic/_internal/_validators.py
++++ b/pydantic/_internal/_validators.py
+@@ -250,7 +250,7 @@ def fraction_validator(input_value: Any, /) -&gt; Fraction:
+ 
+     try:
+         return Fraction(input_value)
+-    except ValueError:
++    except (ValueError, ZeroDivisionError):
+         raise PydanticCustomError(&#39;fraction_parsing&#39;, &#39;Input is not a valid fraction&#39;)</code></pre>
+<p>This is consistent with how other validators in the same file handle exceptions from standard library constructors (e.g., <code>decimal_validator</code>, <code>uuid_validator</code>, <code>ip_*_validators</code>).</p>
+<p>The bug exists and not fixed in &#39;main&#39; branch as well.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">from pydantic import TypeAdapter
+import fractions
+
+adapter = TypeAdapter(fractions.Fraction)
+
+# This should raise ValidationError, but raises ZeroDivisionError
+adapter.validate_strings(&quot;6/0&quot;)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.12.5
+        pydantic-core version: 2.41.5
+          pydantic-core build: profile=release pgo=false
+               python version: 3.12.10 (main, May 28 2026, 03:57:43) [GCC 11.4.0]
+                     platform: Linux-6.17.0-29-generic-x86_64-with-glibc2.35
+             related packages: typing_extensions-4.15.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/2026-09-29/13089/">Previous · #13089</a>
+  <a class="mid" href="/backtests/pydantic/2026-09-29/">All tickets in this run</a>
+  <a href="/backtests/pydantic/2026-09-29/13376/">Next · #13376</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

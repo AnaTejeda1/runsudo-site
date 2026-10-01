@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13465 Generic __pydantic_extra__ typevar substitution lost in non-generic subclasses of parametrized models — pydantic/pydantic backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #13465 in pydantic/pydantic, run 29 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-29/13465/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/2026-09-29/">2026-09-29</a><span aria-hidden="true">/</span><span aria-current="page">#13465</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13465" rel="noopener" target="_blank">#13465</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 29 Sep 2026</span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Generic <strong>pydantic_extra</strong> typevar substitution lost in non-generic subclasses of parametrized models</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The test suite was unusable at the base commit.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">—<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 0 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13465" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2 (<code>main</code> @ 428b0dba8)</li><li><input type="checkbox" disabled checked> I have searched GitHub for a duplicate issue and I&#39;m sure this is something new</li></ul>
+<h3>Description</h3>
+<p>Follow-up to #13369 / #13391 (<code>__pydantic_extra__</code> typevar substitution, currently main-only): the substitution works for direct parametrization (<code>M[int]</code>) but is lost in a plain (non-generic) subclass of a parametrized model (<code>class Sub(M[int])</code>). Extras on the subclass are silently <strong>unvalidated</strong> and the JSON schema loses the extras type.</p>
+<pre><code>M[int](x=&#39;nope&#39;)  -&gt; ValidationError (correct, fixed by #13391)
+Sub(x=&#39;nope&#39;)     -&gt; accepted; m.x == &#39;nope&#39;          # BUG
+Sub(x=&#39;5&#39;).x      -&gt; &#39;5&#39; (str)  vs  M[int](x=&#39;5&#39;).x == 5
+
+M[int].model_json_schema()[&#39;additionalProperties&#39;]  -&gt; {&#39;type&#39;: &#39;integer&#39;}
+Sub.model_json_schema()[&#39;additionalProperties&#39;]     -&gt; {}                  # BUG
+Sub.__pydantic_extra_info__                          -&gt; PydanticExtraInfo(annotation=dict[str, ~T], complete=True)</code></pre>
+<p>Root cause (from stepping through <code>collect_model_fields</code> in <code>pydantic/_internal/_fields.py</code>): for <code>Sub</code>, <code>typevars_map</code> is empty (its own <code>__pydantic_generic_metadata__</code> is empty) and the inherited hint for <code>__pydantic_extra__</code> is the parent&#39;s <em>raw</em> annotation <code>dict[str, T]</code> — so <code>_generics.replace_types(ann, typevars_map)</code> is a no-op and the raw <code>~T</code> survives, producing <code>extras_schema = {&#39;type&#39;: &#39;any&#39;}</code>. Regular fields don&#39;t have this problem because they&#39;re copied from the parent&#39;s already-substituted <code>model_fields</code>; the extra-info path never consults the parent&#39;s <code>__pydantic_extra_info__</code> (which on <code>M[int]</code> correctly holds <code>dict[str, int]</code>).</p>
+<p>Note the 2-level generic chain (<code>class Mid(M[T], Generic[T])</code>; <code>Mid[int]</code>) works on main — only the plain-subclass case is broken.</p>
+<p>I have a small fix working locally (reuse the parent&#39;s substituted <code>PydanticExtraInfo</code> annotation when <code>__pydantic_extra__</code> is only inherited, mirroring how fields inherit; brings extra-info to exact parity with fields, including the same known deferred-annotation limitation as #12000), with a regression test in the style of <code>test_extra_generic_class</code> — it passes the <code>test_main.py</code> / <code>test_generics.py</code> / <code>test_forward_ref.py</code> / <code>test_edge_cases.py</code> suites with no new failures. Per the contributing guidelines I&#39;d like to be assigned before opening the PR — happy to submit it right away.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-python">from typing import Generic, TypeVar
+from pydantic import BaseModel, ConfigDict
+
+T = TypeVar(&#39;T&#39;)
+
+class M(BaseModel, Generic[T]):
+    model_config = ConfigDict(extra=&#39;allow&#39;)
+    __pydantic_extra__: dict[str, T]
+    y: T
+
+class Sub(M[int]):
+    pass
+
+print(Sub(y=1, x=&#39;not_an_int&#39;).x)  # &#39;not_an_int&#39; — should raise ValidationError
+print(Sub.model_json_schema().get(&#39;additionalProperties&#39;))  # {} — should be {&#39;type&#39;: &#39;integer&#39;}</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-text">pydantic version: 2.14.0a1
+pydantic-core version: 2.47.0
+python version: 3.14.4
+platform: macOS-26.5-arm64
+commit: 428b0dba8 (main)</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/2026-09-29/13460/">Previous · #13460</a>
+  <a class="mid" href="/backtests/pydantic/2026-09-29/">All tickets in this run</a>
+  <a href="/backtests/pydantic/2026-09-29/13467/">Next · #13467</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

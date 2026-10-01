@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13419 &quot;dictionary changed size during iteration&quot; during `model_rebuild` — pydantic/pydantic backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #13419 in pydantic/pydantic, run 29 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-29/13419/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/2026-09-29/">2026-09-29</a><span aria-hidden="true">/</span><span aria-current="page">#13419</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13419" rel="noopener" target="_blank">#13419</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 29 Sep 2026</span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">&quot;dictionary changed size during iteration&quot; during <code>model_rebuild</code></h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The test suite was unusable at the base commit.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">—<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 0 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13419" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>This just hit us in production:</p>
+<pre><code>Traceback (most recent call last):
+  ...
+  File &quot;fastapi/routing.py&quot;, line 120, in app
+    response = await f(request)
+  File &quot;fastapi/routing.py&quot;, line 674, in app
+    raw_response = await run_endpoint_function(
+  File &quot;fastapi/routing.py&quot;, line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+  File &quot;starlette/concurrency.py&quot;, line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+  File &quot;anyio/to_thread.py&quot;, line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File &quot;anyio/_backends/_asyncio.py&quot;, line 2518, in run_sync_in_worker_thread
+    return await future
+  File &quot;anyio/_backends/_asyncio.py&quot;, line 1002, in run
+    result = context.run(func, *args)
+  ...
+  File &quot;...&quot;, line 157, in ...
+    MyPydanticClass(
+  File &quot;pydantic/_internal/_mock_val_ser.py&quot;, line 165, in handler
+    if cls.model_rebuild(raise_errors=False, _parent_namespace_depth=5) is not False:
+  File &quot;pydantic/main.py&quot;, line 683, in model_rebuild
+    return _model_construction.complete_model_class(
+  File &quot;pydantic/_internal/_model_construction.py&quot;, line 642, in complete_model_class
+    cls.__pydantic_fields__, cls.__pydantic_extra_info__ = rebuild_model_fields(
+  File &quot;pydantic/_internal/_fields.py&quot;, line 464, in rebuild_model_fields
+    new_field = _recreate_field_info(
+  File &quot;pydantic/_internal/_fields.py&quot;, line 502, in _recreate_field_info
+    ann = _typing_extra.eval_type(
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 442, in eval_type
+    return eval_type_backport(value, globalns, localns)
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 474, in eval_type_backport
+    return _eval_type_backport(value, globalns, localns, type_params)
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 511, in _eval_type_backport
+    return _eval_type(value, globalns, localns, type_params)
+  File &quot;pydantic/_internal/_typing_extra.py&quot;, line 543, in _eval_type
+    evaluated = typing._eval_type(  # type: ignore
+  File &quot;typing.py&quot;, line 461, in _eval_type
+    return evaluate_forward_ref(t, globals=globalns, locals=localns,
+  File &quot;typing.py&quot;, line 1000, in evaluate_forward_ref
+    value = forward_ref.evaluate(globals=globals, locals=locals,
+  File &quot;annotationlib.py&quot;, line 207, in evaluate
+    return eval(code, globals=globals, locals=locals)
+  File &quot;&lt;string&gt;&quot;, line 1, in &lt;module&gt;
+    from __future__ import annotations
+  File &quot;pydantic/_internal/_namespace_utils.py&quot;, line 97, in __getitem__
+    return self.data[key]
+  File &quot;functools.py&quot;, line 1126, in __get__
+    val = self.func(instance)
+  File &quot;pydantic/_internal/_namespace_utils.py&quot;, line 91, in data
+    return {k: v for ns in self._namespaces for k, v in ns.items()}
+RuntimeError: dictionary changed size during iteration</code></pre>
+<p>Reproducer below.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">&quot;&quot;&quot;
+NOTE: Repro script generated with Claude Fable
+
+Repro: concurrent lazy `model_rebuild()` raises
+`RuntimeError: dictionary changed size during iteration`.
+
+Setup: a module using `from __future__ import annotations` defines models whose
+field types are only defined *later* in the same module. Building such a model&#39;s
+schema fails during class creation, so pydantic leaves it incomplete (mock
+validator) and defers the build to the first instantiation via
+`model_rebuild(raise_errors=False)`.
+
+If the first instantiations happen concurrently (e.g. FastAPI&#39;s threadpool
+serving the first requests after process start), multiple threads enter
+`model_rebuild()` for the same class simultaneously. `model_rebuild()` mutates
+the class `__dict__` (delattr/setattr of `__pydantic_core_schema__`,
+`__pydantic_validator__`, `__pydantic_serializer__`), while
+`NsResolver.types_namespace` includes the live `vars(cls)` of that class in the
+`LazyLocalNamespace` another thread is iterating during annotation evaluation
+(`LazyLocalNamespace.data`). Result:
+
+    RuntimeError: dictionary changed size during iteration
+
+The same race also intermittently produces
+    AttributeError: type object &#39;Box0&#39; has no attribute &#39;__pydantic_core_schema__&#39;
+from the delattr block at the top of `model_rebuild()`.
+
+Each round executes the module source into a fresh module (fresh, incomplete
+classes -- like a freshly started process) and races threads instantiating the
+models. Typically fires within a few dozen rounds (&lt; 1 min).
+
+Run: python pydantic_rebuild_race_repro.py
+&quot;&quot;&quot;
+
+import sys
+import threading
+import time
+import traceback
+import types
+
+import pydantic
+
+print(f&quot;python {sys.version}&quot;)
+print(f&quot;pydantic {pydantic.VERSION}&quot;)
+
+sys.setswitchinterval(1e-5)  # more frequent thread preemption; widens the race window
+
+N_GENERICS = 2  # generic origins shared by all models (parametrizing triggers origin.model_rebuild)
+N_LEAVES = 16  # leaf models, defined at the end of the module so everything before stays incomplete
+N_MODELS = 4  # top-level models, the ones instantiated by the racing threads
+N_METHODS = 60  # dummy methods to enlarge each class __dict__ (the dict iterated during annotation eval)
+N_THREADS = 32
+ROUNDS = 200
+RACE_WINDOW_S = 0.5
+
+
+def make_module_source() -&gt; str:
+    boxes = &quot; | &quot;.join(f&quot;Box{g}[Leaf{l}]&quot; for g in range(N_GENERICS) for l in range(N_LEAVES))
+    methods = [f&quot;    def method{m}(self) -&gt; None: ...&quot; for m in range(N_METHODS)]
+    lines = [&quot;from __future__ import annotations&quot;, &quot;from pydantic import BaseModel&quot;, &quot;&quot;]
+    # Top-level models come first: all their field types are still undefined here,
+    # so their schema build is deferred until first instantiation.
+    for i in range(N_MODELS):
+        lines += [f&quot;class Model{i}(BaseModel):&quot;, f&quot;    items: list[{boxes}] = []&quot;, *methods, &quot;&quot;]
+    for g in range(N_GENERICS):
+        lines += [f&quot;class Box{g}[T](BaseModel):&quot;, &quot;    value: T | None = None&quot;, &quot;    ref: Leaf0 | None = None&quot;, *methods, &quot;&quot;]
+    for l in range(N_LEAVES):
+        lines += [f&quot;class Leaf{l}(BaseModel):&quot;, &quot;    x: int = 0&quot;, &quot;&quot;]
+    return &quot;\n&quot;.join(lines)
+
+
+MODULE_SOURCE = make_module_source()
+
+errors: list[str] = []
+errors_lock = threading.Lock()
+
+
+def worker(barrier: threading.Barrier, model: type) -&gt; None:
+    barrier.wait()
+    end = time.monotonic() + RACE_WINDOW_S
+    while time.monotonic() &lt; end:
+        try:
+            model()  # first call hits the mock validator -&gt; lazy model_rebuild()
+        except Exception:
+            with errors_lock:
+                errors.append(traceback.format_exc())
+
+
+for rnd in range(ROUNDS):
+    # Fresh module =&gt; fresh incomplete classes, like a freshly started process.
+    mod = types.ModuleType(f&quot;repro_generated_{rnd}&quot;)
+    sys.modules[mod.__name__] = mod
+    exec(compile(MODULE_SOURCE, mod.__name__, &quot;exec&quot;), mod.__dict__)
+    models = [getattr(mod, f&quot;Model{i}&quot;) for i in range(N_MODELS)]
+    assert not models[0].__pydantic_complete__
+
+    barrier = threading.Barrier(N_THREADS)
+    threads = [threading.Thread(target=worker, args=(barrier, models[i % N_MODELS])) for i in range(N_THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    hits = [tb for tb in errors if &quot;changed size during iteration&quot; in tb]
+    if hits:
+        print(hits[0], file=sys.stderr)
+        print(f&quot;REPRODUCED in round {rnd}: RuntimeError: dictionary changed size during iteration&quot;)
+        sys.exit(1)
+    if errors:
+        first_line = errors[0].strip().splitlines()[-1]
+        print(f&quot;round {rnd}: {len(errors)} sibling race errors (e.g. {first_line})&quot;)
+        errors.clear()
+
+print(&quot;not reproduced&quot;)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">In Prod: Ubuntu Docker, in Dev:
+
+             pydantic version: 2.13.4
+        pydantic-core version: 2.46.4
+          pydantic-core build: profile=release pgo=false
+               python version: 3.14.6 | packaged by conda-forge | (main, Jun 12 2026, 08:47:56) [Clang 20.1.8 ]
+                     platform: macOS-26.5.1-arm64-arm-64bit-Mach-O
+             related packages: pyright-1.1.410 fastapi-0.136.3 pydantic-extra-types-2.11.1 email-validator-2.3.0 pydantic-settings-2.14.1 typing_extensions-4.15.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/2026-09-29/13376/">Previous · #13376</a>
+  <a class="mid" href="/backtests/pydantic/2026-09-29/">All tickets in this run</a>
+  <a href="/backtests/pydantic/2026-09-29/13422/">Next · #13422</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

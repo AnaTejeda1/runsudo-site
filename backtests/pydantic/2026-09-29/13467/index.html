@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13467 Support Ellipsis — pydantic/pydantic backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #13467 in pydantic/pydantic, run 29 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-29/13467/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/2026-09-29/">2026-09-29</a><span aria-hidden="true">/</span><span aria-current="page">#13467</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13467" rel="noopener" target="_blank">#13467</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 29 Sep 2026</span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Support Ellipsis</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The test suite was unusable at the base commit.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">—<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 0 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13467" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I have searched Google &amp; GitHub for similar requests and couldn&#39;t find anything</li><li><input type="checkbox" disabled checked> I have read and followed <a href="https://pydantic.dev/docs/validation/latest/get-started/" rel="noopener nofollow" target="_blank">the docs</a> and still think this feature is missing</li></ul>
+<h3>Description</h3>
+<p><code>Ellipsis</code> is a builtin type that <code>pydantic</code> does not support. Its usage is infrequent, but it can be useful to express placeholders:</p>
+<p>This is a bit of a contrived example, but:</p>
+<pre><code class="lang-python">class Model(pydantic.BaseModel):
+    m: list[list[float]]
+    subset: tuple[int | Ellipsis, int | Ellipsis]
+
+    def subset_arr(self) -&gt; np.NDArray:
+        return np.asarray(self.m)[*self.subset]</code></pre>
+<p>Here&#39;s how I implement this right now with an adapter: <a href="https://github.com/psalvaggio/scientific_pydantic/blob/main/src/scientific_pydantic/ellipsis.py" rel="noopener nofollow" target="_blank">https://github.com/psalvaggio/scientific_pydantic/blob/main/src/scientific_pydantic/ellipsis.py</a></p>
+<p>However, since this is a standard library type, I think this would be a good thing to live in <code>pydantic</code> itself.</p>
+<h3>Affected Components</h3>
+<ul><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/get-started/changelog/" rel="noopener nofollow" target="_blank">Compatibility between releases</a></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/models/#basic-model-usage" rel="noopener nofollow" target="_blank">Data validation/parsing</a></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/serialization/" rel="noopener nofollow" target="_blank">Data serialization</a> - <code>.model_dump()</code> and <code>.model_dump_json()</code></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/json_schema/" rel="noopener nofollow" target="_blank">JSON Schema</a></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/dataclasses/" rel="noopener nofollow" target="_blank">Dataclasses</a></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/config/" rel="noopener nofollow" target="_blank">Model Config</a></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/api/pydantic/types/" rel="noopener nofollow" target="_blank">Field Types</a> - adding or changing a particular data type</li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/validation_decorator/" rel="noopener nofollow" target="_blank">Function validation decorator</a></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/models/#generic-models" rel="noopener nofollow" target="_blank">Generic Models</a></li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/concepts/models/" rel="noopener nofollow" target="_blank">Other Model behaviour</a> - <code>model_construct()</code>, pickling, private attributes, ORM mode</li><li><input type="checkbox" disabled> <a href="https://pydantic.dev/docs/validation/latest/integrations/dev-tools/mypy/" rel="noopener nofollow" target="_blank">Plugins</a> and integration with other tools - mypy, FastAPI, python-devtools, Hypothesis, VS Code, PyCharm, etc.</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/2026-09-29/13465/">Previous · #13465</a>
+  <a class="mid" href="/backtests/pydantic/2026-09-29/">All tickets in this run</a>
+  <a href="/backtests/pydantic/2026-09-29/13507/">Next · #13507</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

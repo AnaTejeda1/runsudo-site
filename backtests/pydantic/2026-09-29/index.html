@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pydantic/pydantic · 23 Sep 2026 — sudo backtests</title>
-<meta name="description" content="14 of 30 tickets judged better than the merged fix on pydantic/pydantic, run 23 Sep 2026.">
-<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-23/">
+<title>pydantic/pydantic · 29 Sep 2026 — sudo backtests</title>
+<meta name="description" content="7 of 30 tickets judged better than the merged fix on pydantic/pydantic, run 29 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-29/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,20 +20,20 @@
   </nav>
   <main>
 
-<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><span aria-current="page">2026-09-23</span></p>
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><span aria-current="page">2026-09-29</span></p>
 <h1>pydantic/pydantic</h1>
 <p class="lead">Data validation library for Python, with a Rust core.</p>
 <div class="card summary">
-  <p class="k">This run · 23 Sep 2026</p>
-  <p class="big">47%<small>judged better than the merged fix</small></p>
-  <p class="sub">14 of 30 tickets. First pydantic run.</p>
-  <div class="bar" role="img" aria-label="14 better, 0 par, 16 worse, 0 error"><span class="b-better" style="width:46.666666666666664%"></span><span class="b-worse" style="width:53.333333333333336%"></span></div>
-  <div class="counts"><span class="better"><i></i>14 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>16 worse</span><span class="error"><i></i>0 error</span></div>
+  <p class="k">This run · 29 Sep 2026</p>
+  <p class="big">23%<small>judged better than the merged fix</small></p>
+  <p class="sub">7 of 30 tickets. First run with the solver in the sandbox; 13 tickets lost to a harness report-parsing bug, fixed afterwards.</p>
+  <div class="bar" role="img" aria-label="7 better, 0 par, 10 worse, 13 error"><span class="b-better" style="width:23.333333333333332%"></span><span class="b-worse" style="width:33.33333333333333%"></span><span class="b-error" style="width:43.333333333333336%"></span></div>
+  <div class="counts"><span class="better"><i></i>7 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>10 worse</span><span class="error"><i></i>13 error</span></div>
 </div>
 <section>
   <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
   <div class="runs">
-<details class="run" id="run-2026-09-29">
+<details class="run" id="run-2026-09-29" open>
   <summary>
     <span class="date">29 Sep 2026</span>
     <span class="bars"><div class="bar thin" role="img" aria-label="7 better, 0 par, 10 worse, 13 error"><span class="b-better" style="width:23.333333333333332%"></span><span class="b-worse" style="width:33.33333333333333%"></span><span class="b-error" style="width:43.333333333333336%"></span></div><span class="counts"><span class="better">7 better</span><span class="par">0 par</span><span class="worse">10 worse</span><span class="error">13 error</span></span></span>
@@ -80,7 +80,7 @@
   <p class="footnote">The 13 errors are tickets whose test suite the harness wrongly rejected as corrupt before the solver ran: pytest counts subtests in its report totals but writes one entry per test, and the harness read the difference as a truncated report. No patch was judged on those tickets. The bug was fixed in the harness the same day.</p>
   </div>
 </details>
-<details class="run" id="run-2026-09-23" open>
+<details class="run" id="run-2026-09-23">
   <summary>
     <span class="date">23 Sep 2026</span>
     <span class="bars"><div class="bar thin" role="img" aria-label="14 better, 0 par, 16 worse, 0 error"><span class="b-better" style="width:46.666666666666664%"></span><span class="b-worse" style="width:53.333333333333336%"></span></div><span class="counts"><span class="better">14 better</span><span class="par">0 par</span><span class="worse">16 worse</span><span class="error">0 error</span></span></span>

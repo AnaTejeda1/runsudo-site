@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13675 `TypeAdapter` config not used for JSON Schema generation — pydantic/pydantic backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #13675 in pydantic/pydantic, run 29 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/2026-09-29/13675/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/2026-09-29/">2026-09-29</a><span aria-hidden="true">/</span><span aria-current="page">#13675</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13675" rel="noopener" target="_blank">#13675</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13676" rel="noopener" target="_blank">PR #13676</a></span>
+  <span>Run 29 Sep 2026</span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title"><code>TypeAdapter</code> config not used for JSON Schema generation</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches identify the same root cause—the TypeAdapter&#39;s config is not carried into the JSON Schema generator&#39;s config-wrapper stack—and both fix it in the right place. The decisive difference is craft and correctness of the mechanism. Patch B uses the generator&#39;s intended API, the `_config_wrapper_stack.push(...)` context manager, scoped narrowly around the single `generate` call so the config is pushed and popped cleanly, leaving the generator&#39;s stack invariant intact. Patch A instead wholesale reassigns `schema_generator_instance._config_wrapper_stack` to a freshly constructed `ConfigWrapperStack`, discarding whatever initial state the generator set up in its constructor and never restoring/unwinding it; this reaches deeper into private internals and is more fragile against the generator&#39;s own lifecycle assumptions. On tests, Patch B&#39;s case (nested `list[bytes]`, default mode, asserting `base64url` propagates through container items) is a slightly stronger regression guard than Patch A&#39;s flat `bytes` case, since it also exercises propagation into subschemas. Scope and size are comparable and minimal for both. Patch B is the cleaner, more idiomatic, root-cause fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 54s<small>23 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,372 passed · 500 skipped · 12,872 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">15<small>vs 11 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13675" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><pre><code class="lang-python">from pydantic import BaseModel, TypeAdapter
+
+class Model(BaseModel, ser_json_bytes=&#39;base64&#39;):
+    b: bytes
+
+Model.model_json_schema()[&#39;properties&#39;][&#39;b&#39;]
+#&gt; {&#39;format&#39;: &#39;base64url&#39;, &#39;title&#39;: &#39;B&#39;, &#39;type&#39;: &#39;string&#39;}
+
+ta = TypeAdapter(bytes, config={&#39;ser_json_bytes&#39;: &#39;base64&#39;})
+ta.json_schema()
+#&gt; {&#39;format&#39;: &#39;binary&#39;, &#39;type&#39;: &#39;string&#39;}</code></pre></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+15</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/type_adapter.py</span><span class="h">index 447ac34b..a051bce5 100644</span><span class="h">@@ -733,6 +733,7 @@ class TypeAdapter(Generic[T]):</span><span class="c">         schema_generator_instance = schema_generator(</span><span class="c">             by_alias=by_alias, ref_template=ref_template, union_format=union_format</span><span class="c">         )</span><span class="a">+        schema_generator_instance._config_wrapper_stack = _config.ConfigWrapperStack(_config.ConfigWrapper(self._config))</span><span class="c">         if isinstance(self.core_schema, _mock_val_ser.MockCoreSchema):</span><span class="c">             self.core_schema.rebuild()</span><span class="c">             assert not isinstance(self.core_schema, _mock_val_ser.MockCoreSchema), &#39;this is a bug! please report it&#39;</span><span class="f">tests/test_json_schema.py</span><span class="h">index f7533631..cce1cffd 100644</span><span class="h">@@ -1965,6 +1965,20 @@ def test_model_default_bytes(ser_json_bytes: Literal[&#39;base64&#39;, &#39;utf8&#39;], properti</span><span class="c">     }</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;ser_json_bytes,format&#39;,</span><span class="a">+    [</span><span class="a">+        (&#39;base64&#39;, &#39;base64url&#39;),</span><span class="a">+        (&#39;utf8&#39;, &#39;binary&#39;),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_type_adapter_bytes(ser_json_bytes: Literal[&#39;base64&#39;, &#39;utf8&#39;], format: str):</span><span class="a">+    ta = TypeAdapter(bytes, config=ConfigDict(ser_json_bytes=ser_json_bytes))</span><span class="a">+</span><span class="a">+    # insert_assert(ta.json_schema(mode=&#39;serialization&#39;))</span><span class="a">+    assert ta.json_schema(mode=&#39;serialization&#39;) == {&#39;format&#39;: format, &#39;type&#39;: &#39;string&#39;}</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     &#39;ser_json_timedelta,properties&#39;,</span><span class="c">     [</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13676" rel="noopener" target="_blank">PR #13676</a></span><span class="pm"><span class="a">+10</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/type_adapter.py</span><span class="h">index 447ac34bc..1c6824acb 100644</span><span class="h">@@ -736,7 +736,10 @@ class TypeAdapter(Generic[T]):</span><span class="c">         if isinstance(self.core_schema, _mock_val_ser.MockCoreSchema):</span><span class="c">             self.core_schema.rebuild()</span><span class="c">             assert not isinstance(self.core_schema, _mock_val_ser.MockCoreSchema), &#39;this is a bug! please report it&#39;</span><span class="r">-        return schema_generator_instance.generate(self.core_schema, mode=mode)</span><span class="a">+        # The configuration provided to the type adapter (if any) is not part of the core schema,</span><span class="a">+        # so we need to explicitly make it available to the JSON Schema generator:</span><span class="a">+        with schema_generator_instance._config_wrapper_stack.push(self._config):</span><span class="a">+            return schema_generator_instance.generate(self.core_schema, mode=mode)</span><span class="c"> </span><span class="c">     @staticmethod</span><span class="c">     def json_schemas(</span><span class="f">tests/test_type_adapter.py</span><span class="h">index ad7464513..1038a8291 100644</span><span class="h">@@ -555,6 +555,12 @@ def test_ta_config_with_annotated_type() -&gt; None:</span><span class="c">     ]</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_ta_config_used_for_json_schema() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13675&quot;&quot;&quot;</span><span class="a">+    ta = TypeAdapter(list[bytes], config=ConfigDict(ser_json_bytes=&#39;base64&#39;))</span><span class="a">+    assert ta.json_schema() == {&#39;type&#39;: &#39;array&#39;, &#39;items&#39;: {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;base64url&#39;}}</span><span class="a">+</span><span class="a">+</span><span class="c"> def defer_build_test_models(config: ConfigDict) -&gt; list[Any]:</span><span class="c">     class Model(BaseModel):</span><span class="c">         model_config = config</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The exact call from the report now returns <code>base64url</code>. Everything checks out.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong</strong></p>
+<p><code>TypeAdapter.json_schema()</code> ignored the adapter&#39;s <code>config</code> when generating a JSON schema. Config-dependent format handlers in <code>GenerateJsonSchema</code> (e.g. <code>bytes_schema</code>) read config from <code>self._config_wrapper_stack.tail</code>, but that stack is initialized with an empty <code>ConfigWrapper({})</code> and only gets real config <em>pushed</em> onto it by the model/dataclass/TypedDict handlers. For a bare <code>TypeAdapter(bytes, config=...)</code>, the core schema is a plain <code>bytes</code> node with no enclosing model, so nothing ever supplied the adapter&#39;s config — and <code>ser_json_bytes=&#39;base64&#39;</code> fell back to the default, emitting <code>&#39;binary&#39;</code> instead of <code>&#39;base64url&#39;</code>.</p>
+<p><strong>What I changed</strong></p>
+<ul><li><code>pydantic/type_adapter.py</code> (one line in <code>TypeAdapter.json_schema</code>): after constructing the schema generator, seed its base config wrapper stack from the adapter&#39;s own config: <code>python schema_generator_instance._config_wrapper_stack = _config.ConfigWrapperStack(_config.ConfigWrapper(self._config))</code> This makes the adapter&#39;s config the base the format handlers consult. When the adapter wraps a model/dataclass/TypedDict, those handlers still <code>push</code> their own config on top (and Pydantic disallows passing <code>config</code> for such types, so the base stays empty) — so existing behavior is unchanged.</li><li><code>tests/test_json_schema.py</code>: added <code>test_type_adapter_bytes</code>, a parametrized regression test mirroring the neighboring <code>test_model_default_bytes</code>/<code>test_dataclass_default_bytes</code> style.</li></ul>
+<p><strong>Test evidence</strong></p>
+<ul><li>Regression test failed before the fix (<code>base64</code> case: <code>&#39;binary&#39; != &#39;base64url&#39;</code>), passes after.</li><li><code>./bt-test tests/test_json_schema.py tests/test_type_adapter.py</code>: <strong>776 passed, 3 skipped, 2 xfailed</strong> — no regressions.</li><li>Verified the report&#39;s exact call <code>TypeAdapter(bytes, config={&#39;ser_json_bytes&#39;: &#39;base64&#39;}).json_schema()</code> now returns <code>{&#39;format&#39;: &#39;base64url&#39;, &#39;type&#39;: &#39;string&#39;}</code>.</li></ul>
+<p><strong>Requirements checklist</strong></p>
+<ol><li><code>TypeAdapter</code> config used for JSON Schema generation so <code>ser_json_bytes=&#39;base64&#39;</code> yields <code>base64url</code> for bytes — <strong>Implemented and tested</strong>; verified in both default (validation) and serialization modes, matching the <code>BaseModel</code> behavior the report contrasts against.</li></ol>
+<p>Reviewer confirmed the fix is correct, minimal, and low-risk. Changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/2026-09-29/13664/">Previous · #13664</a>
+  <a class="mid" href="/backtests/pydantic/2026-09-29/">All tickets in this run</a>
+  <a href="/backtests/pydantic/2026-09-29/13687/">Next · #13687</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
