@@ -11,6 +11,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-02",
+          "id": "run-20261002-175417",
+          "source_runs": [
+            "run-20261002-175417"
+          ],
+          "tickets": 30,
+          "better": 25,
+          "par": 0,
+          "worse": 2,
+          "error": 3,
+          "notes": "Foreman 0.3.1, gate checked against the box; 3 timeouts from hung shell commands",
+          "footnote": ""
+        },
+        {
           "date": "2026-09-30",
           "id": "run-20260930-183947",
           "source_runs": [

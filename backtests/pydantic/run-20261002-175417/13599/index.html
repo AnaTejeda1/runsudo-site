@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13599 PEP 695 type aliases don&#39;t work with callable discriminators — pydantic/pydantic backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #13599 in pydantic/pydantic, run 2 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261002-175417/13599/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261002-175417/">run-20261002-175417</a><span aria-hidden="true">/</span><span aria-current="page">#13599</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13599" rel="noopener" target="_blank">#13599</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13604" rel="noopener" target="_blank">PR #13604</a></span>
+  <span>Run 2 Oct 2026 · <span class="runid">run-20261002-175417</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">PEP 695 type aliases don&#39;t work with callable discriminators</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The solver hit its turn or time cap.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 42m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 60 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13599" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>New type aliases prefixed with the type keyword are not supported as the type annotation for a callable discriminator.</p>
+<p>M1, M2, M4 ok<br>M3</p>
+<pre><code>pydantic.errors.PydanticUserError: `Tag` not provided for choice {&#39;type&#39;: &#39;definition-ref&#39;, &#39;schema_ref&#39;: &#39;__main__.TaggedAnyA:2210408548368&#39;} used with `Discriminator`</code></pre>
+<p>Example Code from #12843 also doesn’t work.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">import traceback
+from sys import stderr
+
+from pydantic import BaseModel, Discriminator, Field, Tag
+from typing_extensions import Annotated, Any, Literal, TypeAlias
+
+
+class A(BaseModel):
+    type_: str
+
+class A1(A):
+    type_: Literal[&#39;A1&#39;] = Field(alias=&#39;type&#39;)
+
+class A2(A):
+    type_: Literal[&#39;A2&#39;] = Field(alias=&#39;type&#39;)
+
+def _discriminator(data: Any) -&gt; str:
+    if isinstance(data, dict):
+        return data[&#39;type&#39;]
+    return data.type_
+
+discriminator = Discriminator(_discriminator)
+
+type AnyA = A1 | A2
+AnyA_old: TypeAlias = A1 | A2
+
+type TaggedAnyA = Annotated[A1, Tag(&#39;A1&#39;)] | Annotated[A2, Tag(&#39;A2&#39;)]
+TaggedAnyA_old: TypeAlias = Annotated[A1, Tag(&#39;A1&#39;)] | Annotated[A2, Tag(&#39;A2&#39;)]
+
+
+_data = {&quot;a&quot; : {&#39;type&#39;: &#39;A1&#39;}}
+try:
+    class M1(BaseModel):
+        a: AnyA = Field(discriminator=&#39;type_&#39;)
+
+    M1.model_validate(_data)
+except Exception as e:
+    traceback.print_exc()
+else:
+    print(&quot;OK&quot;, file=stderr)
+
+try:
+    class M2(BaseModel):
+        a: AnyA_old = Field(discriminator=&#39;type_&#39;)
+
+    M2.model_validate(_data)
+except Exception as e:
+    traceback.print_exc()
+else:
+    print(&quot;OK&quot;, file=stderr)
+
+try:
+    class M3(BaseModel):
+        a: TaggedAnyA = Field(discriminator=discriminator)
+
+    M3.model_validate(_data)
+except Exception as e:
+    traceback.print_exc()
+else:
+    print(&quot;OK&quot;, file=stderr)
+
+try:
+    class M4(BaseModel):
+        a: TaggedAnyA_old = Field(discriminator=discriminator)
+
+    M4.model_validate(_data)
+except Exception as e:
+    traceback.print_exc()
+else:
+    print(&quot;OK&quot;, file=stderr)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.13.4
+        pydantic-core version: 2.46.4
+          pydantic-core build: profile=release pgo=false
+               python version: 3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]
+                     platform: Windows-11-10.0.26200-SP0
+             related packages: mypy-2.3.0 typing_extensions-4.16.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13604" rel="noopener" target="_blank">PR #13604</a></span><span class="pm"><span class="a">+47</span> <span class="r">−13</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_discriminated_union.py</span><span class="h">index 94c82026c..64f231459 100644</span><span class="h">@@ -65,7 +65,7 @@ def apply_discriminator(</span><span class="c">         if isinstance(discriminator.discriminator, str):</span><span class="c">             discriminator = discriminator.discriminator</span><span class="c">         else:</span><span class="r">-            return discriminator._convert_schema(schema)</span><span class="a">+            return discriminator._convert_schema(schema, definitions=definitions)</span><span class="c"> </span><span class="c">     return _ApplyInferredDiscriminator(discriminator, definitions or {}).apply(schema)</span><span class="c"> </span><span class="f">pydantic/types.py</span><span class="h">index f32a2ab80..50f94cf43 100644</span><span class="h">@@ -3112,13 +3112,29 @@ class Discriminator:</span><span class="c">             return self._convert_schema(original_schema, handler)</span><span class="c"> </span><span class="c">     def _convert_schema(</span><span class="r">-        self, original_schema: core_schema.CoreSchema, handler: GetCoreSchemaHandler | None = None</span><span class="a">+        self,</span><span class="a">+        original_schema: core_schema.CoreSchema,</span><span class="a">+        handler: GetCoreSchemaHandler | None = None,</span><span class="a">+        definitions: dict[str, core_schema.CoreSchema] | None = None,</span><span class="c">     ) -&gt; core_schema.TaggedUnionSchema:</span><span class="r">-        if handler is not None and original_schema[&#39;type&#39;] == &#39;definition-ref&#39;:</span><span class="a">+        def _resolve_ref(schema: core_schema.CoreSchema) -&gt; core_schema.CoreSchema | None:</span><span class="a">+            # `handler` is set when this method is called while generating the schema for the field</span><span class="a">+            # (e.g. via `Annotated[&lt;type&gt;, Discriminator(...)]`). `definitions` is set instead when</span><span class="a">+            # this method is called from `apply_discriminator()` (deferred/callable discriminators).</span><span class="a">+            if handler is not None:</span><span class="a">+                try:</span><span class="a">+                    return handler.resolve_ref_schema(schema)</span><span class="a">+                except LookupError:  # pragma: no cover</span><span class="a">+                    return None</span><span class="a">+            elif definitions is not None:</span><span class="a">+                schema_ref = cast(core_schema.DefinitionReferenceSchema, schema)[&#39;schema_ref&#39;]</span><span class="a">+                return definitions.get(schema_ref)</span><span class="a">+            return None</span><span class="a">+</span><span class="a">+        if original_schema[&#39;type&#39;] == &#39;definition-ref&#39;:</span><span class="c">             # Same logic as `_ApplyInferredDiscriminator._apply_to_root()`</span><span class="r">-            try:</span><span class="r">-                def_schema = handler.resolve_ref_schema(original_schema)</span><span class="r">-            except LookupError:  # pragma: no cover</span><span class="a">+            def_schema = _resolve_ref(original_schema)</span><span class="a">+            if def_schema is None:</span><span class="c">                 from pydantic._internal._discriminated_union import MissingDefinitionForUnionRef</span><span class="c"> </span><span class="c">                 raise MissingDefinitionForUnionRef(original_schema[&#39;schema_ref&#39;])</span><span class="h">@@ -3144,14 +3160,11 @@ class Discriminator:</span><span class="c">             if metadata is not None:</span><span class="c">                 tag = metadata.get(&#39;pydantic_internal_union_tag_key&#39;) or tag</span><span class="c">             if tag is None:</span><span class="r">-                # `handler` is None when this method is called from `apply_discriminator()` (deferred discriminators)</span><span class="r">-                if handler is not None and choice[&#39;type&#39;] == &#39;definition-ref&#39;:</span><span class="a">+                if choice[&#39;type&#39;] == &#39;definition-ref&#39;:</span><span class="c">                     # If choice was built from a PEP 695 type alias, try to resolve the def:</span><span class="r">-                    try:</span><span class="r">-                        choice = handler.resolve_ref_schema(choice)</span><span class="r">-                    except LookupError:</span><span class="r">-                        pass</span><span class="r">-                    else:</span><span class="a">+                    resolved_choice = _resolve_ref(choice)</span><span class="a">+                    if resolved_choice is not None:</span><span class="a">+                        choice = resolved_choice</span><span class="c">                         metadata = cast(&#39;CoreMetadata | None&#39;, choice.get(&#39;metadata&#39;))</span><span class="c">                         if metadata is not None:</span><span class="c">                             tag = metadata.get(&#39;pydantic_internal_union_tag_key&#39;)</span><span class="f">tests/types/unions/test_discriminated_union.py</span><span class="h">index fccb82fbb..637679102 100644</span><span class="h">@@ -2338,6 +2338,27 @@ def test_discriminated_union_type_alias_type_separate_callable_discriminator() -</span><span class="c">     assert m.g == Bar(type=&#39;bar&#39;)</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_discriminated_union_type_alias_type_separate_callable_discriminator_field() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13599&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Foo(BaseModel):</span><span class="a">+        type: Literal[&#39;foo&#39;]</span><span class="a">+</span><span class="a">+    class Bar(BaseModel):</span><span class="a">+        type: Literal[&#39;bar&#39;]</span><span class="a">+</span><span class="a">+    FooBar = TypeAliasType(&#39;FooBar&#39;, Annotated[Foo, Tag(&#39;foo&#39;)] | Annotated[Bar, Tag(&#39;bar&#39;)])</span><span class="a">+</span><span class="a">+    discriminator = Discriminator(lambda v: v[&#39;type&#39;])</span><span class="a">+</span><span class="a">+    class Main(BaseModel):</span><span class="a">+        f: FooBar = Field(discriminator=discriminator)</span><span class="a">+</span><span class="a">+    m = Main(f={&#39;type&#39;: &#39;foo&#39;})</span><span class="a">+</span><span class="a">+    assert m.f == Foo(type=&#39;foo&#39;)</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.xfail(</span><span class="c">     reason=&quot;Nested references aren&#39;t flattened (see comment in `_ApplyInferredDiscriminator._handle_choice()`)&quot;,</span><span class="c"> )</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261002-175417/13520/">Previous · #13520</a>
+  <a class="mid" href="/backtests/pydantic/run-20261002-175417/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261002-175417/13601/">Next · #13601</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
