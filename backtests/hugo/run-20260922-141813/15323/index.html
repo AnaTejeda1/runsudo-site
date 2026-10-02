@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15323 tpl/collections: union silently returns an empty list when the two slice types differ — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15323 in gohugoio/hugo, run 22 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260922-141813/15323/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260922-141813/">run-20260922-141813</a><span aria-hidden="true">/</span><span aria-current="page">#15323</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15323" rel="noopener" target="_blank">#15323</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 22 Sep 2026 · <span class="runid">run-20260922-141813</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">tpl/collections: union silently returns an empty list when the two slice types differ</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches unblock mixed numeric unions by removing the early return only when both element kinds are numeric, and both keep the correct empty-return for genuinely incompatible types (e.g. []int ∪ []string). They diverge on the empty-first-slice case, which is the root cause. In Union the result slice is built from l1v.Type(), and when l1 is empty a prototype is chosen to drive number conversion. Patch B fixes this at the root: it sets the prototype to reflect.Zero(l1.Elem()), so the prototype carries l1&#39;s element type (== the result slice&#39;s type). convertNumber then targets l1&#39;s type, values are assignable, and []int{} ∪ []float64{2,3} correctly yields [2,3]. Because the prototype is only used for its type/kind (never appended), this is behavior-preserving for the same-type empty case and correct for the mixed case, with no panic. Patch A instead leaves the original prototype logic (l1vv = l2.Index(0)), so for an empty []int the prototype is float64; convertNumber leaves it float64, and A&#39;s new AssignableTo(l1.Elem()) guard then silently drops it (the guard exists precisely to avoid the panic of appending float64 into []int). The result is a lossy []int{}, and behavior becomes inconsistent: union (slice 1) (slice 2.0) = [1 2] but []int{} ∪ []float64{2.0} = [] — reintroducing a silent-empty inconsistency of the same family as the reported bug, now keyed on whether l1 happens to be empty. On correctness B is clearly better (consistent, non-lossy, root-cause). Tests: both fail-before/pass-after, but A&#39;s {[]int{}, []float64{1.0}, []int{}} encodes the lossy behavior, while B&#39;s cases (int8 mixing, empty-first with real elements) assert correct union semantics and cover more. Scope and size are comparable; B&#39;s prototype change with its explanatory comment is the more targeted, clearer fix, whereas A masks a symptom with a drop-guard. Winner: B.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">13m 57s<small>19 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,764 passed · 101 skipped · 3,871 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">20<small>vs 17 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15323" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>&lt;pre&gt;<br>$ hugo version<br>hugo v0.166.0-DEV-ae07063fcc9a59c95838e83e7fdf12e326ebee7d darwin/arm64<br>&lt;/pre&gt;</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>I built <code>master</code> at <code>ae07063</code> and reproduced it there. I did not run a tagged release binary, so I have not confirmed it against one directly, though <code>Union</code> is unchanged in <code>tpl/collections/collections.go</code>.</p>
+<h3>What did you expect to see?</h3>
+<p><code>union</code> either returning the union of its two arguments, or returning an error. It already errors for the other argument shapes it cannot handle, for example <code>union does not support slices or arrays of uncomparable types</code> and <code>can&#39;t iterate over ...</code>.</p>
+<h3>What did you see instead?</h3>
+<p><code>union</code> returns an empty slice, with no error, whenever the two arguments have different slice types and neither has an interface element type.</p>
+<p><code>layouts/index.html</code>:</p>
+<pre><code class="lang-go-html-template">{{ printf &quot;%T&quot; (slice 1) }}
+{{ printf &quot;%T&quot; (slice 1.0) }}
+union int,int    -&gt; {{ union (slice 1) (slice 2) }}
+union int,float  -&gt; {{ union (slice 1) (slice 1.0) }}
+union int,string -&gt; {{ union (slice 1) (slice &quot;a&quot;) }}
+union lists      -&gt; {{ union (slice 1 2) (slice 2.0 3.0) }}
+intersect lists  -&gt; {{ intersect (slice 1 2) (slice 2.0 3.0) }}</code></pre>
+<p>Output:</p>
+<pre><code>[]int
+[]float64
+union int,int    -&gt; [1 2]
+union int,float  -&gt; []
+union int,string -&gt; []
+union lists      -&gt; []
+intersect lists  -&gt; [2]</code></pre>
+<p><code>intersect</code> handles the same two mixed-type lists and returns <code>[2]</code>, so the sibling functions disagree about whether these arguments are usable at all.</p>
+<p>The cause is this early return in <code>Union</code>:</p>
+<pre><code class="lang-go">if l1v.Type() != l2v.Type() &amp;&amp;
+	l1v.Type().Elem().Kind() != reflect.Interface &amp;&amp;
+	l2v.Type().Elem().Kind() != reflect.Interface {
+	return ins.r.Interface(), nil
+}</code></pre>
+<p><code>ins.r</code> is the empty slice made just above, so a caller gets an empty list rather than an error. It is reachable from ordinary templates because <code>slice 1</code> is <code>[]int</code> and <code>slice 1.0</code> is <code>[]float64</code>, and it also runs before the uncomparable-types check, so <code>union (slice (slice 1)) (slice 2)</code> returns <code>[]</code> instead of the error that check would raise.</p>
+<p>Adding one element of another type to the first argument avoids it, since the slice then becomes <code>[]interface {}</code>: <code>union (slice 1 &quot;x&quot;) (slice 1.0)</code> returns <code>[1 x]</code>.</p>
+<h3>Stack traceback or browser console output</h3>
+<p>None, no error is raised. That is the problem.</p>
+<hr>
+<p>This is a different mechanism from #3411, which was closed in 2017 and is now locked with a note asking that related bugs be opened as new issues.</p>
+<p>Happy to send a PR. Returning an error here would be a small change; making <code>union</code> accept mixed types the way <code>intersect</code> does is bigger, so I would rather you pick the direction first.</p>
+<p>This issue was written primarily by Claude Code, including the reproduction above.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+14</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">tpl/collections/collections.go</span><span class="h">index a44603b53..ba6e19827 100644</span><span class="h">@@ -656,7 +656,8 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> </span><span class="c"> 			if l1v.Type() != l2v.Type() &amp;&amp;</span><span class="c"> 				l1v.Type().Elem().Kind() != reflect.Interface &amp;&amp;</span><span class="r">-				l2v.Type().Elem().Kind() != reflect.Interface {</span><span class="a">+				l2v.Type().Elem().Kind() != reflect.Interface &amp;&amp;</span><span class="a">+				!(hreflect.IsNumber(l1v.Type().Elem().Kind()) &amp;&amp; hreflect.IsNumber(l2v.Type().Elem().Kind())) {</span><span class="c"> 				return ins.r.Interface(), nil</span><span class="c"> 			}</span><span class="c"> </span><span class="h">@@ -678,11 +679,9 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 			}</span><span class="c"> </span><span class="c"> 			if !l1vv.IsValid() {</span><span class="r">-				// The first slice may be empty. Pick the first value of the second</span><span class="r">-				// to use as a prototype.</span><span class="r">-				if l2v.Len() &gt; 0 {</span><span class="r">-					l1vv = l2v.Index(0)</span><span class="r">-				}</span><span class="a">+				// The first slice may be empty. Use a zero value of its element</span><span class="a">+				// type as a prototype so results conform to the first slice&#39;s type.</span><span class="a">+				l1vv = reflect.Zero(l1v.Type().Elem())</span><span class="c"> 			}</span><span class="c"> </span><span class="c"> 			for j := range l2v.Len() {</span><span class="f">tpl/collections/collections_test.go</span><span class="h">index 5562a80d6..01b6c17a8 100644</span><span class="h">@@ -667,6 +667,15 @@ func TestUnion(t *testing.T) {</span><span class="c"> 		{[]string{&quot;1&quot;, &quot;2&quot;}, []int{3}, []string{}, false},</span><span class="c"> 		{[]int{1, 2}, []string{&quot;1&quot;, &quot;2&quot;}, []int{}, false},</span><span class="c"> </span><span class="a">+		// []A ∪ []B, mixed but compatible numeric types - #15323</span><span class="a">+		{[]int{1}, []float64{1.0}, []int{1}, false},</span><span class="a">+		{[]int{1, 2}, []float64{2.0, 3.0}, []int{1, 2, 3}, false},</span><span class="a">+		{[]float64{1.0}, []int{1}, []float64{1}, false},</span><span class="a">+		{[]int8{2, 4}, []int{1, 2, 4}, []int8{2, 4, 1}, false},</span><span class="a">+		// empty first slice, mixed numeric types - #15323</span><span class="a">+		{[]int8{}, []int{1, 2}, []int8{1, 2}, false},</span><span class="a">+		{[]int{}, []float64{2.0, 3.0}, []int{2, 3}, false},</span><span class="a">+</span><span class="c"> 		// []T ∪ []T</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;c&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;b&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, false},</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, false},</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+15</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">tpl/collections/collections.go</span><span class="h">index a44603b53..fdb2501f6 100644</span><span class="h">@@ -657,7 +657,12 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 			if l1v.Type() != l2v.Type() &amp;&amp;</span><span class="c"> 				l1v.Type().Elem().Kind() != reflect.Interface &amp;&amp;</span><span class="c"> 				l2v.Type().Elem().Kind() != reflect.Interface {</span><span class="r">-				return ins.r.Interface(), nil</span><span class="a">+				// Numeric element types unify through the conversion below,</span><span class="a">+				// mirroring how intersect matches numbers across types.</span><span class="a">+				if !hreflect.IsNumber(l1v.Type().Elem().Kind()) ||</span><span class="a">+					!hreflect.IsNumber(l2v.Type().Elem().Kind()) {</span><span class="a">+					return ins.r.Interface(), nil</span><span class="a">+				}</span><span class="c"> 			}</span><span class="c"> </span><span class="c"> 			var (</span><span class="h">@@ -698,7 +703,8 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 				case hreflect.IsNumber(kind):</span><span class="c"> 					var err error</span><span class="c"> 					l2vv, err = convertNumber(l2vv, typ)</span><span class="r">-					if err == nil {</span><span class="a">+					// The empty l1 prototype comes from l2 and may not match l1&#39;s element type.</span><span class="a">+					if err == nil &amp;&amp; l2vv.Type().AssignableTo(l1v.Type().Elem()) {</span><span class="c"> 						ins.appendIfNotSeen(l2vv)</span><span class="c"> 					}</span><span class="c"> 				case kind == reflect.Interface, kind == reflect.Struct, kind == reflect.Pointer:</span><span class="f">tpl/collections/collections_test.go</span><span class="h">index 5562a80d6..47c51e01d 100644</span><span class="h">@@ -667,6 +667,13 @@ func TestUnion(t *testing.T) {</span><span class="c"> 		{[]string{&quot;1&quot;, &quot;2&quot;}, []int{3}, []string{}, false},</span><span class="c"> 		{[]int{1, 2}, []string{&quot;1&quot;, &quot;2&quot;}, []int{}, false},</span><span class="c"> </span><span class="a">+		// numeric []A ∪ []B unify. See issue 15323.</span><span class="a">+		{[]int{1}, []float64{1.0}, []int{1}, false},</span><span class="a">+		{[]int{1, 2}, []float64{2.0, 3.0}, []int{1, 2, 3}, false},</span><span class="a">+		{[]float64{1.0}, []int{1, 2}, []float64{1.0, 2.0}, false},</span><span class="a">+		// the empty l1 prototype comes from l2, so appends must stay assignable to l1&#39;s element type.</span><span class="a">+		{[]int{}, []float64{1.0}, []int{}, false},</span><span class="a">+</span><span class="c"> 		// []T ∪ []T</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;c&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;b&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, false},</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, false},</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The change is complete and clean. The <code>AGENTS.md</code>/<code>CLAUDE.md</code> deletions were pre-existing in the starting snapshot, not part of this work. No scratch files.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong.</strong> In <code>tpl/collections/collections.go</code>, <code>Union</code> had an early return that fired whenever the two arguments were different concrete slice types and neither had an <code>interface{}</code> element type — returning the freshly-made <em>empty</em> result slice with no error. This silently swallowed compatible numeric mixes: <code>union (slice 1) (slice 1.0)</code> returned <code>[]</code> instead of <code>[1]</code>, even though the sibling <code>intersect</code> handles the same mixed numeric types correctly.</p>
+<p><strong>Direction chosen.</strong> The report offered two directions (return an error, or accept mixed types like <code>intersect</code>) and asked me to pick. &quot;Return an error&quot; and &quot;accept <em>all</em> mixed types&quot; both require changing the existing, currently-passing assertions at <code>collections_test.go:667-668</code>, which lock string↔int cross-type to an empty slice with no error — and I may not modify existing tests. So I took the <strong>scoped version of direction 2</strong>: make <code>union</code> accept <em>numeric</em> cross-type slices the way <code>intersect</code> does, leaving genuinely-incompatible pairs (string↔int) returning empty, consistent with both <code>intersect</code> and those existing tests.</p>
+<p><strong>What I changed</strong> (<code>tpl/collections/collections.go</code>, <code>Union</code> only):</p>
+<ol><li>Added a fourth clause to the early-return guard so it is skipped when both element kinds are numeric (<code>!(hreflect.IsNumber(...) &amp;&amp; hreflect.IsNumber(...))</code>). The existing second loop already converts numeric l2 elements to l1&#39;s element type via <code>convertNumber</code>, so they now flow through correctly.</li><li>Fixed a <strong>panic this first change newly exposed</strong>: the empty-first-slice &quot;prototype&quot; branch borrowed l2&#39;s element (<code>l2v.Index(0)</code>), so <code>[]int8{} ∪ []int{1,2}</code> tried to append <code>int</code> into an <code>[]int8</code> result — <code>reflect.Set: value of type int is not assignable to type int8</code>. Changed it to use <code>reflect.Zero(l1v.Type().Elem())</code> so results conform to the first slice&#39;s own type. Verified this preserves all pre-existing empty-first-slice cases (interface/struct/pointer).</li></ol>
+<p><strong>Test evidence</strong> (<code>collections_test.go</code>, <code>TestUnion</code> table — 6 new rows):</p>
+<ul><li>Before: the numeric rows made <code>TestUnion</code> fail (<code>[5] Got [] expected [1]</code>), and the empty-first-slice rows made it <strong>panic</strong> (<code>reflect.Set: value of type int is not assignable to type int8</code> at <code>collections.go:606</code>).</li><li>After: <code>./bt-test ./tpl/collections/...</code> → <code>ok github.com/gohugoio/hugo/tpl/collections</code> with <code>TestUnion</code>, <code>TestIntersect</code>, <code>TestUnionResourcesMatch</code>, and all package tests (including the template integration tests) passing. No existing test was modified, weakened, or reordered.</li></ul>
+<p><strong>Requirements list:</strong></p>
+<ul><li><em>Pick a direction (error vs. accept mixed types)</em> — <strong>Done</strong>: chose the numeric-scoped &quot;accept mixed types like intersect,&quot; with rationale above.</li><li><em><code>union</code> should not silently return <code>[]</code> for compatible mixed types</em> — <strong>Implemented + tested</strong>: numeric cross-type unions now combine (<code>int∪float64</code>, <code>float64∪int</code>, <code>int8∪int</code>, and empty-first-slice variants).</li><li><em>Sibling consistency with <code>intersect</code></em> — <strong>Implemented</strong>: <code>union (slice 1 2) (slice 2.0 3.0)</code> now returns <code>[1 2 3]</code> (was <code>[]</code>) while <code>intersect</code> returns <code>[2]</code>; both now treat mixed numerics as usable.</li><li><em><code>union int,string</code> case from the report</em> — <strong>Skipped (intentional), with evidence</strong>: string↔int stays empty. Evidence: <code>collections_test.go:667-668</code> assert this and may not be changed; <code>intersect</code> also returns empty for string↔int (<code>collections_test.go:363-364</code>) because <code>hreflect</code> does not convert string↔number (<code>common/hreflect/convert.go:118</code>). Erroring here was the reporter&#39;s <em>alternative</em> direction, not taken.</li><li><em>Uncomparable-types secondary symptom (<code>union (slice (slice 1)) (slice 2)</code> returns <code>[]</code> instead of erroring)</em> — <strong>Skipped (out of chosen scope), with evidence</strong>: those args are non-numeric different types, so the early return still fires and returns empty. The existing uncomparable-types error tests (<code>collections_test.go:720-722</code>) are <em>same-type</em> pairs, so they still error correctly and are unaffected. Addressing this cross-type nested case would require the broader &quot;error on all incompatible types&quot; direction, which conflicts with the locked existing tests.</li></ul></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260922-141813/15307/">Previous · #15307</a>
+  <a class="mid" href="/backtests/hugo/run-20260922-141813/">All tickets in this run</a>
+  <span class="disabled">Next</span>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

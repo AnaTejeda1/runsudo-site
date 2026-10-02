@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15206 ReadingTime and FuzzyWordCount have off-by-one errors in their ceiling calculations — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15206 in gohugoio/hugo, run 22 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260922-141813/15206/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260922-141813/">run-20260922-141813</a><span aria-hidden="true">/</span><span aria-current="page">#15206</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15206" rel="noopener" target="_blank">#15206</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 22 Sep 2026 · <span class="runid">run-20260922-141813</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">ReadingTime and FuzzyWordCount have off-by-one errors in their ceiling calculations</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make byte-identical source fixes to hugolib/page__content.go (fuzzyWordCount +99 and readingTime +211/+499), so on correctness they are tied — both correctly implement the ceil idiom (n+d-1)/d and both hold up at every boundary the issue names. Both add the same integration test TestReadingTimeAndFuzzyWordCountBoundaries with identical assertions that would fail before the fix (p100, p213, p500, p501) and pass after, so test value is also tied. The decisive difference is scope: Patch A touches only the source file and appends the one new test. Patch B carries substantial unrelated churn — reformatting roughly a dozen existing AssertFileContent/Assert call sites across the file (moving the first arg to its own line, adding trailing commas) that has nothing to do with the off-by-one bug. That incidental churn enlarges the diff, muddies blame, and risks review/merge conflicts for no functional gain. Under the scope criterion (change as small as a correct fix allows; drive-by reformatting counts against a patch), A is the cleaner, better-crafted fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 15m<small>18 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,692 passed · 99 skipped · 3,804 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">80<small>vs 128 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15206" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Summary</h2>
+<p>Two related integer-arithmetic bugs in <code>hugolib/page__content.go</code> (in the plain-content calculation), causing behavior that deviates from documented intent at boundary values.</p>
+<h2>1. <code>ReadingTime</code> divides by 213/501 instead of 212/500</h2>
+<pre><code class="lang-go">if isCJKLanguage {
+    result.readingTime = (result.wordCount + 500) / 501
+} else {
+    result.readingTime = (result.wordCount + 212) / 213
+}</code></pre>
+<p>The intent is a reading speed of 212 words per minute (500 for CJK), rounded up. But the correct ceiling-division idiom is <code>(n + d - 1) / d</code>. As written, the expression computes <code>ceil(wordCount / 213)</code> and <code>ceil(wordCount / 501)</code>, so the effective reading speeds are 213 and 501 wpm.</p>
+<div class="tablewrap"><table class="table"><thead><tr><th>wordCount</th><th>current: <code>(wc+212)/213</code></th><th>expected at 212 wpm: <code>ceil(wc/212)</code></th></tr></thead><tbody><tr><td>212</td><td>1</td><td>1</td></tr><tr><td>213</td><td>**1**</td><td>**2**</td></tr><tr><td>424</td><td>2</td><td>2</td></tr><tr><td>425</td><td>**2**</td><td>**3**</td></tr></tbody></table></div>
+<p>Proposed fix:</p>
+<pre><code class="lang-go">result.readingTime = (result.wordCount + 211) / 212   // non-CJK
+result.readingTime = (result.wordCount + 499) / 500   // CJK</code></pre>
+<h2>2. <code>FuzzyWordCount</code> overshoots on exact multiples of 100</h2>
+<pre><code class="lang-go">result.fuzzyWordCount = (result.wordCount + 100) / 100 * 100</code></pre>
+<p>Documented as the word count &quot;rounded up to the nearest multiple of 100&quot;, but adding 100 unconditionally bumps exact multiples to the <em>next</em> multiple:</p>
+<div class="tablewrap"><table class="table"><thead><tr><th>wordCount</th><th>current</th><th>expected</th></tr></thead><tbody><tr><td>99</td><td>100</td><td>100</td></tr><tr><td>100</td><td><strong>200</strong></td><td><strong>100</strong></td></tr><tr><td>101</td><td>200</td><td>200</td></tr><tr><td>0</td><td><strong>100</strong></td><td>**0**</td></tr></tbody></table></div>
+<p>Proposed fix:</p>
+<pre><code class="lang-go">result.fuzzyWordCount = (result.wordCount + 99) / 100 * 100</code></pre>
+<p>Both changes only affect output at exact boundary values, but they do change rendered output for existing sites (e.g., a 100-word page&#39;s <code>FuzzyWordCount</code> drops from 200 to 100), so this may warrant a changelog note.</p>
+<h2>Integration Test</h2>
+<p>&lt;details&gt;<br>&lt;summary&gt;hugolib/page_test.go&lt;/summary&gt;</p>
+<pre><code class="lang-go">// See issue 15206.
+func TestReadingTimeAndFuzzyWordCountBoundaries(t *testing.T) {
+	t.Parallel()
+
+	files := `
+-- hugo.toml --
+disableKinds = [&quot;home&quot;, &quot;section&quot;, &quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]
+-- content/p99.md --
+---
+title: p99
+---
+` + strings.Repeat(&quot;word &quot;, 99) + `
+-- content/p100.md --
+---
+title: p100
+---
+` + strings.Repeat(&quot;word &quot;, 100) + `
+-- content/p101.md --
+---
+title: p101
+---
+` + strings.Repeat(&quot;word &quot;, 101) + `
+-- content/p211.md --
+---
+title: p211
+---
+` + strings.Repeat(&quot;word &quot;, 211) + `
+-- content/p212.md --
+---
+title: p212
+---
+` + strings.Repeat(&quot;word &quot;, 212) + `
+-- content/p213.md --
+---
+title: p213
+---
+` + strings.Repeat(&quot;word &quot;, 213) + `
+-- content/p499.md --
+---
+title: p499
+isCJKLanguage: true
+---
+` + strings.Repeat(&quot;你&quot;, 499) + `
+-- content/p500.md --
+---
+title: p500
+isCJKLanguage: true
+---
+` + strings.Repeat(&quot;你&quot;, 500) + `
+-- content/p501.md --
+---
+title: p501
+isCJKLanguage: true
+---
+` + strings.Repeat(&quot;你&quot;, 501) + `
+-- layouts/page.html --
+{{ .WordCount }}|{{ .FuzzyWordCount }}|{{ .ReadingTime }}
+`
+
+	b := Test(t, files)
+
+	b.AssertFileContent(&quot;public/p99/index.html&quot;, &quot;99|100|1&quot;)
+	b.AssertFileContent(&quot;public/p100/index.html&quot;, &quot;100|100|1&quot;) // fails
+	b.AssertFileContent(&quot;public/p101/index.html&quot;, &quot;101|200|1&quot;)
+
+	b.AssertFileContent(&quot;public/p211/index.html&quot;, &quot;211|300|1&quot;)
+	b.AssertFileContent(&quot;public/p212/index.html&quot;, &quot;212|300|1&quot;)
+	b.AssertFileContent(&quot;public/p213/index.html&quot;, &quot;213|300|2&quot;) // fails
+
+	b.AssertFileContent(&quot;public/p499/index.html&quot;, &quot;499|500|1&quot;)
+	b.AssertFileContent(&quot;public/p500/index.html&quot;, &quot;500|500|1&quot;) // fails
+	b.AssertFileContent(&quot;public/p501/index.html&quot;, &quot;501|600|2&quot;) // fails
+}</code></pre>
+<p>&lt;/details&gt;</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+77</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">hugolib/page__content.go</span><span class="h">index c89d6b614..725576f38 100644</span><span class="h">@@ -807,13 +807,13 @@ func (c *cachedContentScope) contentPlain(ctx context.Context) (contentPlainPlai</span><span class="c"> </span><span class="c"> 		// TODO(bep) is set in a test. Fix that.</span><span class="c"> 		if result.fuzzyWordCount == 0 {</span><span class="r">-			result.fuzzyWordCount = (result.wordCount + 100) / 100 * 100</span><span class="a">+			result.fuzzyWordCount = (result.wordCount + 99) / 100 * 100</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		if isCJKLanguage {</span><span class="r">-			result.readingTime = (result.wordCount + 500) / 501</span><span class="a">+			result.readingTime = (result.wordCount + 499) / 500</span><span class="c"> 		} else {</span><span class="r">-			result.readingTime = (result.wordCount + 212) / 213</span><span class="a">+			result.readingTime = (result.wordCount + 211) / 212</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		rs.Value = result</span><span class="f">hugolib/page_test.go</span><span class="h">index cad453d5b..ecd588900 100644</span><span class="h">@@ -1209,6 +1209,80 @@ func TestWordCount(t *testing.T) {</span><span class="c"> 	testAllMarkdownEnginesForPages(t, assertFunc, nil, simplePageWithLongContent)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// See issue 15206.</span><span class="a">+func TestReadingTimeAndFuzzyWordCountBoundaries(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;home&quot;, &quot;section&quot;, &quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]</span><span class="a">+-- content/p99.md --</span><span class="a">+---</span><span class="a">+title: p99</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 99) + `</span><span class="a">+-- content/p100.md --</span><span class="a">+---</span><span class="a">+title: p100</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 100) + `</span><span class="a">+-- content/p101.md --</span><span class="a">+---</span><span class="a">+title: p101</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 101) + `</span><span class="a">+-- content/p211.md --</span><span class="a">+---</span><span class="a">+title: p211</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 211) + `</span><span class="a">+-- content/p212.md --</span><span class="a">+---</span><span class="a">+title: p212</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 212) + `</span><span class="a">+-- content/p213.md --</span><span class="a">+---</span><span class="a">+title: p213</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 213) + `</span><span class="a">+-- content/p499.md --</span><span class="a">+---</span><span class="a">+title: p499</span><span class="a">+isCJKLanguage: true</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;你&quot;, 499) + `</span><span class="a">+-- content/p500.md --</span><span class="a">+---</span><span class="a">+title: p500</span><span class="a">+isCJKLanguage: true</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;你&quot;, 500) + `</span><span class="a">+-- content/p501.md --</span><span class="a">+---</span><span class="a">+title: p501</span><span class="a">+isCJKLanguage: true</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;你&quot;, 501) + `</span><span class="a">+-- layouts/page.html --</span><span class="a">+{{ .WordCount }}|{{ .FuzzyWordCount }}|{{ .ReadingTime }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/p99/index.html&quot;, &quot;99|100|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p100/index.html&quot;, &quot;100|100|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p101/index.html&quot;, &quot;101|200|1&quot;)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/p211/index.html&quot;, &quot;211|300|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p212/index.html&quot;, &quot;212|300|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p213/index.html&quot;, &quot;213|300|2&quot;)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/p499/index.html&quot;, &quot;499|500|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p500/index.html&quot;, &quot;500|500|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p501/index.html&quot;, &quot;501|600|2&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestPagePaths(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+109</span> <span class="r">−19</span></span></div><pre class="diff"><span class="f">hugolib/page__content.go</span><span class="h">index c89d6b614..725576f38 100644</span><span class="h">@@ -807,13 +807,13 @@ func (c *cachedContentScope) contentPlain(ctx context.Context) (contentPlainPlai</span><span class="c"> </span><span class="c"> 		// TODO(bep) is set in a test. Fix that.</span><span class="c"> 		if result.fuzzyWordCount == 0 {</span><span class="r">-			result.fuzzyWordCount = (result.wordCount + 100) / 100 * 100</span><span class="a">+			result.fuzzyWordCount = (result.wordCount + 99) / 100 * 100</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		if isCJKLanguage {</span><span class="r">-			result.readingTime = (result.wordCount + 500) / 501</span><span class="a">+			result.readingTime = (result.wordCount + 499) / 500</span><span class="c"> 		} else {</span><span class="r">-			result.readingTime = (result.wordCount + 212) / 213</span><span class="a">+			result.readingTime = (result.wordCount + 211) / 212</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		rs.Value = result</span><span class="f">hugolib/page_test.go</span><span class="h">index cad453d5b..635358590 100644</span><span class="h">@@ -412,7 +412,8 @@ baseURL = &quot;http://example.com/&quot;</span><span class="c"> 	p := b.H.Sites[0].RegularPages()[0]</span><span class="c"> </span><span class="c"> 	b.Assert(p.Summary(context.Background()), qt.Equals, template.HTML(</span><span class="r">-		&quot;&lt;p&gt;The &lt;a href=\&quot;http://gohugo.io/\&quot;&gt;best static site generator&lt;/a&gt;.&lt;sup id=\&quot;fnref:1\&quot;&gt;&lt;a href=\&quot;#fn:1\&quot; class=\&quot;footnote-ref\&quot; role=\&quot;doc-noteref\&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;&quot;))</span><span class="a">+		&quot;&lt;p&gt;The &lt;a href=\&quot;http://gohugo.io/\&quot;&gt;best static site generator&lt;/a&gt;.&lt;sup id=\&quot;fnref:1\&quot;&gt;&lt;a href=\&quot;#fn:1\&quot; class=\&quot;footnote-ref\&quot; role=\&quot;doc-noteref\&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;&quot;,</span><span class="a">+	))</span><span class="c"> </span><span class="c"> 	cnt := content(p)</span><span class="c"> 	b.Assert(cnt, qt.Equals, &quot;&lt;p&gt;The &lt;a href=\&quot;http://gohugo.io/\&quot;&gt;best static site generator&lt;/a&gt;.&lt;sup id=\&quot;fnref:1\&quot;&gt;&lt;a href=\&quot;#fn:1\&quot; class=\&quot;footnote-ref\&quot; role=\&quot;doc-noteref\&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;\n&lt;div class=\&quot;footnotes\&quot; role=\&quot;doc-endnotes\&quot;&gt;\n&lt;hr&gt;\n&lt;ol&gt;\n&lt;li id=\&quot;fn:1\&quot;&gt;\n&lt;p&gt;Many people say so.&amp;#160;&lt;a href=\&quot;#fnref:1\&quot; class=\&quot;footnote-backref\&quot; role=\&quot;doc-backlink\&quot;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ol&gt;\n&lt;/div&gt;&quot;)</span><span class="h">@@ -730,7 +731,8 @@ This is **content**.</span><span class="c"> Summary: {{ .Summary }}|Truncated: {{ .Truncated }}|</span><span class="c"> Content: {{ .Content }}|</span><span class="c"> </span><span class="r">-`).AssertFileContent(&quot;public/simple/index.html&quot;,</span><span class="a">+`).AssertFileContent(</span><span class="a">+		&quot;public/simple/index.html&quot;,</span><span class="c"> 		&quot;Summary: &lt;p&gt;This is &lt;strong&gt;summary&lt;/strong&gt;.&lt;/p&gt;|&quot;,</span><span class="c"> 		&quot;Truncated: true|&quot;,</span><span class="c"> 		&quot;Content: &lt;p&gt;This is &lt;strong&gt;summary&lt;/strong&gt;.&lt;/p&gt;\n&lt;p&gt;This is &lt;strong&gt;content&lt;/strong&gt;.&lt;/p&gt;|&quot;,</span><span class="h">@@ -1286,13 +1288,15 @@ AllTranslations: {{ range .AllTranslations }}{{ .Language.Lang }}|{{ end }}|</span><span class="c"> </span><span class="c"> `</span><span class="c"> 	b := Test(t, files)</span><span class="r">-	b.AssertFileContent(&quot;public/en/sect/p1/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/en/sect/p1/index.html&quot;,</span><span class="c"> 		&quot;TranslationKey: adfasdf|&quot;,</span><span class="c"> 		&quot;AllTranslations: en|nn||&quot;,</span><span class="c"> 		&quot;Translations: nn||&quot;,</span><span class="c"> 	)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/nn/sect/p1/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/nn/sect/p1/index.html&quot;,</span><span class="c"> 		&quot;TranslationKey: adfasdf|&quot;,</span><span class="c"> 		&quot;Translations: en||&quot;,</span><span class="c"> 		&quot;AllTranslations: en|nn||&quot;,</span><span class="h">@@ -1378,12 +1382,14 @@ Resources: {{ range .Resources }}{{ .RelPermalink }}|{{ .Content }}|{{ end }}|</span><span class="c"> </span><span class="c"> `</span><span class="c"> 	b := Test(t, files)</span><span class="r">-	b.AssertFileContent(&quot;public/en/sect/mybundle_en/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/en/sect/mybundle_en/index.html&quot;,</span><span class="c"> 		&quot;TranslationKey: adfasdf|&quot;,</span><span class="c"> 		&quot;Resources: /en/sect/mybundle_en/f1.txt|f1.en|/en/sect/mybundle_en/f2.txt|f2.en||&quot;,</span><span class="c"> 	)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/nn/sect/mybundle_nn/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/nn/sect/mybundle_nn/index.html&quot;,</span><span class="c"> 		&quot;TranslationKey: adfasdf|&quot;,</span><span class="c"> 		&quot;Title: mybundle nn|TranslationKey: adfasdf|\nResources: /en/sect/mybundle_en/f1.txt|f1.en|/nn/sect/mybundle_nn/f2.nn.txt|f2.nn||&quot;,</span><span class="c"> 	)</span><span class="h">@@ -1497,31 +1503,37 @@ CONTENT:{{ .Content }}</span><span class="c"> `</span><span class="c"> 	b := Test(t, files)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/page-md-shortcode/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/page-md-shortcode/index.html&quot;,</span><span class="c"> 		&quot;SUMMARY:&lt;p&gt;This is a a shortcode.&lt;/p&gt;:END&quot;,</span><span class="c"> 		&quot;CONTENT:&lt;p&gt;This is a a shortcode.&lt;/p&gt;\n\n&lt;p&gt;Content.&lt;/p&gt;\n&quot;,</span><span class="c"> 	)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/page-md-shortcode-same-line/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/page-md-shortcode-same-line/index.html&quot;,</span><span class="c"> 		&quot;SUMMARY:&lt;p&gt;This is a a shortcode&lt;/p&gt;:END&quot;,</span><span class="c"> 		&quot;CONTENT:&lt;p&gt;This is a a shortcode&lt;/p&gt;\n\n&lt;p&gt;Same line.&lt;/p&gt;\n&quot;,</span><span class="c"> 	)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/page-md-shortcode-same-line-after/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/page-md-shortcode-same-line-after/index.html&quot;,</span><span class="c"> 		&quot;SUMMARY:&lt;p&gt;Summary&lt;/p&gt;:END&quot;,</span><span class="c"> 		&quot;CONTENT:&lt;p&gt;Summary&lt;/p&gt;\n\na shortcode&quot;,</span><span class="c"> 	)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/page-org-shortcode/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/page-org-shortcode/index.html&quot;,</span><span class="c"> 		&quot;SUMMARY:&lt;p&gt;\nThis is a a shortcode.\n&lt;/p&gt;:END&quot;,</span><span class="c"> 		&quot;CONTENT:&lt;p&gt;\nThis is a a shortcode.\n&lt;/p&gt;\n&lt;p&gt;\nContent.\t\n&lt;/p&gt;\n&quot;,</span><span class="c"> 	)</span><span class="r">-	b.AssertFileContent(&quot;public/page-org-variant1/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/page-org-variant1/index.html&quot;,</span><span class="c"> 		&quot;SUMMARY:&lt;p&gt;\nSummary.\n&lt;/p&gt;:END&quot;,</span><span class="c"> 		&quot;CONTENT:&lt;p&gt;\nSummary.\n&lt;/p&gt;\n&lt;p&gt;\nContent.\t\n&lt;/p&gt;\n&quot;,</span><span class="c"> 	)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/page-md-only-shortcode/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/page-md-only-shortcode/index.html&quot;,</span><span class="c"> 		&quot;SUMMARY:a shortcode:END&quot;,</span><span class="c"> 		&quot;CONTENT:a shortcode\n\na shortcode\n&quot;,</span><span class="c"> 	)</span><span class="h">@@ -1731,7 +1743,8 @@ c: {{ .Scratch.Get &quot;c&quot; }}</span><span class="c"> </span><span class="c"> 	b := Test(t, files)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="c"> 		&quot;.Scratch eq .Store: true&quot;,</span><span class="c"> 		&quot;a: b&quot;,</span><span class="c"> 		&quot;c: d&quot;,</span><span class="h">@@ -1928,7 +1941,8 @@ Site: {{ site.Store.Get &quot;Site&quot; }}|</span><span class="c"> </span><span class="c"> 	b := TestRunning(t, files)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="c"> 		`</span><span class="c"> Shortcode: sh-Home|</span><span class="c"> Page: p-Home|</span><span class="h">@@ -1939,7 +1953,8 @@ Hugo: h-Home|</span><span class="c"> </span><span class="c"> 	b.EditFileReplaceAll(&quot;content/_index.md&quot;, &quot;Home&quot;, &quot;Homer&quot;).Build()</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="c"> 		`</span><span class="c"> Shortcode: sh-Homer|</span><span class="c"> Page: p-Homer|</span><span class="h">@@ -2149,7 +2164,8 @@ EF</span><span class="c"> </span><span class="c"> 	b := Test(t, files)</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/s1/p1/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/s1/p1/index.html&quot;,</span><span class="c"> 		&quot;ab|ab|ab&quot;,</span><span class="c"> 		&quot;cD|cD|cD&quot;,</span><span class="c"> 		&quot;EF|EF|EF&quot;,</span><span class="h">@@ -2368,3 +2384,77 @@ All.</span><span class="c"> 	myothersection, _ := s.GetPage(&quot;myothersection&quot;) // backed by a content file.</span><span class="c"> 	check(myothersection, true)</span><span class="c"> }</span><span class="a">+</span><span class="a">+// See issue 15206.</span><span class="a">+func TestReadingTimeAndFuzzyWordCountBoundaries(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;home&quot;, &quot;section&quot;, &quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]</span><span class="a">+-- content/p99.md --</span><span class="a">+---</span><span class="a">+title: p99</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 99) + `</span><span class="a">+-- content/p100.md --</span><span class="a">+---</span><span class="a">+title: p100</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 100) + `</span><span class="a">+-- content/p101.md --</span><span class="a">+---</span><span class="a">+title: p101</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 101) + `</span><span class="a">+-- content/p211.md --</span><span class="a">+---</span><span class="a">+title: p211</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 211) + `</span><span class="a">+-- content/p212.md --</span><span class="a">+---</span><span class="a">+title: p212</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 212) + `</span><span class="a">+-- content/p213.md --</span><span class="a">+---</span><span class="a">+title: p213</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;word &quot;, 213) + `</span><span class="a">+-- content/p499.md --</span><span class="a">+---</span><span class="a">+title: p499</span><span class="a">+isCJKLanguage: true</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;你&quot;, 499) + `</span><span class="a">+-- content/p500.md --</span><span class="a">+---</span><span class="a">+title: p500</span><span class="a">+isCJKLanguage: true</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;你&quot;, 500) + `</span><span class="a">+-- content/p501.md --</span><span class="a">+---</span><span class="a">+title: p501</span><span class="a">+isCJKLanguage: true</span><span class="a">+---</span><span class="a">+` + strings.Repeat(&quot;你&quot;, 501) + `</span><span class="a">+-- layouts/page.html --</span><span class="a">+{{ .WordCount }}|{{ .FuzzyWordCount }}|{{ .ReadingTime }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/p99/index.html&quot;, &quot;99|100|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p100/index.html&quot;, &quot;100|100|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p101/index.html&quot;, &quot;101|200|1&quot;)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/p211/index.html&quot;, &quot;211|300|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p212/index.html&quot;, &quot;212|300|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p213/index.html&quot;, &quot;213|300|2&quot;)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/p499/index.html&quot;, &quot;499|500|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p500/index.html&quot;, &quot;500|500|1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p501/index.html&quot;, &quot;501|600|2&quot;)</span><span class="a">+}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>Review is clean. The fix is complete and verified.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong</strong> — Two off-by-one integer-arithmetic bugs in <code>hugolib/page__content.go</code> (in the plain-content calculation):</p>
+<ol><li><strong><code>ReadingTime</code></strong> used <code>(wordCount + 212) / 213</code> (and <code>+500)/501</code> for CJK), which computes ceiling at <em>213/501</em> wpm instead of the intended 212/500. Correct ceiling idiom is <code>(n + d - 1) / d</code>.</li><li><strong><code>FuzzyWordCount</code></strong> used <code>(wordCount + 100) / 100 * 100</code>, which overshoots exact multiples of 100 (e.g. 100 words → 200, 0 → 100).</li></ol>
+<p><strong>What I changed</strong></p>
+<ul><li><code>hugolib/page__content.go</code> — three edits, nothing else:</li><li><code>fuzzyWordCount = (wordCount + 99) / 100 * 100</code></li><li><code>readingTime = (wordCount + 499) / 500</code> (CJK)</li><li><code>readingTime = (wordCount + 211) / 212</code> (non-CJK)</li><li><code>hugolib/page_test.go</code> — added regression test <code>TestReadingTimeAndFuzzyWordCountBoundaries</code> (the exact integration test from the report, with the transient <code>// fails</code> annotations removed).</li></ul>
+<p><strong>Test evidence</strong></p>
+<ul><li>Before the fix, the new test <strong>failed</strong> at the reported boundary: <code>public/p100/index.html</code> rendered <code>100|200|1</code>, expected <code>100|100|1</code>.</li><li>After the fix, <code>./bt-test ./hugolib/ -run &#39;TestReadingTimeAndFuzzyWordCountBoundaries|TestWordCount&#39;</code> → the regression test <strong>passed</strong>; the <code>hugolib</code> package reported <strong>no failures</strong>.</li><li>The <code>TestWordCount*</code> tests are gated behind <code>SkipSlowTestUnlessCI</code> (skipped locally). Blast-radius check: the CJK <code>TestWordCount*</code> variants assert only <code>WordCount</code>, which my change does not touch; <code>TestWordCount</code> (483 words) also asserts FuzzyWordCount=500 and ReadingTime=3, both of which remain identical under the new divisors (<code>(483+99)/100*100=500</code>, <code>(483+211)/212=3</code>).</li><li>Reviewer confirmed the diff matches the report exactly with no unrelated changes.</li></ul>
+<p><strong>Requirements disposition</strong></p>
+<ol><li>Fix <code>ReadingTime</code> divisors (212/500 instead of 213/501), non-CJK and CJK — <strong>implemented</strong>, verified by p213→<code>...|2</code> and p501→<code>...|2</code> assertions passing.</li><li>Fix <code>FuzzyWordCount</code> overshoot on exact multiples of 100 (100→100, 0→0) — <strong>implemented</strong>, verified by p100→<code>100|100|1</code> and p500→<code>500|500|1</code> passing (previously <code>100|200|1</code>).</li><li>Regression test exercising the exact reported boundary scenarios — <strong>implemented</strong>, seen to fail before and pass after.</li><li>Changelog note the report says the change &quot;may warrant&quot; — <strong>skipped</strong>: no CHANGELOG mechanism in this repo (releases are auto-generated via <code>releaser:</code> commits per git history), and it was offered as optional, not required; the behavior change is documented here instead.</li></ol>
+<p>Note: the pre-existing <code>D AGENTS.md</code> / <code>D CLAUDE.md</code> deletions are from the environment baseline and are unrelated to this fix. All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260922-141813/15199/">Previous · #15199</a>
+  <a class="mid" href="/backtests/hugo/run-20260922-141813/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260922-141813/15207/">Next · #15207</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

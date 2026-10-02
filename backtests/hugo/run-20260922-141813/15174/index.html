@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15174 Panic when deleting a directory in static when server is running — gohugoio/hugo backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #15174 in gohugoio/hugo, run 22 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260922-141813/15174/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260922-141813/">run-20260922-141813</a><span aria-hidden="true">/</span><span aria-current="page">#15174</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15174" rel="noopener" target="_blank">#15174</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 22 Sep 2026 · <span class="runid">run-20260922-141813</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Panic when deleting a directory in static when server is running</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches share the identical root-cause fix: adding a `case files.ComponentFolderStatic` to the switch in processPartialFileEvents so the deleted-static event no longer falls through to the panicking default. The differentiators favor A. (1) A additionally makes SourceFilesystem.Contains stat-free by routing through ReverseLookup, with the explicit rationale &#39;so it also works for deleted files.&#39; This is directly on point: a deleted file/dir no longer exists on disk, so the old prefix+IsDir/stat logic would return false for exactly the removed paths this issue is about, meaning the static syncer can fail to recognize and clean up the removed file. B only suppresses the crash but leaves that deleted-file recognition path unimproved. A&#39;s change is purposeful, not a drive-by refactor, and its comment documents intent. (2) Tests: A adds two testscripts that spin up the actual `hugo server` and delete both a file mount and a directory mount into static, asserting no stderr — this mirrors the reported scenario (&#39;deleting a directory in static when server is running&#39;) far more faithfully than B&#39;s single in-process rebuild unit test. A&#39;s dir-mount case directly reproduces the issue title. (3) Scope is the one axis where B is leaner (switch case + one test only), and A&#39;s Contains edit does touch a broadly-used method, carrying some regression risk. But that edit is small, well-justified, and addresses the substance of the bug (correct handling of removed static paths) rather than merely masking the symptom. On balance A is the more complete fix with better-matched test coverage; the modest extra scope is warranted, so A wins over a tie.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">24m 16s<small>17 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,689 passed · 99 skipped · 3,801 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">26<small>vs 78 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15174" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><pre><code>unknown  component: &quot;static&quot; in processPartialFileEvents (hugolib/hugo_sites_build.go:1084, your v0.165.0-DEV-8a5cb2344)</code></pre></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+26</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">hugolib/hugo_sites_build.go</span><span class="h">index 823f9811e..1bff660ca 100644</span><span class="h">@@ -1078,6 +1078,9 @@ func (h *HugoSites) processPartialFileEvents(ctx context.Context, l logg.LevelLo</span><span class="c"> 			// It&#39;s hard to determine the exact change set of this,</span><span class="c"> 			// so be very coarse grained for now.</span><span class="c"> 			changes = append(changes, identity.GenghisKhan)</span><span class="a">+		case files.ComponentFolderStatic:</span><span class="a">+			// Static files are handled separately by the server&#39;s static file syncer,</span><span class="a">+			// so there is nothing to do here for the partial rebuild.</span><span class="c"> 		case files.ComponentFolderArchetypes:</span><span class="c"> 			// Ignore for now.</span><span class="c"> 		default:</span><span class="f">hugolib/rebuild_test.go</span><span class="h">index b6d716c37..00cf83313 100644</span><span class="h">@@ -309,6 +309,29 @@ Pages: {{ range .Site.RegularPages }}{{ .RelPermalink }}|{{ end }}$</span><span class="c"> 	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Pages: /bar/p1/|$&quot;)</span><span class="c"> }</span><span class="c"> </span><span class="a">+func TestRebuildRemoveStaticDirIssue15174(t *testing.T) {</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &quot;https://example.com&quot;</span><span class="a">+disableLiveReload = true</span><span class="a">+-- layouts/home.html --</span><span class="a">+Home.</span><span class="a">+-- static/staticdir/staticfile.txt --</span><span class="a">+Static content.</span><span class="a">+`</span><span class="a">+	b := TestRunning(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Home.&quot;)</span><span class="a">+</span><span class="a">+	// Deleting the directory removes its file and then the now-empty directory,</span><span class="a">+	// which emits a Remove event for the extension-less &quot;static/staticdir&quot; path.</span><span class="a">+	// This resolves to the static component in processPartialFileEvents, which</span><span class="a">+	// used to hit the default case and panic with: unknown component: &quot;static&quot;.</span><span class="a">+	b.RemoveFiles(&quot;static/staticdir/staticfile.txt&quot;, &quot;static/staticdir&quot;).Build()</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Home.&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestRebuildAddRegularFileRegularPageUsedInHomeMultilingual(t *testing.T) {</span><span class="c"> 	files := `</span><span class="c"> -- hugo.toml --</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+69</span> <span class="r">−9</span></span></div><pre class="diff"><span class="f">hugolib/filesystems/basefs.go</span><span class="h">index 13cc942fc..74f59b03c 100644</span><span class="h">@@ -426,16 +426,10 @@ func (d *SourceFilesystem) RealFilename(rel string) string {</span><span class="c"> }</span><span class="c"> </span><span class="c"> // Contains returns whether the given filename is a member of the current filesystem.</span><span class="a">+// It&#39;s stat-free, so it also works for deleted files.</span><span class="c"> func (d *SourceFilesystem) Contains(filename string) bool {</span><span class="r">-	for _, dir := range d.mounts() {</span><span class="r">-		if !dir.IsDir() {</span><span class="r">-			continue</span><span class="r">-		}</span><span class="r">-		if strings.HasPrefix(filename, dir.Meta().Filename) {</span><span class="r">-			return true</span><span class="r">-		}</span><span class="r">-	}</span><span class="r">-	return false</span><span class="a">+	cps, _ := d.ReverseLookup(filename, false)</span><span class="a">+	return len(cps) &gt; 0</span><span class="c"> }</span><span class="c"> </span><span class="c"> // RealDirs gets a list of absolute paths to directories starting from the given</span><span class="f">hugolib/hugo_sites_build.go</span><span class="h">index 823f9811e..0feaada59 100644</span><span class="h">@@ -1080,6 +1080,8 @@ func (h *HugoSites) processPartialFileEvents(ctx context.Context, l logg.LevelLo</span><span class="c"> 			changes = append(changes, identity.GenghisKhan)</span><span class="c"> 		case files.ComponentFolderArchetypes:</span><span class="c"> 			// Ignore for now.</span><span class="a">+		case files.ComponentFolderStatic:</span><span class="a">+			// Handled by the static file syncer.</span><span class="c"> 		default:</span><span class="c"> 			panic(fmt.Sprintf(&quot;unknown component: %q&quot;, pathInfo.Component()))</span><span class="c"> 		}</span><span class="f">testscripts/server/server__delete_static_file_mount.txt</span><span class="h">new file mode 100644</span><span class="h">index 000000000..df77b2a04</span><span class="h">@@ -0,0 +1,32 @@</span><span class="a">+# Test the hugo server command when removing a file mounted into static.</span><span class="a">+# See issue 15174.</span><span class="a">+</span><span class="a">+hugo server &amp;</span><span class="a">+</span><span class="a">+waitServer</span><span class="a">+</span><span class="a">+rm myfiles/robots.txt</span><span class="a">+</span><span class="a">+sleep 2</span><span class="a">+</span><span class="a">+stopServer</span><span class="a">+! stderr .</span><span class="a">+</span><span class="a">+-- hugo.toml --</span><span class="a">+title = &quot;Hugo Server Test&quot;</span><span class="a">+baseURL = &quot;https://example.org/&quot;</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;sitemap&quot;]</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &quot;content&quot;</span><span class="a">+target = &quot;content&quot;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &quot;layouts&quot;</span><span class="a">+target = &quot;layouts&quot;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &quot;myfiles/robots.txt&quot;</span><span class="a">+target = &quot;static/robots.txt&quot;</span><span class="a">+-- layouts/all.html --</span><span class="a">+All.</span><span class="a">+-- content/p1.md --</span><span class="a">+-- myfiles/robots.txt --</span><span class="a">+robots</span><span class="f">testscripts/server/server__delete_static_mount_dir.txt</span><span class="h">new file mode 100644</span><span class="h">index 000000000..8c338812e</span><span class="h">@@ -0,0 +1,32 @@</span><span class="a">+# Test the hugo server command when removing a directory mounted into static.</span><span class="a">+# See issue 15174.</span><span class="a">+</span><span class="a">+hugo server &amp;</span><span class="a">+</span><span class="a">+waitServer</span><span class="a">+</span><span class="a">+rm mystatic/foo</span><span class="a">+</span><span class="a">+sleep 2</span><span class="a">+</span><span class="a">+stopServer</span><span class="a">+! stderr .</span><span class="a">+</span><span class="a">+-- hugo.toml --</span><span class="a">+title = &quot;Hugo Server Test&quot;</span><span class="a">+baseURL = &quot;https://example.org/&quot;</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;sitemap&quot;]</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &quot;content&quot;</span><span class="a">+target = &quot;content&quot;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &quot;layouts&quot;</span><span class="a">+target = &quot;layouts&quot;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &quot;mystatic/foo&quot;</span><span class="a">+target = &quot;static/foo&quot;</span><span class="a">+-- layouts/all.html --</span><span class="a">+All.</span><span class="a">+-- content/p1.md --</span><span class="a">+-- mystatic/foo/static.txt --</span><span class="a">+static</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The fix is complete and verified. Here is my final report.</p>
+<h2>What was wrong</h2>
+<p>Hugo panicked with <code>unknown component: &quot;static&quot;</code> when a directory inside <code>static/</code> was deleted while <code>hugo server</code> was running.</p>
+<p>Root cause: in <code>hugolib/hugo_sites_build.go</code>, the <code>handleChange</code> closure inside <code>processPartialFileEvents</code> switches on <code>pathInfo.Component()</code> with cases for <code>content</code>, <code>layouts</code>, <code>assets</code>, <code>data</code>, <code>i18n</code>, and <code>archetypes</code>, then a <code>default:</code> that panics. There was no <code>case</code> for <code>files.ComponentFolderStatic</code>. When a static directory is deleted, <code>fileEventsApplyInfo</code> marks the event <code>removed=true</code> (Stat fails), the extension-less directory path is resolved to the <code>static</code> component, and it fell through to the <code>default</code> panic (<code>hugo_sites_build.go:1084</code>). Static files are published by an entirely separate pipeline (the server&#39;s <code>staticSyncer</code>/<code>copyStatic</code>), so the partial-rebuild path should never have tried to act on them.</p>
+<h2>What I changed</h2>
+<ul><li><strong><code>hugolib/hugo_sites_build.go</code></strong> — added a <code>case files.ComponentFolderStatic:</code> with an empty body (ignoring the event, exactly like the adjacent <code>archetypes</code> case) and a comment explaining static files are handled by the server&#39;s static syncer. The <code>default: panic</code> remains for genuinely unknown components. Cache-buster compilation and <code>deletedDirs</code> accumulation happen earlier in the loop (before <code>handleChange</code>), so they still run for static paths — no behavior was dropped.</li><li><strong><code>hugolib/rebuild_test.go</code></strong> — added regression test <code>TestRebuildRemoveStaticDirIssue15174</code> reproducing the exact scenario (delete a directory under <code>static/</code> in a running server) and asserting the build completes without panicking.</li></ul>
+<h2>Test evidence</h2>
+<ul><li>Before the fix: <code>TestRebuildRemoveStaticDirIssue15174</code> <strong>panicked</strong> with <code>panic: unknown component: &quot;static&quot;</code> at <code>hugo_sites_build.go:1084</code> — the exact reported failure.</li><li>After the fix: the test <strong>passes</strong> (<code>--- PASS</code>, <code>./bt-test ./hugolib/ -run TestRebuildRemoveStaticDirIssue15174</code> exit 0).</li><li>Regression gate: <code>./bt-test ./hugolib/ -run TestRebuild</code> (all rebuild/partial-rebuild tests) exit 0 — nothing previously passing broke.</li><li>Reviewer confirmed the fix is correct, minimal, and additive; no unrelated changes, no weakened/removed tests, no scratch files.</li></ul>
+<h2>Requirements checklist</h2>
+<ol><li><strong>Fix the panic when deleting a directory in <code>static</code> while the server is running</strong> — ✅ Implemented (added the missing <code>static</code> case) with regression-test evidence (panics before, passes after).</li></ol>
+<p>Note: the working tree shows pre-existing deletions of <code>AGENTS.md</code> and <code>CLAUDE.md</code> from the initial git status; these are workspace/harness artifacts predating this task and are not part of my change (my diff touches only the two files above). All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260922-141813/15171/">Previous · #15171</a>
+  <a class="mid" href="/backtests/hugo/run-20260922-141813/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260922-141813/15189/">Next · #15189</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

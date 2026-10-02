@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15223 commands: Fix &quot;hugo config --lang&quot; flag help text — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15223 in gohugoio/hugo, run 22 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260922-141813/15223/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260922-141813/">run-20260922-141813</a><span aria-hidden="true">/</span><span aria-current="page">#15223</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15223" rel="noopener" target="_blank">#15223</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 22 Sep 2026 · <span class="runid">run-20260922-141813</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">commands: Fix &quot;hugo config --lang&quot; flag help text</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical, correct one-line source change to commands/config.go, replacing the inaccurate &#39;Defaults to the first language defined&#39; with the issue&#39;s suggested &#39;default is the default content language&#39; text — so on correctness (criterion 1) they are equal and both fix the root cause. The deciding factor is tests (criterion 2): Patch A adds a `stdout &#39;default is the default content language&#39;` assertion to testscripts/commands/config.txt, which would fail before the change (the old help text lacked that string) and pass after — a genuine, non-tautological regression guard, exactly matching the code being changed. Patch B adds no test at all. The added assertion is minimal and directly scoped to the fix, so it introduces no scope or craft penalty (criterion 3/4). With correctness tied and Patch A strictly better on test coverage at no cost elsewhere, A is the better fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2m 37s<small>17 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,704 passed · 99 skipped · 3,816 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">3<small>vs 2 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15223" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>The <code>--lang</code> flag help says &quot;Defaults to the first language defined&quot;, but when<br>the flag is empty the command uses the default content language:</p>
+<p><a href="https://github.com/gohugoio/hugo/blob/master/commands/config.go#L74-L76" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/blob/master/commands/config.go#L74-L76</a></p>
+<p>These differ when defaultContentLanguage is not first by weight.</p>
+<p>Suggested text: &quot;the language to display config for (default is the default content language)&quot;</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+2</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">commands/config.go</span><span class="h">index 59433b359..d8f20b50b 100644</span><span class="h">@@ -116,7 +116,7 @@ func (c *configCommand) Init(cd *simplecobra.Commandeer) error {</span><span class="c"> 	cmd.Long = `Display project configuration, both default and custom settings.`</span><span class="c"> 	cmd.Flags().StringVar(&amp;c.format, &quot;format&quot;, &quot;toml&quot;, &quot;preferred file format (toml, yaml or json)&quot;)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;format&quot;, cobra.FixedCompletions([]string{&quot;toml&quot;, &quot;yaml&quot;, &quot;json&quot;}, cobra.ShellCompDirectiveNoFileComp))</span><span class="r">-	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for. Defaults to the first language defined.&quot;)</span><span class="a">+	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for (default is the default content language)&quot;)</span><span class="c"> 	cmd.Flags().BoolVar(&amp;c.printZero, &quot;printZero&quot;, false, `include config options with zero values (e.g. false, 0, &quot;&quot;) in the output`)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;lang&quot;, cobra.NoFileCompletions)</span><span class="c"> 	applyLocalFlagsBuildConfig(cmd, c.r)</span><span class="f">testscripts/commands/config.txt</span><span class="h">index 480f1135b..d2e5309e8 100644</span><span class="h">@@ -2,6 +2,7 @@</span><span class="c"> </span><span class="c"> hugo config -h</span><span class="c"> stdout &#39;Display project configuration&#39;</span><span class="a">+stdout &#39;default is the default content language&#39;</span><span class="c"> </span><span class="c"> </span><span class="c"> hugo config</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">commands/config.go</span><span class="h">index 59433b359..d8f20b50b 100644</span><span class="h">@@ -116,7 +116,7 @@ func (c *configCommand) Init(cd *simplecobra.Commandeer) error {</span><span class="c"> 	cmd.Long = `Display project configuration, both default and custom settings.`</span><span class="c"> 	cmd.Flags().StringVar(&amp;c.format, &quot;format&quot;, &quot;toml&quot;, &quot;preferred file format (toml, yaml or json)&quot;)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;format&quot;, cobra.FixedCompletions([]string{&quot;toml&quot;, &quot;yaml&quot;, &quot;json&quot;}, cobra.ShellCompDirectiveNoFileComp))</span><span class="r">-	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for. Defaults to the first language defined.&quot;)</span><span class="a">+	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for (default is the default content language)&quot;)</span><span class="c"> 	cmd.Flags().BoolVar(&amp;c.printZero, &quot;printZero&quot;, false, `include config options with zero values (e.g. false, 0, &quot;&quot;) in the output`)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;lang&quot;, cobra.NoFileCompletions)</span><span class="c"> 	applyLocalFlagsBuildConfig(cmd, c.r)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The diff is minimal and exactly matches the report. I&#39;m confident this is correct and complete.</p>
+<h2>Summary</h2>
+<p><strong>What was wrong:</strong> The <code>--lang</code> flag on <code>hugo config</code> had help text reading <em>&quot;the language to display config for. Defaults to the first language defined.&quot;</em> This is inaccurate: when <code>--lang</code> is empty, the command uses the <strong>default content language</strong> (<code>commands/config.go:74-76</code> reads <code>conf.configs.Base.DefaultContentLanguage</code>), not the first language by weight. These differ whenever <code>defaultContentLanguage</code> is not the first-defined language.</p>
+<p><strong>What I changed:</strong></p>
+<ul><li><code>commands/config.go:119</code> — updated the <code>--lang</code> flag usage string to the report&#39;s suggested text: <code>&quot;the language to display config for (default is the default content language)&quot;</code>.</li><li><code>testscripts/commands/config.txt</code> — added a regression assertion (<code>stdout &#39;default is the default content language&#39;</code>) to the existing <code>hugo config -h</code> block, run by <code>TestCommands</code> in <code>main_test.go</code>.</li></ul>
+<p><strong>Test evidence:</strong></p>
+<ul><li>Before the code change: the new assertion <strong>FAILED</strong> — <code>no match for &#39;default is the default content language&#39; found in stdout</code> (<code>testscripts/commands/config.txt:5</code>).</li><li>After the code change: <code>./bt-test . -run TestCommands/config</code> → <strong>10 pass, 0 fail</strong>. The regression assertion now passes and no previously-passing assertion regressed.</li></ul>
+<p><strong>Requirements checklist:</strong></p>
+<ol><li>Fix the <code>--lang</code> help text to reflect that an empty flag uses the default content language, using the suggested wording — <strong>Implemented</strong> (<code>commands/config.go:119</code>) with regression test evidence (fails before, passes after).</li></ol>
+<p>Note: the pre-existing working-tree deletions of <code>AGENTS.md</code> and <code>CLAUDE.md</code> shown in <code>git status</code> are unrelated to this fix and were left untouched. All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260922-141813/15208/">Previous · #15208</a>
+  <a class="mid" href="/backtests/hugo/run-20260922-141813/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260922-141813/15228/">Next · #15228</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

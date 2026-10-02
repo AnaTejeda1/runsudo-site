@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15027 metrics: --templateMetrics duration columns have inconsistent formatting — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15027 in gohugoio/hugo, run 22 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260922-141813/15027/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260922-141813/">run-20260922-141813</a><span aria-hidden="true">/</span><span aria-current="page">#15027</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15027" rel="noopener" target="_blank">#15027</a></span>
+  <span>Merged fix <a href="" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 22 Sep 2026 · <span class="runid">run-20260922-141813</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">metrics: --templateMetrics duration columns have inconsistent formatting</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches correctly resolve the root cause — they replace time.Duration.String() with a fixed-decimal formatter (2 decimals + fixed-width unit) that, under the table&#39;s right-justified %12s/%15s columns, aligns decimal points across rows. Correctness is effectively a tie: A pads the unit to a consistent 3-char suffix (using a deliberate double-space &#39;  s&#39; for the 1-char second unit), B uses &#39;%-2s&#39; to pad the unit to a consistent 2-rune width; both achieve aligned decimals. The differences favor B on the remaining criteria. Tests: B&#39;s TestWriteMetricsDurationFormatting exercises the public WriteMetrics path and directly asserts the property the issue is about — it computes the byte index of the decimal point on each layout row and asserts they are equal, i.e. it verifies alignment, not merely the format literals. A&#39;s TestFormatDuration only asserts the exact output strings of formatDuration (e.g. &#39;4.34  s&#39;); it pins the format but is essentially a change-detector that never checks that columns line up, which is the actual reported symptom. Scope: A must also edit tpl/partials/partials_integration_test.go, widening the duration-stripping regex to &#39;\s*&#39; because A&#39;s space-separated format (&#39;170.29 ms&#39;) is no longer matched by the existing &#39;\b[\.\d]*(ms|ns|µs|s)\b&#39; regex; that extra file change is forced by A&#39;s format choice. B deliberately emits no space between value and unit (&#39;1.50ms&#39;, &#39;500.00µs&#39;), so the existing integration-test regex still strips it and no third file needs touching — a genuinely smaller blast radius (2 files vs 3), and the test evidence indicates B&#39;s tests still pass. Craft: B adds a doc comment explaining *why* the padding exists (alignment), and uses the clearer d.Seconds()/d.Nanoseconds() accessors and idiomatic &#39;%-2s&#39; padding, whereas A relies on a slightly awkward hard-coded double-space with an inline note. A&#39;s space-before-unit is marginally nicer to read, but that is a minor, subjective cosmetic point against B&#39;s stronger test, smaller scope, and cleaner rationale. Net: B is the better fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">15m 48s<small>21 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,723 passed · 99 skipped · 3,828 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--bad)">Unknown</p><p class="d">See the audit notes for this run</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">58<small>vs 41 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15027" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>The <code>--templateMetrics</code> output table prints duration values (sum/avg/max) using <code>time.Duration.String()</code>, which varies both units and decimal places depending on the magnitude. This makes the table hard to scan when rows have durations of different magnitudes.</p>
+<p><strong>Proposed fix:</strong> Use a fixed-decimal formatter (two decimal places, unit suffix padded to consistent width) so decimal points align across all rows in the table.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+56</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">metrics/metrics.go</span><span class="h">index 08d9322ab..8f412b87f 100644</span><span class="h">@@ -180,13 +180,32 @@ func (s *Store) WriteMetrics(w io.Writer) {</span><span class="c"> 	sort.Sort(bySum(results))</span><span class="c"> 	for _, v := range results {</span><span class="c"> 		if s.calculateHints {</span><span class="r">-			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %9d  %7.f  %6d  %5d  %s\n&quot;, v.sum, v.avg, v.max, v.cacheFactor, float64(v.cacheCount)/float64(v.count)*100, v.cacheCount, v.count, v.key)</span><span class="a">+			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %9d  %7.f  %6d  %5d  %s\n&quot;, formatDuration(v.sum), formatDuration(v.avg), formatDuration(v.max), v.cacheFactor, float64(v.cacheCount)/float64(v.count)*100, v.cacheCount, v.count, v.key)</span><span class="c"> 		} else {</span><span class="r">-			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %5d  %s\n&quot;, v.sum, v.avg, v.max, v.count, v.key)</span><span class="a">+			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %5d  %s\n&quot;, formatDuration(v.sum), formatDuration(v.avg), formatDuration(v.max), v.count, v.key)</span><span class="c"> 		}</span><span class="c"> 	}</span><span class="c"> }</span><span class="c"> </span><span class="a">+// formatDuration formats d with a fixed number of decimals and a unit</span><span class="a">+// suffix padded to a consistent width so decimal points align in the</span><span class="a">+// metrics table columns.</span><span class="a">+func formatDuration(d time.Duration) string {</span><span class="a">+	var value float64</span><span class="a">+	var unit string</span><span class="a">+	switch {</span><span class="a">+	case d &lt; time.Microsecond:</span><span class="a">+		value, unit = float64(d.Nanoseconds()), &quot;ns&quot;</span><span class="a">+	case d &lt; time.Millisecond:</span><span class="a">+		value, unit = float64(d.Nanoseconds())/1e3, &quot;µs&quot;</span><span class="a">+	case d &lt; time.Second:</span><span class="a">+		value, unit = float64(d.Nanoseconds())/1e6, &quot;ms&quot;</span><span class="a">+	default:</span><span class="a">+		value, unit = d.Seconds(), &quot;s&quot;</span><span class="a">+	}</span><span class="a">+	return fmt.Sprintf(&quot;%.2f%-2s&quot;, value, unit)</span><span class="a">+}</span><span class="a">+</span><span class="c"> // A result represents the calculated results for a given metric.</span><span class="c"> type result struct {</span><span class="c"> 	key         string</span><span class="f">metrics/metrics_test.go</span><span class="h">index 83dc1433f..c71db98e0 100644</span><span class="h">@@ -14,9 +14,11 @@</span><span class="c"> package metrics</span><span class="c"> </span><span class="c"> import (</span><span class="a">+	&quot;bytes&quot;</span><span class="c"> 	&quot;html/template&quot;</span><span class="c"> 	&quot;strings&quot;</span><span class="c"> 	&quot;testing&quot;</span><span class="a">+	&quot;time&quot;</span><span class="c"> </span><span class="c"> 	&quot;github.com/gohugoio/hugo/resources/page&quot;</span><span class="c"> </span><span class="h">@@ -46,6 +48,39 @@ func TestSimilarPercentage(t *testing.T) {</span><span class="c"> 	c.Assert(howSimilar(&quot;\n&quot;, &quot;&quot;), qt.Equals, 100)</span><span class="c"> }</span><span class="c"> </span><span class="a">+func TestWriteMetricsDurationFormatting(t *testing.T) {</span><span class="a">+	c := qt.New(t)</span><span class="a">+</span><span class="a">+	s := &amp;Store{</span><span class="a">+		metrics: map[string][]time.Duration{</span><span class="a">+			&quot;layout/a.html&quot;: {2 * time.Second},</span><span class="a">+			&quot;layout/b.html&quot;: {1500 * time.Microsecond},</span><span class="a">+			&quot;layout/c.html&quot;: {500 * time.Microsecond},</span><span class="a">+		},</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	var buf bytes.Buffer</span><span class="a">+	s.WriteMetrics(&amp;buf)</span><span class="a">+</span><span class="a">+	out := buf.String()</span><span class="a">+</span><span class="a">+	c.Assert(out, qt.Contains, &quot;2.00s&quot;)</span><span class="a">+	c.Assert(out, qt.Contains, &quot;1.50ms&quot;)</span><span class="a">+	c.Assert(out, qt.Contains, &quot;500.00µs&quot;)</span><span class="a">+</span><span class="a">+	var dotIndexes []int</span><span class="a">+	for line := range strings.Lines(out) {</span><span class="a">+		if !strings.Contains(line, &quot;layout/&quot;) {</span><span class="a">+			continue</span><span class="a">+		}</span><span class="a">+		dotIndexes = append(dotIndexes, strings.IndexByte(line, &#39;.&#39;))</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	c.Assert(dotIndexes, qt.HasLen, 3)</span><span class="a">+	c.Assert(dotIndexes[1], qt.Equals, dotIndexes[0])</span><span class="a">+	c.Assert(dotIndexes[2], qt.Equals, dotIndexes[0])</span><span class="a">+}</span><span class="a">+</span><span class="c"> type testStruct struct {</span><span class="c"> 	Name string</span><span class="c"> }</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+37</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">metrics/metrics.go</span><span class="h">index 08d9322ab..aca7c4c9b 100644</span><span class="h">@@ -178,15 +178,29 @@ func (s *Store) WriteMetrics(w io.Writer) {</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	sort.Sort(bySum(results))</span><span class="a">+</span><span class="c"> 	for _, v := range results {</span><span class="c"> 		if s.calculateHints {</span><span class="r">-			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %9d  %7.f  %6d  %5d  %s\n&quot;, v.sum, v.avg, v.max, v.cacheFactor, float64(v.cacheCount)/float64(v.count)*100, v.cacheCount, v.count, v.key)</span><span class="a">+			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %9d  %7.f  %6d  %5d  %s\n&quot;, formatDuration(v.sum), formatDuration(v.avg), formatDuration(v.max), v.cacheFactor, float64(v.cacheCount)/float64(v.count)*100, v.cacheCount, v.count, v.key)</span><span class="c"> 		} else {</span><span class="r">-			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %5d  %s\n&quot;, v.sum, v.avg, v.max, v.count, v.key)</span><span class="a">+			fmt.Fprintf(w, &quot;  %15s  %12s  %12s  %5d  %s\n&quot;, formatDuration(v.sum), formatDuration(v.avg), formatDuration(v.max), v.count, v.key)</span><span class="c"> 		}</span><span class="c"> 	}</span><span class="c"> }</span><span class="c"> </span><span class="a">+func formatDuration(d time.Duration) string {</span><span class="a">+	switch {</span><span class="a">+	case d &gt;= time.Second:</span><span class="a">+		return fmt.Sprintf(&quot;%.2f  s&quot;, float64(d)/float64(time.Second)) // additional spacing between value and unit</span><span class="a">+	case d &gt;= time.Millisecond:</span><span class="a">+		return fmt.Sprintf(&quot;%.2f ms&quot;, float64(d)/float64(time.Millisecond))</span><span class="a">+	case d &gt;= time.Microsecond:</span><span class="a">+		return fmt.Sprintf(&quot;%.2f µs&quot;, float64(d)/float64(time.Microsecond))</span><span class="a">+	default:</span><span class="a">+		return fmt.Sprintf(&quot;%.2f ns&quot;, float64(d)/float64(time.Nanosecond))</span><span class="a">+	}</span><span class="a">+}</span><span class="a">+</span><span class="c"> // A result represents the calculated results for a given metric.</span><span class="c"> type result struct {</span><span class="c"> 	key         string</span><span class="f">metrics/metrics_test.go</span><span class="h">index 83dc1433f..1e5221ec1 100644</span><span class="h">@@ -17,6 +17,7 @@ import (</span><span class="c"> 	&quot;html/template&quot;</span><span class="c"> 	&quot;strings&quot;</span><span class="c"> 	&quot;testing&quot;</span><span class="a">+	&quot;time&quot;</span><span class="c"> </span><span class="c"> 	&quot;github.com/gohugoio/hugo/resources/page&quot;</span><span class="c"> </span><span class="h">@@ -66,3 +67,21 @@ func BenchmarkHowSimilar(b *testing.B) {</span><span class="c"> 		howSimilar(s1, s2)</span><span class="c"> 	}</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestFormatDuration(t *testing.T) {</span><span class="a">+	c := qt.New(t)</span><span class="a">+	tests := []struct {</span><span class="a">+		duration time.Duration</span><span class="a">+		want     string</span><span class="a">+	}{</span><span class="a">+		{4*time.Second + 342*time.Millisecond, &quot;4.34  s&quot;}, // additional spacing between value and unit</span><span class="a">+		{170*time.Millisecond + 289*time.Microsecond, &quot;170.29 ms&quot;},</span><span class="a">+		{16*time.Microsecond + 90*time.Nanosecond, &quot;16.09 µs&quot;},</span><span class="a">+		{147 * time.Nanosecond, &quot;147.00 ns&quot;},</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	for _, tt := range tests {</span><span class="a">+		got := formatDuration(tt.duration)</span><span class="a">+		c.Assert(got, qt.Equals, tt.want)</span><span class="a">+	}</span><span class="a">+}</span><span class="f">tpl/partials/partials_integration_test.go</span><span class="h">index dc49cbdc5..58b4248c0 100644</span><span class="h">@@ -170,8 +170,8 @@ D1</span><span class="c"> </span><span class="c"> 	got := buf.String()</span><span class="c"> </span><span class="r">-	// Get rid of all the durations, they are never the same.</span><span class="r">-	durationRe := regexp.MustCompile(`\b[\.\d]*(ms|ns|µs|s)\b`)</span><span class="a">+	// Get rid of all the durations, including the space and unit, they are never the same.</span><span class="a">+	durationRe := regexp.MustCompile(`\b[\.\d]*\s*(ms|ns|µs|s)\b`)</span><span class="c"> </span><span class="c"> 	normalize := func(s string) string {</span><span class="c"> 		s = durationRe.ReplaceAllString(s, &quot;&quot;)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The fix is complete and verified. Here is my final report.</p>
+<h2>What was wrong</h2>
+<p><code>metrics/metrics.go</code>&#39;s <code>(*Store).WriteMetrics</code> printed the cumulative/average/maximum duration columns by passing <code>time.Duration</code> values directly to <code>fmt.Fprintf</code> with <code>%s</code>, which invokes <code>time.Duration.String()</code>. That method varies both unit and decimal-place count by magnitude (&quot;2s&quot;, &quot;1.5ms&quot;, &quot;500µs&quot;), so decimal points never lined up down a column and the <code>--templateMetrics</code> table was hard to scan.</p>
+<h2>What I changed</h2>
+<ul><li><strong><code>metrics/metrics.go</code></strong> — Added an unexported <code>formatDuration(d time.Duration) string</code> helper that formats each duration with exactly two decimal places (<code>%.2f</code>) and a unit suffix (<code>ns</code>/<code>µs</code>/<code>ms</code>/<code>s</code>) right-padded to a consistent width of 2 runes (<code>%-2s</code>). This makes the text after the decimal point a constant 4 runes for every magnitude, so within each right-justified <code>%15s</code>/<code>%12s</code> column the decimal points align. Both branches of the row-printing loop now wrap <code>v.sum</code>, <code>v.avg</code>, <code>v.max</code> in <code>formatDuration(...)</code>. Headers, sorting, and all other columns are untouched.</li><li><strong><code>metrics/metrics_test.go</code></strong> — Added <code>TestWriteMetricsDurationFormatting</code> (regression test).</li></ul>
+<h2>Test evidence</h2>
+<ul><li><strong>Red before fix:</strong> the new test failed on <code>qt.Contains &quot;2.00s&quot;</code> — old output was <code>2s</code> / <code>1.5ms</code> / <code>500µs</code>.</li><li><strong>Green after fix:</strong> <code>./bt-test ./metrics/</code> → <code>TestWriteMetricsDurationFormatting</code> <strong>pass</strong>, plus existing <code>TestSimilarPercentage</code> and <code>TestSimilarPercentageNonString</code> still <strong>pass</strong>; package <strong>pass</strong>.</li><li><strong>Blast radius:</strong> two integration tests inspect <code>WriteMetrics</code> output. <code>hugolib/pagesfromdata</code> only asserts on the template key (unaffected). <code>tpl/partials</code>&#39;s <code>TestIncludeCacheHints</code> normalizes durations away with a regex and trims the leading columns — I ran it: <strong>pass</strong>. The reviewer confirmed the fix is correct/complete and nothing unrelated changed.</li></ul>
+<h2>Requirements checklist</h2>
+<ol><li><strong>Duration columns (sum/avg/max) use a fixed-decimal formatter, two decimal places</strong> — Implemented (<code>%.2f</code>), covered by the regression test asserting <code>2.00s</code> / <code>1.50ms</code> / <code>500.00µs</code>.</li><li><strong>Unit suffix padded to consistent width</strong> — Implemented (<code>%-2s</code>, so <code>s</code> → <code>&quot;s &quot;</code>), covered implicitly by the alignment assertion.</li><li><strong>Decimal points align across all rows</strong> — Implemented; the test asserts the first-<code>.</code> index is equal across all three mixed-magnitude rows.</li></ol>
+<p>Note: the pre-existing staged deletions of <code>AGENTS.md</code> / <code>CLAUDE.md</code> were present in the initial git status, are unrelated to this problem, and were not touched. All changes are left uncommitted in the working tree.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260922-141813/12543/">Previous · #12543</a>
+  <a class="mid" href="/backtests/hugo/run-20260922-141813/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260922-141813/15052/">Next · #15052</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

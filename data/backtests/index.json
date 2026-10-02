@@ -104,6 +104,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-09-22",
+          "id": "run-20260922-141813",
+          "source_runs": [
+            "run-20260922-141813"
+          ],
+          "tickets": 30,
+          "better": 13,
+          "par": 1,
+          "worse": 14,
+          "error": 2,
+          "notes": "First Hugo run to reach 30/30 with zero attrition",
+          "footnote": ""
+        },
+        {
           "date": "2026-09-17",
           "id": "run-20260917-015623",
           "source_runs": [
