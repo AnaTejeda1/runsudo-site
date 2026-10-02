@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15081 SSR hydration warning: dynamic props on SVG elements are patched as properties instead of attributes — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15081 in vuejs/core, run 2 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261002-115633/15081/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261002-115633/">run-20261002-115633</a><span aria-hidden="true">/</span><span aria-current="page">#15081</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15081" rel="noopener" target="_blank">#15081</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15082" rel="noopener" target="_blank">PR #15082</a></span>
+  <span>Run 2 Oct 2026 · <span class="runid">run-20261002-115633</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">SSR hydration warning: dynamic props on SVG elements are patched as properties instead of attributes</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way. During forced hydration patching they pass the element&#39;s own namespace (&#39;svg&#39; or &#39;mathml&#39;, taken from el.namespaceURI) to patchProp instead of undefined. As a result, shouldSetAsProp and patchAttr treat SVG props as attributes, just as client mount does. Both use the element&#39;s own namespace rather than the container type, so both handle &lt;foreignObject&gt; correctly. The differences are in robustness and tests. On robustness, Patch A&#39;s helper guards against a null namespaceURI, while Patch B uses non-null assertions. Patch A also passes the namespace in the onClick branch, which is harmless and consistent. On tests, Patch A&#39;s first test mimics a browser&#39;s getter-only viewBox, so before the fix the prop path throws and warns; it fails pre-fix and passes post-fix. Its xlink:href test also shows a real behavioral difference: setAttributeNS is used only when isSVG is true. Patch B&#39;s foreignObject test is a valid regression test. However, its first SVG test likely passes even without the fix in jsdom, because jsdom doesn&#39;t expose width/viewBox as IDL properties on SVGSVGElement. Patch B also toggles __DEV__ off, which obscures what the tests check. Overall the fixes are near-equivalent, and Patch A has slightly more defensive code and more meaningful tests.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,614 passed · 6 skipped · 3,622 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">61<small>vs 67 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15081" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Version</h3>
+<p>3.5.39</p>
+<h3>Reproduction link</h3>
+<p><a href="https://stackblitz.com/edit/vitejs-vite-yscaattp?file=src%2FApp.vue" rel="noopener nofollow" target="_blank">stackblitz.com</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>Open the reproduction.</li><li>Open the browser devtools <strong>Console</strong>.</li><li>Observe the <code>[Vue warn]: Failed setting prop …</code> error logged during hydration.</li></ol>
+<h3>What is expected?</h3>
+<p>During hydration, dynamic props on SVG (and MathML) elements <code>width</code>, <code>height</code>, <code>viewBox</code>, etc.  should be patched as <strong>attributes</strong> (via <code>setAttribute</code>) exactly as they are during normal client-side rendering. Hydration should be silent.</p>
+<h3>What is actually happening?</h3>
+<p>Since 3.5.39, dynamic props on SVG elements are patched as <strong>DOM properties</strong> during hydration, which throws for read-only SVG IDL properties:</p>
+<pre><code>[Vue warn]: Failed setting prop &quot;viewBox&quot; on &lt;svg&gt;: value 0 0 24 24 is invalid.
+TypeError: Cannot set property viewBox of #&lt;SVGSVGElement&gt; which has only a getter
+    at patchDOMProp
+    at patchProp
+    at hydrateElement
+    at hydrateNode
+    at hydrateSubTree
+    at &lt;App&gt;</code></pre>
+<p>Nothing is visually broken but the console is flooded with warnings.</p>
+<hr>
+<p>We ran across this issue in a Nuxt app but I believe the issue is coming from Vue core</p>
+<p>&lt;!-- generated by vue-issues. DO NOT REMOVE --&gt;</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+59</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/hydration.spec.ts</span><span class="h">index 144473dd3..fdf7cb8d3 100644</span><span class="h">@@ -2776,5 +2776,49 @@ describe(&#39;SSR hydration&#39;, () =&gt; {</span><span class="c">       expect(el.getAttribute(&#39;id&#39;)).toBe(&#39;client&#39;)</span><span class="c">       expect(el.getAttribute(&#39;value&#39;)).toBe(&#39;server&#39;)</span><span class="c">     })</span><span class="a">+</span><span class="a">+    // #15081</span><span class="a">+    test(&#39;patch dynamic props on SVG elements as attributes&#39;, () =&gt; {</span><span class="a">+      const container = document.createElement(&#39;div&#39;)</span><span class="a">+      container.innerHTML = `&lt;svg viewBox=&quot;0 0 24 24&quot;&gt;&lt;/svg&gt;`</span><span class="a">+      const svg = container.firstChild as SVGSVGElement</span><span class="a">+      // mimic browsers, where viewBox is a getter-only IDL property</span><span class="a">+      Object.defineProperty(svg, &#39;viewBox&#39;, {</span><span class="a">+        get: () =&gt; ({}),</span><span class="a">+        configurable: true,</span><span class="a">+      })</span><span class="a">+      createSSRApp({</span><span class="a">+        render: () =&gt;</span><span class="a">+          createVNode(</span><span class="a">+            &#39;svg&#39;,</span><span class="a">+            { viewBox: &#39;0 0 24 24&#39; },</span><span class="a">+            null,</span><span class="a">+            PatchFlags.PROPS,</span><span class="a">+            [&#39;viewBox&#39;],</span><span class="a">+          ),</span><span class="a">+      }).mount(container)</span><span class="a">+</span><span class="a">+      expect(svg.getAttribute(&#39;viewBox&#39;)).toBe(&#39;0 0 24 24&#39;)</span><span class="a">+      expect(`Failed setting prop &quot;viewBox&quot;`).not.toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;patch dynamic xlink props on SVG elements with namespace&#39;, () =&gt; {</span><span class="a">+      const xlinkNS = &#39;http://www.w3.org/1999/xlink&#39;</span><span class="a">+      const { container } = mountWithHydration(</span><span class="a">+        `&lt;svg&gt;&lt;use data-allow-mismatch=&quot;attribute&quot;&gt;&lt;/use&gt;&lt;/svg&gt;`,</span><span class="a">+        () =&gt;</span><span class="a">+          h(&#39;svg&#39;, [</span><span class="a">+            createVNode(</span><span class="a">+              &#39;use&#39;,</span><span class="a">+              { &#39;data-allow-mismatch&#39;: &#39;attribute&#39;, &#39;xlink:href&#39;: &#39;#client&#39; },</span><span class="a">+              null,</span><span class="a">+              PatchFlags.PROPS,</span><span class="a">+              [&#39;xlink:href&#39;],</span><span class="a">+            ),</span><span class="a">+          ]),</span><span class="a">+      )</span><span class="a">+      const use = container.querySelector(&#39;use&#39;)!</span><span class="a">+      expect(use.getAttributeNS(xlinkNS, &#39;href&#39;)).toBe(&#39;#client&#39;)</span><span class="a">+    })</span><span class="c">   })</span><span class="c"> })</span><span class="f">packages/runtime-core/src/hydration.ts</span><span class="h">index c315ab940..7236c8973 100644</span><span class="h">@@ -81,6 +81,16 @@ const getContainerType = (</span><span class="c">   return undefined</span><span class="c"> }</span><span class="c"> </span><span class="a">+// namespace of the element itself (unlike getContainerType, which resolves</span><span class="a">+// the namespace of a container&#39;s children and so excludes &lt;foreignObject&gt;)</span><span class="a">+const getElementNamespace = (el: Element): &#39;svg&#39; | &#39;mathml&#39; | undefined =&gt; {</span><span class="a">+  const ns = el.namespaceURI</span><span class="a">+  if (!ns) return undefined</span><span class="a">+  if (ns.includes(&#39;svg&#39;)) return &#39;svg&#39;</span><span class="a">+  if (ns.includes(&#39;MathML&#39;)) return &#39;mathml&#39;</span><span class="a">+  return undefined</span><span class="a">+}</span><span class="a">+</span><span class="c"> export const isComment = (node: Node): node is Comment =&gt;</span><span class="c">   node.nodeType === DOMNodeTypes.COMMENT</span><span class="c"> </span><span class="h">@@ -500,6 +510,9 @@ export function createHydrationFunctions(</span><span class="c">           patchFlag &amp; (PatchFlags.FULL_PROPS | PatchFlags.NEED_HYDRATION)</span><span class="c">         ) {</span><span class="c">           const isCustomElement = el.tagName.includes(&#39;-&#39;)</span><span class="a">+          // #15081 SVG/MathML props must be patched with the element&#39;s</span><span class="a">+          // namespace so they are set as attributes, same as client mount</span><span class="a">+          const namespace = getElementNamespace(el)</span><span class="c">           for (const key in props) {</span><span class="c">             // check hydration mismatch</span><span class="c">             if (</span><span class="h">@@ -520,7 +533,7 @@ export function createHydrationFunctions(</span><span class="c">               (isCustomElement &amp;&amp; !isReservedProp(key)) ||</span><span class="c">               (dynamicProps &amp;&amp; dynamicProps.includes(key))</span><span class="c">             ) {</span><span class="r">-              patchProp(el, key, null, props[key], undefined, parentComponent)</span><span class="a">+              patchProp(el, key, null, props[key], namespace, parentComponent)</span><span class="c">             }</span><span class="c">           }</span><span class="c">         } else if (props.onClick) {</span><span class="h">@@ -531,7 +544,7 @@ export function createHydrationFunctions(</span><span class="c">             &#39;onClick&#39;,</span><span class="c">             null,</span><span class="c">             props.onClick,</span><span class="r">-            undefined,</span><span class="a">+            getElementNamespace(el),</span><span class="c">             parentComponent,</span><span class="c">           )</span><span class="c">         } else if (patchFlag &amp; PatchFlags.STYLE &amp;&amp; isReactive(props.style)) {</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15082" rel="noopener" target="_blank">PR #15082</a></span><span class="pm"><span class="a">+66</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/hydration.spec.ts</span><span class="h">index 144473dd3..df0114065 100644</span><span class="h">@@ -2755,6 +2755,66 @@ describe(&#39;SSR hydration&#39;, () =&gt; {</span><span class="c">       }</span><span class="c">     })</span><span class="c"> </span><span class="a">+    test(&#39;force patch svg dynamic props with correct namespace when hydrating&#39;, () =&gt; {</span><span class="a">+      __DEV__ = false</span><span class="a">+      try {</span><span class="a">+        const { container } = mountWithHydration(</span><span class="a">+          `&lt;svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot;&gt;&lt;/svg&gt;`,</span><span class="a">+          () =&gt;</span><span class="a">+            createElementVNode(</span><span class="a">+              &#39;svg&#39;,</span><span class="a">+              { width: 48, height: 48, viewBox: &#39;0 0 48 48&#39; },</span><span class="a">+              null,</span><span class="a">+              PatchFlags.PROPS,</span><span class="a">+              [&#39;width&#39;, &#39;height&#39;, &#39;viewBox&#39;],</span><span class="a">+            ),</span><span class="a">+        )</span><span class="a">+        const el = container.firstChild as Element</span><span class="a">+        expect(el.namespaceURI).toContain(&#39;svg&#39;)</span><span class="a">+        expect(el.getAttribute(&#39;width&#39;)).toBe(&#39;48&#39;)</span><span class="a">+        expect(el.getAttribute(&#39;height&#39;)).toBe(&#39;48&#39;)</span><span class="a">+        expect(el.getAttribute(&#39;viewBox&#39;)).toBe(&#39;0 0 48 48&#39;)</span><span class="a">+      } finally {</span><span class="a">+        __DEV__ = true</span><span class="a">+      }</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;force patch foreignObject dynamic props with correct namespace when hydrating&#39;, () =&gt; {</span><span class="a">+      __DEV__ = false</span><span class="a">+      try {</span><span class="a">+        const container = document.createElement(&#39;div&#39;)</span><span class="a">+        container.innerHTML =</span><span class="a">+          &#39;&lt;svg&gt;&lt;foreignObject width=&quot;24&quot;&gt;&lt;/foreignObject&gt;&lt;/svg&gt;&#39;</span><span class="a">+        const el = container.querySelector(&#39;foreignObject&#39;)!</span><span class="a">+        expect(el.namespaceURI).toContain(&#39;svg&#39;)</span><span class="a">+        // jsdom doesn&#39;t implement SVGForeignObjectElement.width.</span><span class="a">+        Object.defineProperty(el, &#39;width&#39;, {</span><span class="a">+          configurable: true,</span><span class="a">+          get: () =&gt; 24,</span><span class="a">+        })</span><span class="a">+</span><span class="a">+        createSSRApp({</span><span class="a">+          render: () =&gt; (</span><span class="a">+            openBlock(),</span><span class="a">+            createElementBlock(&#39;svg&#39;, null, [</span><span class="a">+              (openBlock(),</span><span class="a">+              createElementBlock(</span><span class="a">+                &#39;foreignObject&#39;,</span><span class="a">+                { width: 48 },</span><span class="a">+                null,</span><span class="a">+                PatchFlags.PROPS,</span><span class="a">+                [&#39;width&#39;],</span><span class="a">+              )),</span><span class="a">+            ])</span><span class="a">+          ),</span><span class="a">+        }).mount(container)</span><span class="a">+</span><span class="a">+        expect(el.getAttribute(&#39;width&#39;)).toBe(&#39;48&#39;)</span><span class="a">+      } finally {</span><span class="a">+        __DEV__ = true</span><span class="a">+      }</span><span class="a">+    })</span><span class="a">+</span><span class="c">     test(&#39;only patches declared dynamic props when hydrating&#39;, () =&gt; {</span><span class="c">       const { container } = mountWithHydration(</span><span class="c">         `&lt;div data-allow-mismatch=&quot;attribute&quot; id=&quot;server&quot; value=&quot;server&quot;&gt;&lt;/div&gt;`,</span><span class="f">packages/runtime-core/src/hydration.ts</span><span class="h">index c315ab940..405a5db93 100644</span><span class="h">@@ -500,6 +500,11 @@ export function createHydrationFunctions(</span><span class="c">           patchFlag &amp; (PatchFlags.FULL_PROPS | PatchFlags.NEED_HYDRATION)</span><span class="c">         ) {</span><span class="c">           const isCustomElement = el.tagName.includes(&#39;-&#39;)</span><span class="a">+          const namespace = el.namespaceURI!.includes(&#39;svg&#39;)</span><span class="a">+            ? &#39;svg&#39;</span><span class="a">+            : el.namespaceURI!.includes(&#39;MathML&#39;)</span><span class="a">+              ? &#39;mathml&#39;</span><span class="a">+              : undefined</span><span class="c">           for (const key in props) {</span><span class="c">             // check hydration mismatch</span><span class="c">             if (</span><span class="h">@@ -520,7 +525,7 @@ export function createHydrationFunctions(</span><span class="c">               (isCustomElement &amp;&amp; !isReservedProp(key)) ||</span><span class="c">               (dynamicProps &amp;&amp; dynamicProps.includes(key))</span><span class="c">             ) {</span><span class="r">-              patchProp(el, key, null, props[key], undefined, parentComponent)</span><span class="a">+              patchProp(el, key, null, props[key], namespace, parentComponent)</span><span class="c">             }</span><span class="c">           }</span><span class="c">         } else if (props.onClick) {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261002-115633/15070/">Previous · #15070</a>
+  <a class="mid" href="/backtests/vue/run-20261002-115633/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261002-115633/15083/">Next · #15083</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

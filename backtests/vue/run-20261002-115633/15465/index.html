@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15465 [compiler-sfc] Typo &#39;exit&#39; instead of &#39;leave&#39; in estree-walker causes missing ASI guard and runtime error with consecutive awaits — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15465 in vuejs/core, run 2 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261002-115633/15465/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261002-115633/">run-20261002-115633</a><span aria-hidden="true">/</span><span aria-current="page">#15465</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15465" rel="noopener" target="_blank">#15465</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/commit/54097087a0918b98f16c84599b1a6d654e952ca7" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 2 Oct 2026 · <span class="runid">run-20261002-115633</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">[compiler-sfc] Typo &#39;exit&#39; instead of &#39;leave&#39; in estree-walker causes missing ASI guard and runtime error with consecutive awaits</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same core fix in compileScript.ts, renaming the never-invoked `exit` hook to `leave`. That lets `scope.pop()` run when leaving a BlockStatement and restores the `needsSemi` ASI guard. On correctness they are identical. The difference is in the supporting changes. Patch A also removes the bogus `exit?` option from the hand-written `estree-walker` declaration in global.d.ts. That declaration is what let the typo type-check in the first place. Removing it means the type checker will reject a future `exit` key, which addresses why the bug went unnoticed without adding any risk. On tests, Patch A adds two output-based cases. One has a nested `if` and the other has `for` and `try/catch` blocks before consecutive awaits. Both assert that each await gets its leading `;(` guard. Before the fix the stale scope stack hides the enclosing statement list, so the semicolon would be missing and these tests would fail. Patch B&#39;s single test actually runs the compiled setup via `new Function`, which tests the runtime symptom directly. That is a nice idea, but the test is more fragile. It relies on stripping one import line with a regex. It stubs `_withAsyncContext`. It also relies on `toEqual({})` against the dev-mode `__returned__` object, which carries a non-enumerable `__isScriptSetup` property. It covers only one nested-block shape. Both test sets would catch the regression, but A covers more block types and also hardens the typings. A is the better patch.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 20s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,721 passed · 6 skipped · 3,727 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">48<small>vs 21 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15465" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.40</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNp9kk9PAyEQxb/KhIttUln/xYNumqjxoAc12ngiMevuuEVZIDBsa0y/u8M21h60J8j8HsN7A1/iwnvZJxRnoox10J4gIiU/VbYo4FDChf0Ei5GwgVfj6g8Y+RTnGIEcxNp5nMBrIpb0GMA7H6FJmCHNkUk7Vla/wYhCwjF8KQtQOxudQWlcO9rbbr3H2pWyw81HEmYLN2ixTqT73NPvG77GQLWoNEVlhxUegut0RBmQ2/Y4Ohyf/4eOMiqLdVCOWBJ23lSE07LR/XTGZsoi78piQ8REEAe1b7qV79FZntQQQ4nadV4bDPeeNPtU4mwdMLPKGLe4HWo5+uSnXs+x/vij/h6XuabEA3vF0KMSG0ZVaJHW+PrpDpe838DONcmwegd8zOl5hs6uZZfJNmx7Sze4vem8C6RtO4vXS0Ibf0Jlo1m5GvRK8He52hH91+6xPBnO8bPyFF8oPmPIXXmEp/JAHovVNzTb1oo=" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNp9kk9PAyEQxb/KhIttUln/xYNumqjxoAc12ngiMevuuEVZIDBsa0y/u8M21h60J8j8HsN7A1/iwnvZJxRnoox10J4gIiU/VbYo4FDChf0Ei5GwgVfj6g8Y+RTnGIEcxNp5nMBrIpb0GMA7H6FJmCHNkUk7Vla/wYhCwjF8KQtQOxudQWlcO9rbbr3H2pWyw81HEmYLN2ixTqT73NPvG77GQLWoNEVlhxUegut0RBmQ2/Y4Ohyf/4eOMiqLdVCOWBJ23lSE07LR/XTGZsoi78piQ8REEAe1b7qV79FZntQQQ4nadV4bDPeeNPtU4mwdMLPKGLe4HWo5+uSnXs+x/vij/h6XuabEA3vF0KMSG0ZVaJHW+PrpDpe838DONcmwegd8zOl5hs6uZZfJNmx7Sze4vem8C6RtO4vXS0Ibf0Jlo1m5GvRK8He52hH91+6xPBnO8bPyFF8oPmPIXXmEp/JAHovVNzTb1oo=</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>Open the SFC Playground link.</li><li>Click on the <strong>&quot;JS&quot;</strong> tab in the right panel to view the compiled output.</li><li>Observe the compiled code for the two <code>await</code> statements.</li><li>Notice that there is no semicolon (<code>;</code>) inserted between the two <code>_withAsyncContext</code> blocks.</li></ol>
+<h3>What is expected?</h3>
+<ol><li>Open the SFC Playground link.</li><li>Click on the <strong>&quot;JS&quot;</strong> tab in the right panel to view the compiled output.</li><li>Observe the compiled code for the two <code>await</code> statements.</li><li>Notice that there is no semicolon (<code>;</code>) inserted between the two <code>_withAsyncContext</code> blocks.</li></ol>
+<h3>What is actually happening?</h3>
+<h3><strong>What is actually happening? *</strong></h3>
+<pre><code class="lang-markdown">The ASI guard (`;`) is missing. 
+
+Because of this, the JavaScript engine interprets the second statement as a function call invoked on the result of the first statement, causing a runtime error: `TypeError: (...) is not a function`.
+</code></pre>
+<p>([<strong>temp,</strong>restore] = _withAsyncContext(() =&gt; Promise.resolve(1))),<br>await __temp,<br>__restore()<br>)( // &lt;--- RUNTIME ERROR<br>([<strong>temp,</strong>restore] = _withAsyncContext(() =&gt; Promise.resolve(2))),<br>await __temp,<br>__restore()<br>)</p>
+<pre><code>
+### System Info
+</code></pre>
+<p>System:<br>OS: Linux 5.10 Debian GNU/Linux 11 (bullseye) 11 (bullseye)<br>CPU: (4) x64 AMD EPYC 9575F 64-Core Processor<br>Memory: 6.69 GB / 11.65 GB<br>Container: Yes<br>Shell: 5.1.4 - /bin/bash<br>Binaries:<br>Node: 24.14.1 - /root/.nvm/versions/node/v24.14.1/bin/node<br>Yarn: 1.22.22 - /root/.yarn/bin/yarn<br>npm: 11.11.0 - /root/.nvm/versions/node/v24.14.1/bin/npm<br>pnpm: 10.33.0 - /root/.nvm/versions/node/v24.14.1/bin/pnpm<br>Browsers:<br>Chrome: 150.0.7871.181<br>npmPackages:<br>vue: ^3.5.40 =&gt; 3.5.40</p>
+<pre><code>
+### Any additional comments?
+
+**Root Cause:**
+The bug is caused by a typo in the AST walker configuration inside `compiler-sfc`. The compiler uses `estree-walker` which expects the hooks `{ enter, leave }`. However, the code currently passes `{ enter, exit }`.
+
+Since `exit` is not a valid hook in `estree-walker`, it is never called. Consequently, `scope.pop()` is never executed when leaving a `BlockStatement` (like the `if` block in the reproduction). This corrupts the `scope` stack, causing the `needsSemi` calculation to fail for all subsequent `AwaitExpression` nodes.
+
+**Proposed Fix:**
+Simply change `exit` to `leave` in the walker options:
+</code></pre>
+<ul><li>exit(node2) {</li><li>leave(node2) { if (node2.type === &quot;BlockStatement&quot;) scope.pop(); }</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+46</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">packages/compiler-sfc/__tests__/compileScript.spec.ts</span><span class="h">index d54541019..bc913e60c 100644</span><span class="h">@@ -1013,6 +1013,51 @@ describe(&#39;SFC compile &lt;script setup&gt;&#39;, () =&gt; {</span><span class="c">       }`)</span><span class="c">     })</span><span class="c"> </span><span class="a">+    // the walker must pop the block scope when leaving a nested block,</span><span class="a">+    // otherwise awaits following that block are checked against the wrong</span><span class="a">+    // scope and lose their ASI guard, making the second await be parsed as</span><span class="a">+    // a call on the result of the first one.</span><span class="a">+    function assertGuardedAwaits(code: string, values: number[]) {</span><span class="a">+      const { content } = compile(`&lt;script setup&gt;${code}&lt;/script&gt;`)</span><span class="a">+      expect(content).toMatch(`async setup(`)</span><span class="a">+      for (const v of values) {</span><span class="a">+        expect(content).toMatch(</span><span class="a">+          new RegExp(</span><span class="a">+            `\\n\\s*;\\(\\n  \\(\\[__temp,__restore\\] = _withAsyncContext\\(\\(\\) =&gt; ${v}\\)\\)`,</span><span class="a">+          ),</span><span class="a">+        )</span><span class="a">+      }</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    test(&#39;consecutive awaits after a nested block statement&#39;, () =&gt; {</span><span class="a">+      assertGuardedAwaits(</span><span class="a">+        `if (ok) {</span><span class="a">+          if (a) {</span><span class="a">+            foo()</span><span class="a">+          }</span><span class="a">+          await 1</span><span class="a">+          await 2</span><span class="a">+        }`,</span><span class="a">+        [1, 2],</span><span class="a">+      )</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;consecutive awaits after nested loop and try blocks&#39;, () =&gt; {</span><span class="a">+      assertGuardedAwaits(</span><span class="a">+        `if (ok) {</span><span class="a">+          for (const i of list) {</span><span class="a">+            foo(i)</span><span class="a">+          }</span><span class="a">+          try {</span><span class="a">+            bar()</span><span class="a">+          } catch (e) {}</span><span class="a">+          await 1</span><span class="a">+          await 2</span><span class="a">+        }`,</span><span class="a">+        [1, 2],</span><span class="a">+      )</span><span class="a">+    })</span><span class="a">+</span><span class="c">     test(&#39;should ignore await inside functions&#39;, () =&gt; {</span><span class="c">       // function declaration</span><span class="c">       assertAwaitDetection(`async function foo() { await bar }`, false)</span><span class="f">packages/compiler-sfc/src/compileScript.ts</span><span class="h">index d2047c5b2..901196235 100644</span><span class="h">@@ -669,7 +669,7 @@ export function compileScript(</span><span class="c">             )</span><span class="c">           }</span><span class="c">         },</span><span class="r">-        exit(node: Node) {</span><span class="a">+        leave(node: Node) {</span><span class="c">           if (node.type === &#39;BlockStatement&#39;) scope.pop()</span><span class="c">         },</span><span class="c">       })</span><span class="f">packages/global.d.ts</span><span class="h">index 8b627d2e5..43a204763 100644</span><span class="h">@@ -24,7 +24,6 @@ declare module &#39;estree-walker&#39; {</span><span class="c">     options: {</span><span class="c">       enter?: (node: T, parent: T | null) =&gt; any</span><span class="c">       leave?: (node: T, parent: T | null) =&gt; any</span><span class="r">-      exit?: (node: T) =&gt; any</span><span class="c">     } &amp; ThisType&lt;{ skip: () =&gt; void }&gt;,</span><span class="c">   )</span><span class="c"> }</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/commit/54097087a0918b98f16c84599b1a6d654e952ca7" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+20</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/compiler-sfc/__tests__/compileScript.spec.ts</span><span class="h">index d54541019..a1cc885cd 100644</span><span class="h">@@ -1026,6 +1026,25 @@ describe(&#39;SFC compile &lt;script setup&gt;&#39;, () =&gt; {</span><span class="c">         false,</span><span class="c">       )</span><span class="c">     })</span><span class="a">+</span><span class="a">+    // #15465</span><span class="a">+    test(&#39;await statements after a nested block should be separated&#39;, async () =&gt; {</span><span class="a">+      const { content } = compile(</span><span class="a">+        `&lt;script setup&gt;</span><span class="a">+        if (true) {</span><span class="a">+          if (false) {}</span><span class="a">+          await Promise.resolve(1)</span><span class="a">+          await Promise.resolve(2)</span><span class="a">+        }</span><span class="a">+        &lt;/script&gt;`,</span><span class="a">+        { genDefaultAs: &#39;_sfc_&#39; },</span><span class="a">+      )</span><span class="a">+      const component = new Function(</span><span class="a">+        &#39;_withAsyncContext&#39;,</span><span class="a">+        `${content.replace(/^import .*\n/, &#39;&#39;)};return _sfc_`,</span><span class="a">+      )((getAwaitable: () =&gt; unknown) =&gt; [getAwaitable(), () =&gt; {}])</span><span class="a">+      await expect(component.setup({}, { expose() {} })).resolves.toEqual({})</span><span class="a">+    })</span><span class="c">   })</span><span class="c"> </span><span class="c">   describe(&#39;errors&#39;, () =&gt; {</span><span class="f">packages/compiler-sfc/src/compileScript.ts</span><span class="h">index d2047c5b2..901196235 100644</span><span class="h">@@ -669,7 +669,7 @@ export function compileScript(</span><span class="c">             )</span><span class="c">           }</span><span class="c">         },</span><span class="r">-        exit(node: Node) {</span><span class="a">+        leave(node: Node) {</span><span class="c">           if (node.type === &#39;BlockStatement&#39;) scope.pop()</span><span class="c">         },</span><span class="c">       })</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261002-115633/15332/">Previous · #15332</a>
+  <a class="mid" href="/backtests/vue/run-20261002-115633/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261002-115633/15478/">Next · #15478</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

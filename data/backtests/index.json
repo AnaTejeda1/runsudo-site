@@ -129,6 +129,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-02",
+          "id": "run-20261002-115633",
+          "source_runs": [
+            "run-20261002-115633"
+          ],
+          "tickets": 30,
+          "better": 18,
+          "par": 0,
+          "worse": 10,
+          "error": 2,
+          "notes": "used the foreman lane (software factory)",
+          "footnote": ""
+        },
+        {
           "date": "2026-09-30",
           "id": "run-20261001-022054",
           "source_runs": [
