@@ -11,6 +11,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-03",
+          "id": "run-20261003-150343",
+          "source_runs": [
+            "run-20261003-150343"
+          ],
+          "tickets": 30,
+          "better": 26,
+          "par": 0,
+          "worse": 3,
+          "error": 1,
+          "notes": "sudo-solver 0.4.0 (foreman stripped to run); 20-minute shell timeout; 1 harness error (8998)",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-02",
           "id": "run-20261002-175417",
           "source_runs": [

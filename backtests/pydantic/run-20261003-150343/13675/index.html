@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13675 `TypeAdapter` config not used for JSON Schema generation — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13675 in pydantic/pydantic, run 3 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261003-150343/13675/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261003-150343/">run-20261003-150343</a><span aria-hidden="true">/</span><span aria-current="page">#13675</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13675" rel="noopener" target="_blank">#13675</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13676" rel="noopener" target="_blank">PR #13676</a></span>
+  <span>Run 3 Oct 2026 · <span class="runid">run-20261003-150343</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title"><code>TypeAdapter</code> config not used for JSON Schema generation</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the reported root cause the same way. Each wraps `GenerateJsonSchema.generate()` in `TypeAdapter.json_schema()` with `_config_wrapper_stack.push(self._config)`. Pushing `None` is a no-op, so adapters without config are unaffected. Either patch therefore makes the issue&#39;s example produce `base64url`.
+
+Patch B goes further, in ways that are closely tied to the issue rather than unrelated churn:
+
+1. It applies the same fix to the static `TypeAdapter.json_schemas()` path, which has the identical bug. It stores per-input configs and pushes them around both `generate_inner` passes in `generate_definitions()`. Without this, A still ignores adapter config when multiple adapters&#39; schemas are generated together.
+2. It stops TypedDicts and plain dataclasses without their own config from resetting to an empty config during JSON schema generation. Instead they inherit the parent config, which matches core-schema generation. B&#39;s test asserts that `dump_json` really emits base64 for these nested types. Under A, `TypeAdapter(list[TD], config={&#39;ser_json_bytes&#39;: &#39;base64&#39;}).json_schema()` would still report `binary` for the nested field, so the schema would disagree with actual serialization. That is the same class of inconsistency the issue complains about.
+
+The edits are small and careful: `config or {}` keeps `_update_class_schema` safe, and `_get_typed_dict_config` now returns `None`.
+
+Tests: A adds one test, `list[bytes]`, which fails before and passes after. B adds broader tests that also fail before the change: the bytes case, `ser_json_temporal` in serialization mode, base64 defaults, no config leakage to later adapters, `json_schemas()` with mixed configs, and nested TypedDict/dataclass inheritance.
+
+B carries slightly more change surface, but the added behavior aligns JSON schema with real validation/serialization semantics and is well tested. Overall B is the more complete and correct fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">10m 37s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,373 passed · 500 skipped · 12,873 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">74<small>vs 11 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13675" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><pre><code class="lang-python">from pydantic import BaseModel, TypeAdapter
+
+class Model(BaseModel, ser_json_bytes=&#39;base64&#39;):
+    b: bytes
+
+Model.model_json_schema()[&#39;properties&#39;][&#39;b&#39;]
+#&gt; {&#39;format&#39;: &#39;base64url&#39;, &#39;title&#39;: &#39;B&#39;, &#39;type&#39;: &#39;string&#39;}
+
+ta = TypeAdapter(bytes, config={&#39;ser_json_bytes&#39;: &#39;base64&#39;})
+ta.json_schema()
+#&gt; {&#39;format&#39;: &#39;binary&#39;, &#39;type&#39;: &#39;string&#39;}</code></pre></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+66</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">pydantic/json_schema.py</span><span class="h">index e7abcad0..149b0e0a 100644</span><span class="h">@@ -285,6 +285,9 @@ class GenerateJsonSchema:</span><span class="c"> </span><span class="c">         self.definitions: dict[DefsRef, JsonSchemaValue] = {}</span><span class="c">         self._config_wrapper_stack = _config.ConfigWrapperStack(_config.ConfigWrapper({}))</span><span class="a">+        # Configs to apply when generating the JSON Schema of specific inputs of `generate_definitions()`</span><span class="a">+        # (e.g. the `config` of each `TypeAdapter` in `TypeAdapter.json_schemas()`):</span><span class="a">+        self._inputs_configs: dict[tuple[Any, JsonSchemaMode], ConfigDict] = {}</span><span class="c"> </span><span class="c">         self._mode: JsonSchemaMode = &#39;validation&#39;</span><span class="c"> </span><span class="h">@@ -379,16 +382,18 @@ class GenerateJsonSchema:</span><span class="c">                 code=&#39;json-schema-already-used&#39;,</span><span class="c">             )</span><span class="c"> </span><span class="r">-        for _, mode, schema in inputs:</span><span class="a">+        for key, mode, schema in inputs:</span><span class="c">             self._mode = mode</span><span class="r">-            self.generate_inner(schema)</span><span class="a">+            with self._config_wrapper_stack.push(self._inputs_configs.get((key, mode))):</span><span class="a">+                self.generate_inner(schema)</span><span class="c"> </span><span class="c">         definitions_remapping = self._build_definitions_remapping()</span><span class="c"> </span><span class="c">         json_schemas_map: dict[tuple[JsonSchemaKeyT, JsonSchemaMode], DefsRef] = {}</span><span class="c">         for key, mode, schema in inputs:</span><span class="c">             self._mode = mode</span><span class="r">-            json_schema = self.generate_inner(schema)</span><span class="a">+            with self._config_wrapper_stack.push(self._inputs_configs.get((key, mode))):</span><span class="a">+                json_schema = self.generate_inner(schema)</span><span class="c">             json_schemas_map[(key, mode)] = definitions_remapping.remap_json_schema(json_schema)</span><span class="c"> </span><span class="c">         json_schema = {&#39;$defs&#39;: self.definitions}</span><span class="h">@@ -1532,6 +1537,7 @@ class GenerateJsonSchema:</span><span class="c">         if self.mode == &#39;serialization&#39;:</span><span class="c">             named_required_fields.extend(self._name_required_computed_fields(schema.get(&#39;computed_fields&#39;, [])))</span><span class="c">         cls = schema.get(&#39;cls&#39;)</span><span class="a">+        # If the typed dictionary class doesn&#39;t have config, the parent&#39;s config is used (as during core schema generation):</span><span class="c">         config = _get_typed_dict_config(cls)</span><span class="c">         with self._config_wrapper_stack.push(config):</span><span class="c">             json_schema = self._named_required_fields_schema(named_required_fields)</span><span class="h">@@ -1555,7 +1561,7 @@ class GenerateJsonSchema:</span><span class="c">         if cls is not None:</span><span class="c">             # `_update_class_schema()` will not override</span><span class="c">             # `additionalProperties` if already present:</span><span class="r">-            self._update_class_schema(json_schema, cls, config)</span><span class="a">+            self._update_class_schema(json_schema, cls, config or {})</span><span class="c">         elif &#39;additionalProperties&#39; not in json_schema:</span><span class="c">             extra = schema.get(&#39;config&#39;, {}).get(&#39;extra_fields_behavior&#39;)</span><span class="c">             if extra == &#39;forbid&#39;:</span><span class="h">@@ -1888,7 +1894,8 @@ class GenerateJsonSchema:</span><span class="c">         cls = schema[&#39;cls&#39;]</span><span class="c">         config = cast(&#39;ConfigDict&#39;, getattr(cls, &#39;__pydantic_config__&#39;, {}))</span><span class="c"> </span><span class="r">-        with self._config_wrapper_stack.push(config):</span><span class="a">+        # If a (plain) dataclass doesn&#39;t have config, the parent&#39;s config is used (as during core schema generation):</span><span class="a">+        with self._config_wrapper_stack.push(getattr(cls, &#39;__pydantic_config__&#39;, None)):</span><span class="c">             json_schema = self.generate_inner(schema[&#39;schema&#39;]).copy()</span><span class="c"> </span><span class="c">         self._update_class_schema(json_schema, cls, config)</span><span class="h">@@ -2997,13 +3004,13 @@ else:</span><span class="c">             return hash(type(self))</span><span class="c"> </span><span class="c"> </span><span class="r">-def _get_typed_dict_config(cls: type[Any] | None) -&gt; ConfigDict:</span><span class="a">+def _get_typed_dict_config(cls: type[Any] | None) -&gt; ConfigDict | None:</span><span class="c">     if cls is not None:</span><span class="c">         try:</span><span class="c">             return _decorators.get_attribute_from_bases(cls, &#39;__pydantic_config__&#39;)</span><span class="c">         except AttributeError:</span><span class="c">             pass</span><span class="r">-    return {}</span><span class="a">+    return None</span><span class="c"> </span><span class="c"> </span><span class="c"> def _get_ser_schema_for_default_value(schema: CoreSchema) -&gt; core_schema.PlainSerializerFunctionSerSchema | None:</span><span class="f">pydantic/type_adapter.py</span><span class="h">index 447ac34b..88e601b4 100644</span><span class="h">@@ -736,7 +736,8 @@ class TypeAdapter(Generic[T]):</span><span class="c">         if isinstance(self.core_schema, _mock_val_ser.MockCoreSchema):</span><span class="c">             self.core_schema.rebuild()</span><span class="c">             assert not isinstance(self.core_schema, _mock_val_ser.MockCoreSchema), &#39;this is a bug! please report it&#39;</span><span class="r">-        return schema_generator_instance.generate(self.core_schema, mode=mode)</span><span class="a">+        with schema_generator_instance._config_wrapper_stack.push(self._config):</span><span class="a">+            return schema_generator_instance.generate(self.core_schema, mode=mode)</span><span class="c"> </span><span class="c">     @staticmethod</span><span class="c">     def json_schemas(</span><span class="h">@@ -793,6 +794,8 @@ class TypeAdapter(Generic[T]):</span><span class="c">                     &#39;this is a bug! please report it&#39;</span><span class="c">                 )</span><span class="c">             inputs_.append((key, mode, adapter.core_schema))</span><span class="a">+            if adapter._config is not None:</span><span class="a">+                schema_generator_instance._inputs_configs[(key, mode)] = adapter._config</span><span class="c"> </span><span class="c">         json_schemas_map, definitions = schema_generator_instance.generate_definitions(inputs_)</span><span class="c"> </span><span class="f">tests/test_type_adapter.py</span><span class="h">index ad746451..32efc37a 100644</span><span class="h">@@ -757,3 +757,51 @@ def test_validate_json_invalid_json():</span><span class="c">             &#39;ctx&#39;: {&#39;error&#39;: &#39;trailing comma at line 3 column 3&#39;},</span><span class="c">         }</span><span class="c">     ]</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_json_schema_uses_config() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13675&quot;&quot;&quot;</span><span class="a">+    ta = TypeAdapter(bytes, config={&#39;ser_json_bytes&#39;: &#39;base64&#39;})</span><span class="a">+    assert ta.json_schema() == {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;base64url&#39;}</span><span class="a">+</span><span class="a">+    ta_temporal = TypeAdapter(datetime, config={&#39;ser_json_temporal&#39;: &#39;seconds&#39;})</span><span class="a">+    assert ta_temporal.json_schema(mode=&#39;serialization&#39;) == {&#39;type&#39;: &#39;number&#39;}</span><span class="a">+</span><span class="a">+    ta_default = TypeAdapter(Annotated[bytes, Field(default=b&#39;\xff&#39;)], config={&#39;ser_json_bytes&#39;: &#39;base64&#39;})</span><span class="a">+    assert ta_default.json_schema() == {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;base64url&#39;, &#39;default&#39;: &#39;_w==&#39;}</span><span class="a">+</span><span class="a">+    # The config is not leaked into subsequent generation:</span><span class="a">+    assert TypeAdapter(bytes).json_schema() == {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;binary&#39;}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_json_schemas_uses_config() -&gt; None:</span><span class="a">+    ta_base64 = TypeAdapter(bytes, config={&#39;ser_json_bytes&#39;: &#39;base64&#39;})</span><span class="a">+    ta_utf8 = TypeAdapter(bytes)</span><span class="a">+</span><span class="a">+    json_schemas_map, _ = TypeAdapter.json_schemas(</span><span class="a">+        [(&#39;base64&#39;, &#39;validation&#39;, ta_base64), (&#39;utf8&#39;, &#39;validation&#39;, ta_utf8)]</span><span class="a">+    )</span><span class="a">+    assert json_schemas_map == {</span><span class="a">+        (&#39;base64&#39;, &#39;validation&#39;): {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;base64url&#39;},</span><span class="a">+        (&#39;utf8&#39;, &#39;validation&#39;): {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;binary&#39;},</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_json_schema_uses_config_nested_typed_dict_and_dataclass() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Typed dicts and plain dataclasses without config use the parent config, as during validation/serialization.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class TD(TypedDict):</span><span class="a">+        b: bytes</span><span class="a">+</span><span class="a">+    @dataclass</span><span class="a">+    class DC:</span><span class="a">+        b: bytes</span><span class="a">+</span><span class="a">+    for tp in (TD, DC):</span><span class="a">+        ta = TypeAdapter(list[tp], config={&#39;ser_json_bytes&#39;: &#39;base64&#39;})</span><span class="a">+        assert ta.dump_json([tp(b=b&#39;\xff&#39;)]) == b&#39;[{&quot;b&quot;:&quot;_w==&quot;}]&#39;</span><span class="a">+        assert ta.json_schema()[&#39;$defs&#39;][tp.__name__][&#39;properties&#39;][&#39;b&#39;] == {</span><span class="a">+            &#39;type&#39;: &#39;string&#39;,</span><span class="a">+            &#39;format&#39;: &#39;base64url&#39;,</span><span class="a">+            &#39;title&#39;: &#39;B&#39;,</span><span class="a">+        }</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13676" rel="noopener" target="_blank">PR #13676</a></span><span class="pm"><span class="a">+10</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/type_adapter.py</span><span class="h">index 447ac34bc..1c6824acb 100644</span><span class="h">@@ -736,7 +736,10 @@ class TypeAdapter(Generic[T]):</span><span class="c">         if isinstance(self.core_schema, _mock_val_ser.MockCoreSchema):</span><span class="c">             self.core_schema.rebuild()</span><span class="c">             assert not isinstance(self.core_schema, _mock_val_ser.MockCoreSchema), &#39;this is a bug! please report it&#39;</span><span class="r">-        return schema_generator_instance.generate(self.core_schema, mode=mode)</span><span class="a">+        # The configuration provided to the type adapter (if any) is not part of the core schema,</span><span class="a">+        # so we need to explicitly make it available to the JSON Schema generator:</span><span class="a">+        with schema_generator_instance._config_wrapper_stack.push(self._config):</span><span class="a">+            return schema_generator_instance.generate(self.core_schema, mode=mode)</span><span class="c"> </span><span class="c">     @staticmethod</span><span class="c">     def json_schemas(</span><span class="f">tests/test_type_adapter.py</span><span class="h">index ad7464513..1038a8291 100644</span><span class="h">@@ -555,6 +555,12 @@ def test_ta_config_with_annotated_type() -&gt; None:</span><span class="c">     ]</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_ta_config_used_for_json_schema() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13675&quot;&quot;&quot;</span><span class="a">+    ta = TypeAdapter(list[bytes], config=ConfigDict(ser_json_bytes=&#39;base64&#39;))</span><span class="a">+    assert ta.json_schema() == {&#39;type&#39;: &#39;array&#39;, &#39;items&#39;: {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;base64url&#39;}}</span><span class="a">+</span><span class="a">+</span><span class="c"> def defer_build_test_models(config: ConfigDict) -&gt; list[Any]:</span><span class="c">     class Model(BaseModel):</span><span class="c">         model_config = config</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261003-150343/13664/">Previous · #13664</a>
+  <a class="mid" href="/backtests/pydantic/run-20261003-150343/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261003-150343/13687/">Next · #13687</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
