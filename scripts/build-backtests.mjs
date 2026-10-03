@@ -431,7 +431,6 @@ ${parts.join('\n')}
 </svg></div>
 <div class="legend">${series.map((s) => `<span><i class="sw" style="background:${s.color}"></i>${esc(s.repo.slug)}</span>`).join('')}</div>
 <p class="caption">Each point is one run on that repo's fixed ticket sample, placed at the day it ran; two runs on one day sit side by side. Dotted lines and text label any changes we made.</p>
-<p class="caption">Pydantic is the longest running repo we've been testing our software factory on.</p>
 <div class="tip" id="tip" role="status"></div>
 </div>`;
 }
