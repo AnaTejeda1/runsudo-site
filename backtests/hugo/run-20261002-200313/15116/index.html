@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15116 common/hugo: Include aom, dav1d, and libavif in commands/env output — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15116 in gohugoio/hugo, run 2 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261002-200313/15116/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261002-200313/">run-20261002-200313</a><span aria-hidden="true">/</span><span aria-current="page">#15116</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15116" rel="noopener" target="_blank">#15116</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/89b8c322008f5285b81d4b357887292e3b61f708" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 2 Oct 2026 · <span class="runid">run-20261002-200313</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">common/hugo: Include aom, dav1d, and libavif in commands/env output</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Patch A adds the three requested dependencies (libavif v1.4.1, aom v3.14.1, dav1d 1.5.3) to GetDependencyListNonGo. It keeps the existing hard-coded pattern, so the change is small and easy to verify. The comment now points to the Makefiles to keep in sync. A unit test asserts the exact formatted strings, and the env testscript checks the exact output lines. Both tests would fail before the change and pass after it.
+
+Patch B moves the version constants into internal/warpc and makes common/hugo import internal/warpc. That adds real risk:
+- common/hugo is a low-level package. Importing warpc (wazero runtime, embedded WASM blobs) pulls a heavy dependency into it.
+- If anything under warpc&#39;s import graph depends on common/hugo, the build breaks with an import cycle.
+
+Patch B also has scope and test problems:
+- It adds KaTeX with a version constant (0.16.21) the issue never asked for, and nothing in the diff verifies that version against js/package.json.
+- It includes unrelated formatting churn in warpc.go and hugo.go, which obscures the fix.
+- Its testscript checks only the module paths, not the versions, so it is weaker than Patch A&#39;s.
+
+Patch B&#39;s centralization idea has some merit, but it does not actually derive versions from the plugin setup; the constants are still hand-maintained. Patch A is the correct, minimal, and better-tested fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">57m 24s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,680 passed · 94 skipped · 3,783 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">30<small>vs 51 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15116" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Currently, the <code>hugo env</code> command prints:</p>
+<pre><code class="lang-text">hugo v0.164.0-ce2470e7012b5ab5fc4e10ebe4027e9f8d9e00dc+withdeploy linux/amd64 BuildDate=2026-07-06T16:39:30Z VendorInfo=gohugoio
+GOOS=&quot;linux&quot;
+GOARCH=&quot;amd64&quot;
+GOVERSION=&quot;go1.26.3&quot;
+github.com/webmproject/libwebp=&quot;v1.6.0&quot;
+github.com/sass/dart-sass/protocol=&quot;3.2.0&quot;
+github.com/sass/dart-sass/compiler=&quot;1.101.0&quot;
+github.com/sass/dart-sass/implementation=&quot;1.101.0&quot;</code></pre>
+<p>I think it would make sense to also list...</p>
+<pre><code class="lang-text">aomedia.googlesource.com/aom=&quot;v3.14.1&quot;
+code.videolan.org/videolan/dav1d=&quot;1.5.3&quot;
+github.com/AOMediaCodec/libavif=&quot;v.14.1&quot;</code></pre>
+<p>...assuming I have the correct source strings.</p>
+<p>See:</p>
+<p>&lt;https://github.com/gohugoio/hugo/blob/a198116669fdfba2eeda4f1d63c055001a10142f/common/hugo/hugo.go#L213-L214&gt;.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+28</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">common/hugo/hugo.go</span><span class="h">index 28f8b9393..2c2305ae6 100644</span><span class="h">@@ -211,7 +211,14 @@ func GetDependencyList() []string {</span><span class="c"> </span><span class="c"> // GetDependencyListNonGo returns a list of non-Go dependencies.</span><span class="c"> func GetDependencyListNonGo() []string {</span><span class="r">-	deps := []string{formatDep(&quot;github.com/webmproject/libwebp&quot;, &quot;v1.6.0&quot;)} // via WASM. TODO(bep) get versions from the plugin setup.</span><span class="a">+	// Via WASM. Keep these in sync with the versions in internal/warpc/genwebp/Makefile and internal/warpc/genavif/Makefile.</span><span class="a">+	// TODO(bep) get versions from the plugin setup.</span><span class="a">+	deps := []string{</span><span class="a">+		formatDep(&quot;github.com/webmproject/libwebp&quot;, &quot;v1.6.0&quot;),</span><span class="a">+		formatDep(&quot;github.com/AOMediaCodec/libavif&quot;, &quot;v1.4.1&quot;),</span><span class="a">+		formatDep(&quot;aomedia.googlesource.com/aom&quot;, &quot;v3.14.1&quot;),</span><span class="a">+		formatDep(&quot;code.videolan.org/videolan/dav1d&quot;, &quot;1.5.3&quot;),</span><span class="a">+	}</span><span class="c"> </span><span class="c"> 	if IsExtended {</span><span class="c"> 		deps = append(</span><span class="f">common/hugo/hugo_test.go</span><span class="h">index a572f74d4..d2c5cb331 100644</span><span class="h">@@ -59,3 +59,13 @@ func TestGetBuildInfo(t *testing.T) {</span><span class="c"> 		c.Assert(bi.GoVersion, qt.Not(qt.Equals), &quot;&quot;)</span><span class="c"> 	}</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestGetDependencyListNonGo(t *testing.T) {</span><span class="a">+	c := qt.New(t)</span><span class="a">+</span><span class="a">+	deps := GetDependencyListNonGo()</span><span class="a">+	c.Assert(deps, qt.Contains, `github.com/webmproject/libwebp=&quot;v1.6.0&quot;`)</span><span class="a">+	c.Assert(deps, qt.Contains, `github.com/AOMediaCodec/libavif=&quot;v1.4.1&quot;`)</span><span class="a">+	c.Assert(deps, qt.Contains, `aomedia.googlesource.com/aom=&quot;v3.14.1&quot;`)</span><span class="a">+	c.Assert(deps, qt.Contains, `code.videolan.org/videolan/dav1d=&quot;1.5.3&quot;`)</span><span class="a">+}</span><span class="f">testscripts/commands/env.txt</span><span class="h">index 742e05ffc..b83b0581f 100644</span><span class="h">@@ -2,4 +2,13 @@</span><span class="c"> </span><span class="c"> hugo env</span><span class="c"> stdout &#39;GOARCH&#39;</span><span class="r">-! stderr .</span><span class="h">\ No newline at end of file</span><span class="a">+stdout &#39;github.com/webmproject/libwebp=&quot;v1.6.0&quot;&#39;</span><span class="a">+stdout &#39;github.com/AOMediaCodec/libavif=&quot;v1.4.1&quot;&#39;</span><span class="a">+stdout &#39;aomedia.googlesource.com/aom=&quot;v3.14.1&quot;&#39;</span><span class="a">+stdout &#39;code.videolan.org/videolan/dav1d=&quot;1.5.3&quot;&#39;</span><span class="a">+! stderr .</span><span class="a">+</span><span class="a">+hugo env --logLevel info</span><span class="a">+stdout &#39;github.com/AOMediaCodec/libavif=&quot;v1.4.1&quot;&#39;</span><span class="a">+stdout &#39;aomedia.googlesource.com/aom=&quot;v3.14.1&quot;&#39;</span><span class="a">+stdout &#39;code.videolan.org/videolan/dav1d=&quot;1.5.3&quot;&#39;</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/89b8c322008f5285b81d4b357887292e3b61f708" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+45</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">common/hugo/hugo.go</span><span class="h">index 28f8b9393..ac490a84b 100644</span><span class="h">@@ -33,6 +33,7 @@ import (</span><span class="c"> 	&quot;github.com/gohugoio/hugo/common/loggers&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/common/version&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/hugofs/files&quot;</span><span class="a">+	&quot;github.com/gohugoio/hugo/internal/warpc&quot;</span><span class="c"> </span><span class="c"> 	&quot;github.com/spf13/afero&quot;</span><span class="c"> </span><span class="h">@@ -211,7 +212,10 @@ func GetDependencyList() []string {</span><span class="c"> </span><span class="c"> // GetDependencyListNonGo returns a list of non-Go dependencies.</span><span class="c"> func GetDependencyListNonGo() []string {</span><span class="r">-	deps := []string{formatDep(&quot;github.com/webmproject/libwebp&quot;, &quot;v1.6.0&quot;)} // via WASM. TODO(bep) get versions from the plugin setup.</span><span class="a">+	var deps []string</span><span class="a">+	for _, dep := range warpc.GetWASMDeps() {</span><span class="a">+		deps = append(deps, formatDep(dep[0], dep[1]))</span><span class="a">+	}</span><span class="c"> </span><span class="c"> 	if IsExtended {</span><span class="c"> 		deps = append(</span><span class="h">@@ -225,7 +229,8 @@ func GetDependencyListNonGo() []string {</span><span class="c"> 		if IsDartSassGeV2() {</span><span class="c"> 			dartSassPath = &quot;github.com/sass/dart-sass&quot;</span><span class="c"> 		}</span><span class="r">-		deps = append(deps,</span><span class="a">+		deps = append(</span><span class="a">+			deps,</span><span class="c"> 			formatDep(dartSassPath+&quot;/protocol&quot;, dartSass.ProtocolVersion),</span><span class="c"> 			formatDep(dartSassPath+&quot;/compiler&quot;, dartSass.CompilerVersion),</span><span class="c"> 			formatDep(dartSassPath+&quot;/implementation&quot;, dartSass.ImplementationVersion),</span><span class="f">internal/warpc/avif.go</span><span class="h">index baadaadd7..f080b87b1 100644</span><span class="h">@@ -25,6 +25,13 @@ import (</span><span class="c"> 	&quot;github.com/gohugoio/hugo/common/hugio&quot;</span><span class="c"> )</span><span class="c"> </span><span class="a">+// Keep in sync with genavif/Makefile.</span><span class="a">+const (</span><span class="a">+	libavifVersion = &quot;v1.4.1&quot;</span><span class="a">+	aomVersion     = &quot;v3.14.1&quot;</span><span class="a">+	dav1dVersion   = &quot;1.5.3&quot;</span><span class="a">+)</span><span class="a">+</span><span class="c"> var (</span><span class="c"> 	_ SourceProvider      = AvifInput{}</span><span class="c"> 	_ DestinationProvider = AvifInput{}</span><span class="f">internal/warpc/katex.go</span><span class="h">index 75c20117f..627f18e3a 100644</span><span class="h">@@ -17,6 +17,9 @@ import (</span><span class="c"> 	_ &quot;embed&quot;</span><span class="c"> )</span><span class="c"> </span><span class="a">+// Keep in sync with js/package.json.</span><span class="a">+const katexVersion = &quot;0.16.21&quot;</span><span class="a">+</span><span class="c"> //go:embed wasm/renderkatex.wasm</span><span class="c"> var katexWasm []byte</span><span class="c"> </span><span class="f">internal/warpc/warpc.go</span><span class="h">index b7763e782..be8e48bb5 100644</span><span class="h">@@ -48,6 +48,17 @@ const (</span><span class="c"> </span><span class="c"> const currentVersion = 1</span><span class="c"> </span><span class="a">+// GetWASMDeps returns version information for the C libraries bundled as WASM.</span><span class="a">+func GetWASMDeps() [][2]string {</span><span class="a">+	return [][2]string{</span><span class="a">+		{&quot;aomedia.googlesource.com/aom&quot;, aomVersion},</span><span class="a">+		{&quot;code.videolan.org/videolan/dav1d&quot;, dav1dVersion},</span><span class="a">+		{&quot;github.com/AOMediaCodec/libavif&quot;, libavifVersion},</span><span class="a">+		{&quot;github.com/KaTeX/KaTeX&quot;, katexVersion},</span><span class="a">+		{&quot;github.com/webmproject/libwebp&quot;, libwebpVersion},</span><span class="a">+	}</span><span class="a">+}</span><span class="a">+</span><span class="c"> //go:embed wasm/quickjs.wasm</span><span class="c"> var quickjsWasm []byte</span><span class="c"> </span><span class="h">@@ -348,7 +359,8 @@ func (d *dispatcher[Q, R]) inputBlobs() error {</span><span class="c"> 					call.done()</span><span class="c"> 				}</span><span class="c"> 				return nil</span><span class="r">-			}); err != nil {</span><span class="a">+			},</span><span class="a">+		); err != nil {</span><span class="c"> 			inputErr = err</span><span class="c"> 			break</span><span class="c"> 		}</span><span class="h">@@ -384,7 +396,8 @@ func (d *dispatcher[Q, R]) inputJSON() error {</span><span class="c"> 					call.done()</span><span class="c"> 				}</span><span class="c"> 				return nil</span><span class="r">-			}); err != nil {</span><span class="a">+			},</span><span class="a">+		); err != nil {</span><span class="c"> 			inputErr = err</span><span class="c"> 			break</span><span class="c"> 		}</span><span class="h">@@ -679,7 +692,8 @@ func newDispatcher[Q, R any](opts Options) (*dispatcherPool[Q, R], error) {</span><span class="c"> 					if err != nil {</span><span class="c"> 						return toErr(&quot;quickjs&quot;, errBuff, err)</span><span class="c"> 					}</span><span class="r">-					ctx = experimental.WithImportResolver(ctx,</span><span class="a">+					ctx = experimental.WithImportResolver(</span><span class="a">+						ctx,</span><span class="c"> 						func(name string) api.Module {</span><span class="c"> 							if name == opts.Runtime.Name {</span><span class="c"> 								return runtimeInstance</span><span class="f">internal/warpc/webp.go</span><span class="h">index 35ee98899..2c2be0bd4 100644</span><span class="h">@@ -28,6 +28,9 @@ import (</span><span class="c"> 	&quot;github.com/gohugoio/hugo/common/hugio&quot;</span><span class="c"> )</span><span class="c"> </span><span class="a">+// Keep in sync with genwebp/Makefile.</span><span class="a">+const libwebpVersion = &quot;v1.6.0&quot;</span><span class="a">+</span><span class="c"> var (</span><span class="c"> 	_ SourceProvider      = WebpInput{}</span><span class="c"> 	_ DestinationProvider = WebpInput{}</span><span class="f">testscripts/commands/env.txt</span><span class="h">index 742e05ffc..1ae628c6c 100644</span><span class="h">@@ -1,5 +1,12 @@</span><span class="c"> # Test the hugo env command.</span><span class="c"> </span><span class="c"> hugo env</span><span class="a">+stdout &#39;GOOS&#39;</span><span class="c"> stdout &#39;GOARCH&#39;</span><span class="r">-! stderr .</span><span class="h">\ No newline at end of file</span><span class="a">+stdout &#39;GOVERSION&#39;</span><span class="a">+stdout &#39;aomedia\.googlesource\.com/aom&#39;</span><span class="a">+stdout &#39;code\.videolan\.org/videolan/dav1d&#39;</span><span class="a">+stdout &#39;github\.com/AOMediaCodec/libavif&#39;</span><span class="a">+stdout &#39;github\.com/KaTeX/KaTeX&#39;</span><span class="a">+stdout &#39;github\.com/webmproject/libwebp&#39;</span><span class="a">+! stderr .</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261002-200313/15101/">Previous · #15101</a>
+  <a class="mid" href="/backtests/hugo/run-20261002-200313/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261002-200313/15167/">Next · #15167</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15052 hugolib: Throw error when Render method is unable to find specified template — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15052 in gohugoio/hugo, run 2 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261002-200313/15052/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261002-200313/">run-20261002-200313</a><span aria-hidden="true">/</span><span aria-current="page">#15052</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15052" rel="noopener" target="_blank">#15052</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/e921aa8c349354b503cf0e62cc121487d78f41a0" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 2 Oct 2026 · <span class="runid">run-20261002-200313</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">hugolib: Throw error when Render method is unable to find specified template</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the same root cause. They replace the silent `return &quot;&quot;, nil` in `pageContentOutput.Render` with an error when the named layout cannot be found. Both also correct the same malformed `-- layouts/myview.html` txtar header in `tpl/page`. That header fix matters: once missing views raise an error, the broken header would make the existing test fail.
+
+Correctness is equivalent at the core. Patch B&#39;s error is more useful, though. It goes through `pco.po.p.wrapError`, the page&#39;s existing error-wrapping helper used elsewhere in hugolib, so the message carries page/file context. The text (`failed to resolve layout &quot;view_bar&quot; for .Render: template not found`) also says which call failed. Patch A gives a bare `template &quot;view_bar&quot; not found` with no page context, which is less helpful on a site with many pages.
+
+Tests: Patch A adds only the issue&#39;s reproduction and checks the message with a regex. Patch B adds that same case, plus `.Render` on regular pages in a range loop (a different call path), plus a positive check that an existing view still renders correctly. B&#39;s tests cover more and would catch regressions in both directions.
+
+Scope: both are minimal, with no unrelated churn. Overall B is better on craft (contextual error, consistent with hugolib conventions) and on test thoroughness.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 26m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,661 passed · 92 skipped · 3,762 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">53<small>vs 21 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15052" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Currently, when you invoke <code>.Page.Render</code> and pass it the name of a non-existent template, the method returns an empty string without warning or error. This isn&#39;t anything new; Hugo has behaved this way since 0.54.0, and probably earlier.</p>
+<p>There may be a good reason for the existing behavior, but it was surprising to me.</p>
+<p>Relevant code:</p>
+<p><a href="https://github.com/gohugoio/hugo/blob/d15baf53a91372843c45eef7eb5b87c25a4b6bf1/hugolib/page__per_output.go#L107-L126" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/blob/d15baf53a91372843c45eef7eb5b87c25a4b6bf1/hugolib/page__per_output.go#L107-L126</a></p>
+<p>Integration test:</p>
+<pre><code class="lang-go">// See issue 15052.
+func TestRenderViewNotFound(t *testing.T) {
+	t.Parallel()
+
+	files := `
+-- hugo.toml --
+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]
+-- layouts/home.html --
+{{ .Render &quot;view_foo&quot; }}
+{{ .Render &quot;view_bar&quot; }}
+-- layouts/view_foo.html --
+foo
+`
+
+	b, err := hugolib.TestE(t, files)
+	b.Assert(err, qt.IsNotNil) // fails (no error is thrown)
+}</code></pre>
+<p>Reference: &lt;https://discourse.gohugo.io/t/silent-error-with-render-function-in-v0-163-2-extended-withdeploy/57290/7&gt;</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+52</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">hugolib/page__per_output.go</span><span class="h">index 9009165ff..39daa0c40 100644</span><span class="h">@@ -114,7 +114,7 @@ func (pco *pageContentOutput) Render(ctx context.Context, layout ...string) (tem</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	if !found {</span><span class="r">-		return &quot;&quot;, nil</span><span class="a">+		return &quot;&quot;, pco.po.p.wrapError(fmt.Errorf(&quot;failed to resolve layout %q for .Render: template not found&quot;, layout[0]))</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	// Make sure to send the *pageState and not the *pageContentOutput to the template.</span><span class="f">hugolib/page_test.go</span><span class="h">index f6225cac5..e58162703 100644</span><span class="h">@@ -1900,6 +1900,56 @@ func TestRenderWithoutArgument(t *testing.T) {</span><span class="c"> 	b.Assert(err, qt.IsNotNil)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Issue #15052</span><span class="a">+func TestRenderViewNotFound(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ .Render &quot;view_foo&quot; }}</span><span class="a">+{{ .Render &quot;view_bar&quot; }}</span><span class="a">+-- layouts/view_foo.html --</span><span class="a">+foo</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b, err := TestE(t, files)</span><span class="a">+	b.Assert(err, qt.IsNotNil)</span><span class="a">+	b.Assert(err.Error(), qt.Contains, `failed to resolve layout &quot;view_bar&quot;`)</span><span class="a">+</span><span class="a">+	// Range over pages (Render via the lazy content provider on page collections).</span><span class="a">+	files = `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- content/p1.md --</span><span class="a">+---</span><span class="a">+title: p1</span><span class="a">+---</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ range site.RegularPages }}{{ .Render &quot;view_bar&quot; }}{{ end }}</span><span class="a">+-- layouts/page.html --</span><span class="a">+{{ .Title }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b, err = TestE(t, files)</span><span class="a">+	b.Assert(err, qt.IsNotNil)</span><span class="a">+	b.Assert(err.Error(), qt.Contains, `failed to resolve layout &quot;view_bar&quot;`)</span><span class="a">+</span><span class="a">+	// Existing view renders fine.</span><span class="a">+	files = `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ .Render &quot;view_foo&quot; }}</span><span class="a">+-- layouts/view_foo.html --</span><span class="a">+foo</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b = Test(t, files)</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;foo&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="c"> // Issue #13021</span><span class="c"> func TestAllStores(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="f">tpl/page/page_integration_test.go</span><span class="h">index 817033b40..da18f553e 100644</span><span class="h">@@ -77,7 +77,7 @@ Image OK.</span><span class="c"> {{ if page.IsHome }}</span><span class="c"> Link OK.</span><span class="c"> {{ end }}</span><span class="a">+-- layouts/myview.html --</span><span class="c"> {{ if page.IsHome }}</span><span class="c"> Render OK.</span><span class="c"> {{ end }}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/e921aa8c349354b503cf0e62cc121487d78f41a0" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+20</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">hugolib/page__per_output.go</span><span class="h">index 9009165ff..e8dd38ce7 100644</span><span class="h">@@ -114,7 +114,7 @@ func (pco *pageContentOutput) Render(ctx context.Context, layout ...string) (tem</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	if !found {</span><span class="r">-		return &quot;&quot;, nil</span><span class="a">+		return &quot;&quot;, fmt.Errorf(&quot;template %q not found&quot;, layout[0])</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	// Make sure to send the *pageState and not the *pageContentOutput to the template.</span><span class="f">hugolib/page_test.go</span><span class="h">index f6225cac5..803dddc01 100644</span><span class="h">@@ -2055,3 +2055,21 @@ disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;]</span><span class="c"> 		}</span><span class="c"> 	}</span><span class="c"> }</span><span class="a">+</span><span class="a">+// See issue 15052.</span><span class="a">+func TestRenderViewNotFound(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ .Render &quot;view_foo&quot; }}</span><span class="a">+{{ .Render &quot;view_bar&quot; }}</span><span class="a">+-- layouts/view_foo.html --</span><span class="a">+foo</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b, err := TestE(t, files)</span><span class="a">+	b.Assert(err, qt.ErrorMatches, `.*template &quot;view_bar&quot; not found.*`)</span><span class="a">+}</span><span class="f">tpl/page/page_integration_test.go</span><span class="h">index 817033b40..da18f553e 100644</span><span class="h">@@ -77,7 +77,7 @@ Image OK.</span><span class="c"> {{ if page.IsHome }}</span><span class="c"> Link OK.</span><span class="c"> {{ end }}</span><span class="a">+-- layouts/myview.html --</span><span class="c"> {{ if page.IsHome }}</span><span class="c"> Render OK.</span><span class="c"> {{ end }}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261002-200313/15027/">Previous · #15027</a>
+  <a class="mid" href="/backtests/hugo/run-20261002-200313/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261002-200313/15068/">Next · #15068</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

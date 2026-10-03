@@ -132,6 +132,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-02",
+          "id": "run-20261002-200313",
+          "source_runs": [
+            "run-20261002-200313"
+          ],
+          "tickets": 30,
+          "better": 25,
+          "par": 0,
+          "worse": 4,
+          "error": 1,
+          "notes": "Foreman lane (the factory solver) on the same sample as the 2026-09-30 solver-only run",
+          "footnote": ""
+        },
+        {
           "date": "2026-09-30",
           "id": "run-20260930-140149",
           "source_runs": [

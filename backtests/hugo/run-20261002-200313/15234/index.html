@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15234 templates.Defer: identical block bodies in different output formats share one escaping mode, chosen non-deterministically per build — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15234 in gohugoio/hugo, run 2 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261002-200313/15234/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261002-200313/">run-20261002-200313</a><span aria-hidden="true">/</span><span aria-current="page">#15234</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15234" rel="noopener" target="_blank">#15234</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/49835f8fe9496159e84a3f742fd9d6c5c9cd3ae5" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 2 Oct 2026 · <span class="runid">run-20261002-200313</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">templates.Defer: identical block bodies in different output formats share one escaping mode, chosen non-deterministically per build</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the same root-cause fix in `handleWith`. Each folds the owner&#39;s `IsPlainText` into the deferred-template hash, so HTML and plain-text owners with byte-identical bodies get distinct IDs and are parsed in their own escaping namespace. Same-format owners still share the ID, which preserves the documented key/content-hash sharing. Patch A uses the prefixes &quot;html:&quot;/&quot;text:&quot; and Patch B uses `fmt.Sprintf(&quot;%t:%s&quot;)`; both prefix every input unambiguously, so they are functionally equivalent. B relies on `fmt` being imported in `templatetransform.go`, which the diff does not show; that is a minor uncertainty, though `fmt` is likely already present.
+
+The tests are where the patches differ. Each adds the issue&#39;s reproduction as a test. That test fails on every pre-fix build, since exactly one output is always wrong, so A&#39;s 10-build loop is redundant but harmless. A also adds a second test asserting that identical bodies with the same key across two layouts of the same output format still share one execution (`IN[1]` on both pages). This guards the constraint the issue explicitly calls out, and B does not test it. A&#39;s comment also explains the reasoning more fully. A is therefore modestly better on test coverage, with equal correctness.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 30m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,736 passed · 99 skipped · 3,837 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">64<small>vs 29 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15234" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>&lt;pre&gt;<br>$ hugo version<br>hugo v0.164.0-ce2470e7012b5ab5fc4e10ebe4027e9f8d9e00dc+extended windows/amd64 BuildDate=2026-07-06T16:39:30Z VendorInfo=gohugoio<br>&lt;/pre&gt;</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>Yes.</p>
+<pre><code class="lang-text">hugo v0.165.0-76a5e1880ab46688155b02e99bab9be2a6134492+extended windows/amd64 BuildDate=2026-08-12T14:26:28Z VendorInfo=gohugoio</code></pre>
+<p>Over one run of 40 consecutive builds of the unchanged reproduction site below with that binary, 28 builds published the wrong value in <code>public/index.html</code> and 12 published the wrong value in <code>public/index.txt</code>. All 40 exited 0, and none printed a warning or an error.</p>
+<h3>Summary</h3>
+<p>When two templates belonging to different output formats contain byte-identical <code>templates.Defer</code> block bodies, both blocks do execute, each with its own correct output-format context. What they share is the escaping applied inside the block, and which of the two escaping modes survives changes from build to build of an unchanged site. On every build exactly one of the two outputs is therefore wrong: either an HTML page publishes a value raw that it escapes correctly a few characters earlier outside the block, or a plain-text page receives HTML entities.</p>
+<h3>Reproduction</h3>
+<p>Three files in an empty directory. No content, no modules, no external tooling.</p>
+<p><code>hugo.toml</code>:</p>
+<pre><code class="lang-toml">baseURL = &#39;https://example.org/&#39;
+title = &#39;defer probe&#39;
+disableKinds = [&#39;page&#39;, &#39;section&#39;, &#39;taxonomy&#39;, &#39;term&#39;, &#39;RSS&#39;, &#39;sitemap&#39;, &#39;robotsTXT&#39;]
+
+[outputFormats.probe]
+mediaType = &#39;text/plain&#39;
+baseName = &#39;index&#39;
+isPlainText = true
+
+[outputs]
+home = [&#39;html&#39;, &#39;probe&#39;]</code></pre>
+<p><code>layouts/home.html</code>:</p>
+<pre><code class="lang-go-html-template">{{ $v := &quot;&lt;b&gt;&amp;&quot; }}OUT[{{ $v }}]{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot; &quot;data&quot; (dict &quot;v&quot; $v))) }}IN[{{ .v }}]{{ end }}</code></pre>
+<p><code>layouts/home.probe.txt</code>, byte-identical to <code>layouts/home.html</code> (both md5 <code>c921197a9c8637852e38d94a0352359d</code>):</p>
+<pre><code class="lang-go-html-template">{{ $v := &quot;&lt;b&gt;&amp;&quot; }}OUT[{{ $v }}]{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot; &quot;data&quot; (dict &quot;v&quot; $v))) }}IN[{{ .v }}]{{ end }}</code></pre>
+<p><code>OUT[...]</code> interpolates the value outside the deferred block, <code>IN[...]</code> interpolates the same value inside it. Then run <code>hugo</code> several times without changing anything, and look at <code>public/index.html</code> and <code>public/index.txt</code> after each run.</p>
+<h3>What happens</h3>
+<p>Two consecutive runs of the same command on the unchanged site, pasted verbatim:</p>
+<pre><code class="lang-text">$ hugo --logLevel info
+Start building sites …
+hugo v0.164.0-ce2470e7012b5ab5fc4e10ebe4027e9f8d9e00dc+extended windows/amd64 BuildDate=2026-07-06T16:39:30Z VendorInfo=gohugoio
+
+INFO  build:  step process substep collect files 0 files_total 0 pagesources_total 0 resourcesources_total 0 duration 0s
+INFO  build:  step process duration 0s
+INFO  build:  step assemble duration 0s
+INFO  build:  step render substep pages site en outputFormat html duration 1.3703ms
+INFO  build:  step render substep pages site en outputFormat probe duration 509.5µs
+INFO  build:  step render pages 2 content 0 duration 1.8798ms
+INFO  build:  step render deferred count 2 duration 1.7766ms
+INFO  build:  step postProcess duration 0s
+INFO  build:  duration 4.171ms
+
+                  │ EN
+──────────────────┼────
+ Pages            │  2
+ Paginator pages  │  0
+ Non-page files   │  0
+ Static files     │  0
+ Processed images │  0
+ Aliases          │  0
+ Cleaned          │  0
+
+Total in 12 ms
+--- public/index.html ---
+OUT[&amp;lt;b&amp;gt;&amp;amp;]IN[&lt;b&gt;&amp;]
+--- public/index.txt ---
+OUT[&lt;b&gt;&amp;]IN[&lt;b&gt;&amp;]</code></pre>
+<pre><code class="lang-text">$ hugo --logLevel info
+Start building sites …
+hugo v0.164.0-ce2470e7012b5ab5fc4e10ebe4027e9f8d9e00dc+extended windows/amd64 BuildDate=2026-07-06T16:39:30Z VendorInfo=gohugoio
+
+INFO  build:  step process substep collect files 0 files_total 0 pagesources_total 0 resourcesources_total 0 duration 513.8µs
+INFO  build:  step process duration 513.8µs
+INFO  build:  step assemble duration 0s
+INFO  build:  step render substep pages site en outputFormat html duration 517.9µs
+INFO  build:  step render substep pages site en outputFormat probe duration 517.2µs
+INFO  build:  step render pages 2 content 0 duration 1.0351ms
+INFO  build:  step render deferred count 2 duration 2.0736ms
+INFO  build:  step postProcess duration 0s
+INFO  build:  duration 3.6225ms
+
+                  │ EN
+──────────────────┼────
+ Pages            │  2
+ Paginator pages  │  0
+ Non-page files   │  0
+ Static files     │  0
+ Processed images │  0
+ Aliases          │  0
+ Cleaned          │  0
+
+Total in 12 ms
+--- public/index.html ---
+OUT[&amp;lt;b&amp;gt;&amp;amp;]IN[&amp;lt;b&amp;gt;&amp;amp;]
+--- public/index.txt ---
+OUT[&lt;b&gt;&amp;]IN[&amp;lt;b&amp;gt;&amp;amp;]</code></pre>
+<p>In the first run the HTML page publishes <code>&lt;b&gt;&amp;</code> raw inside the block, a few characters after escaping the same value correctly outside it. In the second run the plain-text page receives <code>&amp;lt;b&amp;gt;&amp;amp;</code>. Nothing changed between the two runs.</p>
+<p>Quantified over builds of the unchanged site, each build a separate one-shot <code>hugo</code> invocation:</p>
+<div class="tablewrap"><table class="table"><thead><tr><th>Hugo version</th><th>builds</th><th><code>index.html</code> published raw <code>&lt;b&gt;&amp;</code> inside the block</th><th><code>index.txt</code> published <code>&amp;lt;b&amp;gt;&amp;amp;</code> inside the block</th></tr></thead><tbody><tr><td>v0.164.0, fresh copy of the site per build</td><td>40</td><td>25</td><td>15</td></tr><tr><td>v0.164.0, fresh copy of the site per build, second run</td><td>40</td><td>23</td><td>17</td></tr><tr><td>v0.165.0, fresh copy of the site per build</td><td>40</td><td>26</td><td>14</td></tr><tr><td>v0.165.0, fresh copy of the site per build, second run</td><td>40</td><td>28</td><td>12</td></tr><tr><td>v0.164.0, repeated builds in one directory</td><td>12</td><td>8</td><td>4</td></tr><tr><td>v0.165.0, repeated builds in one directory</td><td>8</td><td>5</td><td>3</td></tr></tbody></table></div>
+<p>In all 180 of those builds the two output formats carried the <em>same</em> string inside the block, so exactly one of the two published files was wrong every time; outside the block the value was escaped correctly for its format in every build.</p>
+<h3>What I expected</h3>
+<p>Each format&#39;s deferred block rendered under that format&#39;s own escaping — <code>IN[&amp;lt;b&amp;gt;&amp;amp;]</code> in <code>public/index.html</code> and <code>IN[&lt;b&gt;&amp;]</code> in <code>public/index.txt</code> — and the same result on every build of an unchanged site.</p>
+<p>The documentation says &quot;The output format, site, and language will be the same, even if the execution is deferred.&quot; The output-format <em>context</em> does hold up, as the identity-token control below shows; it is the escaping regime that does not follow the output format.</p>
+<h3>Controls</h3>
+<p>All of these were run at both v0.164.0 and v0.165.0.</p>
+<p><strong>The block really does execute once per output format.</strong> Adding <code>{{ warnf &quot;DEFER-EXEC-%d&quot; math.Counter }}</code> to the start of the still byte-identical block body logs two executions in every build:</p>
+<pre><code class="lang-text">WARN  DEFER-EXEC-1
+WARN  DEFER-EXEC-2
+INFO  build:  step render deferred count 2 duration 1.7497ms
+--- public/index.html ---
+OUT[&amp;lt;b&amp;gt;&amp;amp;]IN[&lt;b&gt;&amp;]
+--- public/index.txt ---
+OUT[&lt;b&gt;&amp;]IN[&lt;b&gt;&amp;]</code></pre>
+<p>So this is not one rendering substituted into two files; it is two renderings sharing one escaping mode.</p>
+<p><strong>Different <code>key</code> values do not separate them.</strong> With <code>&quot;KH&quot;</code> in <code>layouts/home.html</code> and <code>&quot;KT&quot;</code> in <code>layouts/home.probe.txt</code>, the block bodies still byte-identical, the escaping stayed shared and kept flipping: 36 builds, 22 with the HTML page wrong and 14 with the plain-text page wrong.</p>
+<p><strong>Different block body text does separate them, stably.</strong> Changing the body to <code>INH[{{ .v }}]</code> in the HTML template and <code>INT[{{ .v }}]</code> in the plain-text template gives the correct per-format result in 36 of 36 builds, with no flip: <code>INH[&amp;lt;b&amp;gt;&amp;amp;]</code> in <code>public/index.html</code> and <code>INT[&lt;b&gt;&amp;]</code> in <code>public/index.txt</code>.</p>
+<p><strong>The per-format context inside the block is correct.</strong> With the body still byte-identical in both templates, but carrying an output-format identity token next to the value:</p>
+<pre><code class="lang-go-html-template">{{ $v := &quot;&lt;b&gt;&amp;&quot; }}OUT[{{ $v }}]{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot; &quot;data&quot; (dict &quot;v&quot; $v))) }}IN[{{ (index page.AlternativeOutputFormats 0).Name }}|{{ .v }}]{{ end }}</code></pre>
+<p>With exactly two formats configured the single alternative names the <em>other</em> one, so <code>IN[probe|...]</code> marks the execution that produced the HTML page and <code>IN[html|...]</code> the one that produced the plain-text page. That token was correct in 36 of 36 builds, while the escaping of the value beside it in the very same body was shared and flipped across those builds:</p>
+<pre><code class="lang-text">public/index.html   OUT[&amp;lt;b&amp;gt;&amp;amp;]IN[probe|&lt;b&gt;&amp;]
+public/index.txt    OUT[&lt;b&gt;&amp;]IN[html|&lt;b&gt;&amp;]
+
+public/index.html   OUT[&amp;lt;b&amp;gt;&amp;amp;]IN[probe|&amp;lt;b&amp;gt;&amp;amp;]
+public/index.txt    OUT[&lt;b&gt;&amp;]IN[html|&amp;lt;b&amp;gt;&amp;amp;]</code></pre>
+<h3>Where this appears to come from</h3>
+<p>Offered as a lead from reading the source, not as an instrumented finding.</p>
+<p><code>tpl/tplimpl/templatetransform.go</code>, <code>handleWith</code> (v0.164.0, function at line 409) registers the extracted block under a hash of the block body alone, at lines 450-459:</p>
+<pre><code class="lang-go">inner := withNode.List.CopyList()
+s := inner.String()
+...
+innerHash := hashing.XxHashFromStringHexEncoded(s)
+deferredID := tpl.HugoDeferredTemplatePrefix + innerHash
+...
+c.deferNodes[deferredID] = inner</code></pre>
+<p>Nothing about the owning template, its output format or its media type enters that identifier, so two templates in different output formats with the same body produce the same <code>deferredID</code>.</p>
+<p><code>tpl/tplimpl/templatestore.go</code>, <code>addDeferredTemplate</code> (v0.164.0, function at line 916) then keeps only the first registration under that name, and the first owner fixes the parse namespace for whoever comes later:</p>
+<pre><code class="lang-go">if _, found := t.templatesByPath.Get(name); found {
+    return nil
+}
+...
+if owner.D.IsPlainText {
+    prototype := t.tns.parseText
+    ...
+} else {
+    prototype := t.tns.parseHTML
+    ...
+}</code></pre>
+<p>That is exactly the escaping regime the two output formats disagree about, and the loser silently inherits the winner&#39;s.</p>
+<p>Which owner gets there first looks order-dependent. <code>transformTemplates</code> (function at line 1916) reaches the registrations by ranging <code>s.templates()</code> at line 1937, and that iterator&#39;s inner loop at line 1784 ranges a <code>map[nodeKey]*TemplInfo</code> — the value type of <code>treeMain</code>, declared at line 447 — whose iteration order Go randomizes per run. I found no sort on that path.</p>
+<p>One contrast worth noting: the sibling transform in the same file, <code>handleWithPartial</code> (function at line 324), hashes the owning template&#39;s name into its identifier at line 335 — <code>hashing.XxHashFromStringHexEncoded(c.t.Name() + withNodeInnerString)</code> — while the older defer path does not.</p>
+<p>I checked the implicated files at v0.164.0, v0.165.0 and master <code>7b5199fdeff7d7682e9f979f468d55bc7b67b934</code>: <code>tpl/tplimpl/templatestore.go</code>, <code>tpl/templates/templates.go</code> and <code>tpl/template.go</code> are byte-identical at all three, and <code>tpl/tplimpl/templatetransform.go</code> differs at master only outside this path — the <code>handleWith</code> lines quoted above are unchanged there, at 405-414.</p>
+<h3>A constraint on any fix</h3>
+<p>Hashing the owning template&#39;s name into the deferred identifier, the way <code>handleWithPartial</code> does, would break something the documentation promises for <code>key</code>: &quot;This will, combined with a hash of the template content, be used as a cache key.&quot; Two <em>different layouts of the same output format</em> with identical bodies and one shared key share a single execution today, and that is worth keeping — at both versions, on a variant of the site above reduced to one output format and with the <code>page</code> kind enabled plus one content file, so that <code>single.html</code> renders at all, I measured a single <code>DEFER-EXEC-1</code> for a <code>home.html</code> and a <code>single.html</code> written that way, with both pages publishing the shared result.</p>
+<p>Separating registrations by the property that actually differs here — the owner&#39;s <code>IsPlainText</code>, or its output format — would fix the escaping while leaving that documented same-format sharing untouched.</p>
+<h3>Related, not duplicates</h3>
+<ul><li>#7774, fixed by #8462 (&quot;Fixes #7774&quot;, merged 2021-04-23): per-build nondeterminism in output-format template lookup for shortcodes. Same failure shape, different subsystem, and it predates <code>templates.Defer</code>.</li><li>#13236: two empty deferred blocks <em>in the same template</em> collided on the identifier <code>__hdeferred/cafc7706cee4572b</code> and panicked; closed as completed. That is the same body-only identifier, in a different situation — the collision there is inside one template, and the cross-output-format escaping consequence does not come up.</li></ul>
+<p>I did not find an existing report covering byte-identical <code>templates.Defer</code> bodies across output formats.</p>
+<h3>What I did not establish</h3>
+<ul><li><strong>Which registration wins in any individual build.</strong> I inferred the winner from the escaping in the published output; I did not instrument the running binary to observe the registration.</li><li><strong>Platform generality.</strong> Everything above was measured on one machine, Windows 11, amd64 extended builds. Whether the split differs on another platform or core count is unmeasured.</li><li><strong>Two non-plain-text formats sharing a body.</strong> The escaping observable needs an <code>isPlainText</code> format paired with an HTML one, so two HTML-ish formats sharing a body were not tested and the reach across format combinations is unknown.</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+63</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">tpl/templates/defer_integration_test.go</span><span class="h">index 4f67898bc..6819de316 100644</span><span class="h">@@ -367,3 +367,56 @@ Home.</span><span class="c"> 	b.Assert(err, qt.Not(qt.IsNil))</span><span class="c"> 	b.Assert(err.Error(), qt.Contains, &quot;templates.Defer cannot be used inside a partialCached partial&quot;)</span><span class="c"> }</span><span class="a">+</span><span class="a">+// Identical deferred block bodies in a plain text and an HTML output format</span><span class="a">+// must each be rendered with their own escaping mode.</span><span class="a">+func TestDeferIdenticalBodyPlainTextAndHTML(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &#39;https://example.org/&#39;</span><span class="a">+disableKinds = [&#39;page&#39;, &#39;section&#39;, &#39;taxonomy&#39;, &#39;term&#39;, &#39;RSS&#39;, &#39;sitemap&#39;, &#39;robotsTXT&#39;, &#39;404&#39;]</span><span class="a">+[outputFormats.probe]</span><span class="a">+mediaType = &#39;text/plain&#39;</span><span class="a">+baseName = &#39;index&#39;</span><span class="a">+isPlainText = true</span><span class="a">+[outputs]</span><span class="a">+home = [&#39;html&#39;, &#39;probe&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $v := &quot;&lt;b&gt;&amp;&quot; }}OUT[{{ $v }}]{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot; &quot;data&quot; (dict &quot;v&quot; $v))) }}IN[{{ .v }}]{{ end }}</span><span class="a">+-- layouts/home.probe.txt --</span><span class="a">+{{ $v := &quot;&lt;b&gt;&amp;&quot; }}OUT[{{ $v }}]{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot; &quot;data&quot; (dict &quot;v&quot; $v))) }}IN[{{ .v }}]{{ end }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	// The registration order depends on map iteration order, so build a few times.</span><span class="a">+	for range 10 {</span><span class="a">+		b := hugolib.Test(t, files)</span><span class="a">+		b.AssertFileContent(&quot;public/index.html&quot;, &quot;OUT[&amp;lt;b&amp;gt;&amp;amp;]IN[&amp;lt;b&amp;gt;&amp;amp;]&quot;)</span><span class="a">+		b.AssertFileContent(&quot;public/index.txt&quot;, &quot;OUT[&lt;b&gt;&amp;]IN[&lt;b&gt;&amp;]&quot;)</span><span class="a">+	}</span><span class="a">+}</span><span class="a">+</span><span class="a">+// Identical deferred block bodies with the same key in different templates</span><span class="a">+// of the same output format should share one execution.</span><span class="a">+func TestDeferIdenticalBodySameOutputFormatSharesExecution(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &#39;https://example.org/&#39;</span><span class="a">+disableKinds = [&#39;section&#39;, &#39;taxonomy&#39;, &#39;term&#39;, &#39;RSS&#39;, &#39;sitemap&#39;, &#39;robotsTXT&#39;, &#39;404&#39;]</span><span class="a">+-- content/p1.md --</span><span class="a">+---</span><span class="a">+title: p1</span><span class="a">+---</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot;)) }}IN[{{ math.Counter }}]{{ end }}</span><span class="a">+-- layouts/single.html --</span><span class="a">+{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot;)) }}IN[{{ math.Counter }}]{{ end }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;IN[1]&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;IN[1]&quot;)</span><span class="a">+}</span><span class="f">tpl/tplimpl/templatetransform.go</span><span class="h">index ab42412eb..92f614093 100644</span><span class="h">@@ -408,7 +408,16 @@ func (c *templateTransformContext) handleWith(withNode *parse.WithNode) {</span><span class="c"> 		c.err = errors.New(&quot;resources.PostProcess cannot be used in a deferred template&quot;)</span><span class="c"> 		return</span><span class="c"> 	}</span><span class="r">-	innerHash := hashing.XxHashFromStringHexEncoded(s)</span><span class="a">+	// The deferred template is parsed as either text or HTML depending on its owner,</span><span class="a">+	// so the escaping mode must be part of the ID; otherwise identical bodies in a plain text</span><span class="a">+	// and an HTML template would share one deferred template (and one escaping mode).</span><span class="a">+	// Owners with the same escaping mode still share the ID (and, with the same key, one execution).</span><span class="a">+	// Always prefix, so an HTML body can never hash the same as a prefixed plain text body.</span><span class="a">+	hashInput := &quot;html:&quot; + s</span><span class="a">+	if c.t.D.IsPlainText {</span><span class="a">+		hashInput = &quot;text:&quot; + s</span><span class="a">+	}</span><span class="a">+	innerHash := hashing.XxHashFromStringHexEncoded(hashInput)</span><span class="c"> 	deferredID := tpl.HugoDeferredTemplatePrefix + innerHash</span><span class="c"> </span><span class="c"> 	c.deferNodes[deferredID] = inner</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/49835f8fe9496159e84a3f742fd9d6c5c9cd3ae5" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+28</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">tpl/templates/defer_integration_test.go</span><span class="h">index 4f67898bc..46c126ac1 100644</span><span class="h">@@ -323,6 +323,30 @@ End.</span><span class="c"> 	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Home.&quot;, &quot;Defer 1&quot;, &quot;Defer 2&quot;, &quot;Defer 3&quot;, &quot;End.&quot;)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// See issue 15234.</span><span class="a">+func TestDeferDifferentOutputFormats(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+[outputFormats.probe]</span><span class="a">+mediaType = &quot;text/plain&quot;</span><span class="a">+baseName = &quot;index&quot;</span><span class="a">+isPlainText = true</span><span class="a">+[outputs]</span><span class="a">+home = [&quot;html&quot;, &quot;probe&quot;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $v := &quot;&lt;b&gt;&amp;&quot; }}OUT[{{ $v }}]{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot; &quot;data&quot; (dict &quot;v&quot; $v))) }}IN[{{ .v }}]{{ end }}</span><span class="a">+-- layouts/home.probe.txt --</span><span class="a">+{{ $v := &quot;&lt;b&gt;&amp;&quot; }}OUT[{{ $v }}]{{ with (templates.Defer (dict &quot;key&quot; &quot;K&quot; &quot;data&quot; (dict &quot;v&quot; $v))) }}IN[{{ .v }}]{{ end }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;OUT[&amp;lt;b&amp;gt;&amp;amp;]IN[&amp;lt;b&amp;gt;&amp;amp;]&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/index.txt&quot;, &quot;OUT[&lt;b&gt;&amp;]IN[&lt;b&gt;&amp;]&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="c"> // See issue 13492.</span><span class="c"> func TestDeferInsidePartialCachedShouldFail(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="f">tpl/tplimpl/templatetransform.go</span><span class="h">index ab42412eb..dcb59abe7 100644</span><span class="h">@@ -408,7 +408,10 @@ func (c *templateTransformContext) handleWith(withNode *parse.WithNode) {</span><span class="c"> 		c.err = errors.New(&quot;resources.PostProcess cannot be used in a deferred template&quot;)</span><span class="c"> 		return</span><span class="c"> 	}</span><span class="r">-	innerHash := hashing.XxHashFromStringHexEncoded(s)</span><span class="a">+	// The deferred template is parsed using the owner&#39;s escaping mode. Keep</span><span class="a">+	// identical bodies shared within that mode, but don&#39;t let HTML and plain</span><span class="a">+	// text templates register the same deferred template.</span><span class="a">+	innerHash := hashing.XxHashFromStringHexEncoded(fmt.Sprintf(&quot;%t:%s&quot;, c.t.D.IsPlainText, s))</span><span class="c"> 	deferredID := tpl.HugoDeferredTemplatePrefix + innerHash</span><span class="c"> </span><span class="c"> 	c.deferNodes[deferredID] = inner</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261002-200313/15228/">Previous · #15228</a>
+  <a class="mid" href="/backtests/hugo/run-20261002-200313/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261002-200313/15245/">Next · #15245</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15267 Bump fileCacheEntryVersion in transform.ToMath — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15267 in gohugoio/hugo, run 2 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261002-200313/15267/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261002-200313/">run-20261002-200313</a><span aria-hidden="true">/</span><span aria-current="page">#15267</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15267" rel="noopener" target="_blank">#15267</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/8d88b8b4dd6a58d11951c38bc40779aa91b6166c" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 2 Oct 2026 · <span class="runid">run-20261002-200313</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Bump fileCacheEntryVersion in transform.ToMath</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same core fix: they bump fileCacheEntryVersion from &quot;v1&quot; to &quot;v2&quot; in transform.ToMath. Old cached KaTeX 0.16.21 output then sits under a different key and is no longer reused, which is the root cause in the issue. So both are equally correct.
+
+B adds a comment next to katexVersion in internal/warpc/katex.go telling future upgraders to bump the cache version, and expands the inline comment on the constant. That small craft gain targets exactly how this bug happened (a KaTeX bump without a cache bump).
+
+B also adds an integration test that seeds a stale v1 cache entry and asserts it isn&#39;t served. My confidence in this test is limited. Hugo may resolve `caches.misc.dir` as the cache root itself rather than `&lt;dir&gt;/filecache/misc`. If so, the seeded file would never be read, and the test could pass even without the fix. Still, the intent is right, and it adds no risk to production code.
+
+The test&#39;s value is uncertain, but B carries the identical fix plus useful guidance to prevent a repeat, so it edges out A.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">27m 13s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,754 passed · 99 skipped · 3,855 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">41<small>vs 2 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15267" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>In ec52e638c we bumped KaTeX from 0.16.21 to 0.18.4. This produces different output.</p>
+<p>I ran into this when testing the docs site, specifically the chem example.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+40</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">internal/warpc/katex.go</span><span class="h">index 34fb4edb7..26f7ce068 100644</span><span class="h">@@ -18,6 +18,7 @@ import (</span><span class="c"> )</span><span class="c"> </span><span class="c"> // Keep in sync with js/package.json.</span><span class="a">+// When upgrading, also bump fileCacheEntryVersion in transform.ToMath if the output changes.</span><span class="c"> const katexVersion = &quot;0.18.4&quot;</span><span class="c"> </span><span class="c"> //go:embed wasm/renderkatex.wasm</span><span class="f">tpl/transform/transform.go</span><span class="h">index 5c99b322c..9f77c41cc 100644</span><span class="h">@@ -293,7 +293,7 @@ func (ns *Namespace) ToMath(ctx context.Context, args ...any) (template.HTML, er</span><span class="c"> 		Warnings []string `json:&quot;warnings,omitempty&quot;`</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	const fileCacheEntryVersion = &quot;v1&quot; // Increment on incompatible changes.</span><span class="a">+	const fileCacheEntryVersion = &quot;v2&quot; // Increment on incompatible changes, including KaTeX upgrades that change the output.</span><span class="c"> </span><span class="c"> 	s := hashing.HashString(args...)</span><span class="c"> 	key := &quot;tomath/&quot; + fileCacheEntryVersion + &quot;/&quot; + s[:2] + &quot;/&quot; + s[2:]</span><span class="f">tpl/transform/transform_integration_test.go</span><span class="h">index 9109e6c3e..6d865f1da 100644</span><span class="h">@@ -15,10 +15,13 @@ package transform_test</span><span class="c"> </span><span class="c"> import (</span><span class="c"> 	&quot;fmt&quot;</span><span class="a">+	&quot;os&quot;</span><span class="a">+	&quot;path/filepath&quot;</span><span class="c"> 	&quot;strings&quot;</span><span class="c"> 	&quot;testing&quot;</span><span class="c"> </span><span class="c"> 	qt &quot;github.com/frankban/quicktest&quot;</span><span class="a">+	&quot;github.com/gohugoio/hugo/common/hashing&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/hugolib&quot;</span><span class="c"> )</span><span class="c"> </span><span class="h">@@ -171,6 +174,41 @@ disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="c"> 	`)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Entries in the file cache written by an older KaTeX version must not be reused.</span><span class="a">+func TestToMathFileCacheVersion(t *testing.T) {</span><span class="a">+	const expression = &quot;c = \\pm\\sqrt{a^2 + b^2}&quot;</span><span class="a">+</span><span class="a">+	tempDir := t.TempDir()</span><span class="a">+	cacheDir := filepath.Join(tempDir, &quot;cache&quot;)</span><span class="a">+</span><span class="a">+	// Seed the file cache with an entry using the key format from before the KaTeX 0.18.4 upgrade.</span><span class="a">+	s := hashing.HashString(expression)</span><span class="a">+	staleFilename := filepath.Join(cacheDir, &quot;filecache&quot;, &quot;misc&quot;, &quot;tomath&quot;, &quot;v1&quot;, s[:2], s[2:])</span><span class="a">+	if err := os.MkdirAll(filepath.Dir(staleFilename), 0o777); err != nil {</span><span class="a">+		t.Fatal(err)</span><span class="a">+	}</span><span class="a">+	if err := os.WriteFile(staleFilename, []byte(`{&quot;version&quot;:&quot;v1&quot;,&quot;output&quot;:&quot;STALE_KATEX_OUTPUT&quot;}`+&quot;\n&quot;), 0o666); err != nil {</span><span class="a">+		t.Fatal(err)</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+[caches.misc]</span><span class="a">+dir = &#39;CACHE_DIR&#39;</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ transform.ToMath &quot;c = \\pm\\sqrt{a^2 + b^2}&quot; }}</span><span class="a">+  `</span><span class="a">+	files = strings.ReplaceAll(files, &quot;CACHE_DIR&quot;, filepath.ToSlash(cacheDir))</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files, hugolib.TestOptWithConfig(func(cfg *hugolib.IntegrationTestConfig) {</span><span class="a">+		cfg.NeedsOsFS = true</span><span class="a">+		cfg.WorkingDir = tempDir</span><span class="a">+	}))</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;&lt;span class=\&quot;katex\&quot;&gt;&lt;math&quot;, &quot;! STALE_KATEX_OUTPUT&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestToMathError(t *testing.T) {</span><span class="c"> 	t.Run(&quot;Default&quot;, func(t *testing.T) {</span><span class="c"> 		files := `</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/8d88b8b4dd6a58d11951c38bc40779aa91b6166c" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">tpl/transform/transform.go</span><span class="h">index 5c99b322c..f9d0dabb0 100644</span><span class="h">@@ -293,7 +293,7 @@ func (ns *Namespace) ToMath(ctx context.Context, args ...any) (template.HTML, er</span><span class="c"> 		Warnings []string `json:&quot;warnings,omitempty&quot;`</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	const fileCacheEntryVersion = &quot;v1&quot; // Increment on incompatible changes.</span><span class="a">+	const fileCacheEntryVersion = &quot;v2&quot; // Increment on incompatible changes.</span><span class="c"> </span><span class="c"> 	s := hashing.HashString(args...)</span><span class="c"> 	key := &quot;tomath/&quot; + fileCacheEntryVersion + &quot;/&quot; + s[:2] + &quot;/&quot; + s[2:]</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261002-200313/15266/">Previous · #15266</a>
+  <a class="mid" href="/backtests/hugo/run-20261002-200313/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261002-200313/15301/">Next · #15301</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
