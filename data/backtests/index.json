@@ -132,6 +132,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-09-30",
+          "id": "run-20260930-140149",
+          "source_runs": [
+            "run-20260930-140149"
+          ],
+          "tickets": 30,
+          "better": 20,
+          "par": 2,
+          "worse": 6,
+          "error": 2,
+          "notes": "Opus 5.5 in the box, solver only; 1 error from a mid-run login exchange (since fixed)",
+          "footnote": ""
+        },
+        {
           "date": "2026-09-22",
           "id": "run-20260922-141813",
           "source_runs": [

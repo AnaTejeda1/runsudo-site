@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15189 Issue with chained resource transformations — gohugoio/hugo backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #15189 in gohugoio/hugo, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260930-140149/15189/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260930-140149/">run-20260930-140149</a><span aria-hidden="true">/</span><span aria-current="page">#15189</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15189" rel="noopener" target="_blank">#15189</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/f772998fa34927f469c70b83acdc72b62895d13e" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-140149</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Issue with chained resource transformations</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the same root cause. When a transformation chain runs, the shared `resourceAdapterInner.target` is replaced with the transformed result. `TransformWithContext` then appended new transformations but reused that already-transformed `target`, so the earlier steps (e.g. `css.Build`) ran a second time. Each patch keeps a reference to the original, untransformed resource and starts new chains from it.
+
+Patch A puts a `source` field on the inner struct and sets `target: r.source` in `TransformWithContext`. Patch B puts `sourceTarget` on the outer `resourceAdapter` value, which is copied by value, so it is untouched when the inner `target` is mutated. It then uses it in `TransformWithContext`. Both resolve the scenario in the issue: `.Data` triggers `css.Build`, then `fingerprint` should apply only fingerprinting to the original chain rather than re-running `css.Build` on its output.
+
+The patches differ in `cloneTo`. Patch A handles it more carefully: it clones the untransformed source when transformations exist. Patch B sets `sourceTarget` to the clone of the current target, which could be the transformed result if the chain has already executed. That is a narrow edge case outside the issue&#39;s ask. Both share the same small risk that any other construction site of the adapter or inner struct could leave the new field nil.
+
+On tests, Patch B adds an integration test that reproduces the exact scenario from the issue. It ranges over `.Data.Artifacts`, then reads `.Content`, then fingerprints, and asserts that the fingerprint hash matches the built CSS hash. That test would fail before the fix. Patch A adds no tests.
+
+Correctness is roughly equal for the reported scenario, with Patch A slightly more thorough in `cloneTo`. Patch B&#39;s meaningful regression test makes it the better overall submission.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">14m 54s<small>20 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,692 passed · 99 skipped · 3,802 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">13<small>vs 53 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15189" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>See the fix in #15188.</p>
+<p>This has been an issue since we added this feature, but we haven&#39;t noticed it (or gotten reports about it) because the common setup is to set up the entire chain before starting to use it:</p>
+<pre><code class="lang-handlebars">{{- with . | css.Build $opts }}
+	{{- if hugo.IsDevelopment }}
+		&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot;&gt;
+	{{- else }}
+		{{- with . | fingerprint }}
+			&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot; integrity=&quot;{{ .Data.Integrity }}&quot;&gt;
+		{{- end }}
+	{{- end }}
+{{- end }}</code></pre>
+<p>In the above:</p>
+<ul><li><code>.RelPermalink</code> triggers the transformation of the entire chain in a streaming way.</li></ul>
+<p>With the recently added <code>.Data.Artifacts</code> in <code>css.Build</code> I discovered this issue by accident when doing something ala:</p>
+<pre><code class="lang-handlebars">{{- with . | css.Build $opts }}
+	{{ range .Data.Artifacts }}
+		{{ if eq .MediaType.MainType &quot;font&quot; }}
+			&lt;link rel=&quot;preload&quot; href=&quot;{{ .RelPermalink }}&quot; as=&quot;font&quot; type=&quot;{{ .MediaType.Type }}&quot;&gt;
+		{{ end }}
+	{{ end }}
+	{{- if hugo.IsDevelopment }}
+		&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot;&gt;
+	{{- else }}
+		{{- with . | fingerprint }}
+			&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot; integrity=&quot;{{ .Data.Integrity }}&quot;&gt;
+		{{- end }}
+	{{- end }}
+{{- end }}</code></pre>
+<p>In the above:</p>
+<ul><li><code>.Data</code> triggers the <code>css.Build</code> transformation.</li><li>Then <code>fingerprint</code> starts a new transformation with correct <code>.Content</code>, but wrongly including the full chain, including <code>css.Build</code></li></ul>
+<p>The above could be rewritten to the below and it would work as expected:</p>
+<pre><code class="lang-handlebars">{{- with . | css.Build $opts }}
+	{{- if hugo.IsDevelopment }}
+		&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot;&gt;
+	{{- else }}
+		{{- with . | fingerprint }}
+			{{ range .Data.Artifacts }}
+				{{ if eq .MediaType.MainType &quot;font&quot; }}
+					&lt;link rel=&quot;preload&quot; href=&quot;{{ .RelPermalink }}&quot; as=&quot;font&quot; type=&quot;{{ .MediaType.Type }}&quot;&gt;
+				{{ end }}
+			{{ end }}
+			&lt;link rel=&quot;stylesheet&quot; href=&quot;{{ .RelPermalink }}&quot; integrity=&quot;{{ .Data.Integrity }}&quot;&gt;
+		{{- end }}
+	{{- end }}
+{{- end }}
+{{- end }}</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+12</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">resources/transform.go</span><span class="h">index 18c768b36..fadc0b879 100644</span><span class="h">@@ -86,6 +86,7 @@ func newResourceAdapter(spec *Spec, lazyPublish bool, target transformableResour</span><span class="c"> 			ctx:         context.Background(),</span><span class="c"> 			spec:        spec,</span><span class="c"> 			publishOnce: po,</span><span class="a">+			source:      target,</span><span class="c"> 			target:      target,</span><span class="c"> 			Staler:      &amp;AtomicStaler{},</span><span class="c"> 		},</span><span class="h">@@ -236,6 +237,11 @@ func (r resourceAdapter) cloneTo(targetPath string) resource.Resource {</span><span class="c"> 		Staler: r.Staler,</span><span class="c"> 		target: newtTarget.(transformableResource),</span><span class="c"> 	}</span><span class="a">+	if len(r.transformations) == 0 {</span><span class="a">+		newInner.source = newInner.target</span><span class="a">+	} else {</span><span class="a">+		newInner.source = r.source.cloneTo(targetPath).(transformableResource)</span><span class="a">+	}</span><span class="c"> 	if r.resourceAdapterInner.publishOnce != nil {</span><span class="c"> 		newInner.publishOnce = &amp;publishOnce{}</span><span class="c"> 	}</span><span class="h">@@ -379,7 +385,8 @@ func (r resourceAdapter) TransformWithContext(ctx context.Context, t ...Resource</span><span class="c"> 		spec:        r.spec,</span><span class="c"> 		Staler:      r.Staler,</span><span class="c"> 		publishOnce: &amp;publishOnce{},</span><span class="r">-		target:      r.target,</span><span class="a">+		source:      r.source,</span><span class="a">+		target:      r.source,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	return &amp;r, nil</span><span class="h">@@ -741,6 +748,10 @@ type resourceAdapterInner struct {</span><span class="c"> 	// The context that started this transformation.</span><span class="c"> 	ctx context.Context</span><span class="c"> </span><span class="a">+	// The original, untransformed resource that the transformations chain is applied to.</span><span class="a">+	// target gets replaced by the transformed resource once the chain has been executed.</span><span class="a">+	source transformableResource</span><span class="a">+</span><span class="c"> 	target transformableResource</span><span class="c"> </span><span class="c"> 	resource.Staler</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/f772998fa34927f469c70b83acdc72b62895d13e" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+52</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">resources/transform.go</span><span class="h">index 18c768b36..cee11f8ba 100644</span><span class="h">@@ -82,6 +82,7 @@ func newResourceAdapter(spec *Spec, lazyPublish bool, target transformableResour</span><span class="c"> 	return &amp;resourceAdapter{</span><span class="c"> 		resourceTransformations: &amp;resourceTransformations{},</span><span class="c"> 		metaProvider:            target,</span><span class="a">+		sourceTarget:            target,</span><span class="c"> 		resourceAdapterInner: &amp;resourceAdapterInner{</span><span class="c"> 			ctx:         context.Background(),</span><span class="c"> 			spec:        spec,</span><span class="h">@@ -186,6 +187,12 @@ type resourceAdapter struct {</span><span class="c"> 	commonResource</span><span class="c"> 	*resourceTransformations</span><span class="c"> 	*resourceAdapterInner</span><span class="a">+</span><span class="a">+	// The original untransformed target. The inner target is replaced with the</span><span class="a">+	// transformed resource once the transformation chain has run, so any new</span><span class="a">+	// transformations appended to the chain must start from this.</span><span class="a">+	sourceTarget transformableResource</span><span class="a">+</span><span class="c"> 	metaProvider resource.ResourceMetaProvider</span><span class="c"> }</span><span class="c"> </span><span class="h">@@ -230,6 +237,7 @@ func (r *resourceAdapter) GetDependencyManager() identity.Manager {</span><span class="c"> </span><span class="c"> func (r resourceAdapter) cloneTo(targetPath string) resource.Resource {</span><span class="c"> 	newtTarget := r.target.cloneTo(targetPath)</span><span class="a">+	r.sourceTarget = newtTarget.(transformableResource)</span><span class="c"> 	newInner := &amp;resourceAdapterInner{</span><span class="c"> 		ctx:    r.ctx,</span><span class="c"> 		spec:   r.spec,</span><span class="h">@@ -379,7 +387,7 @@ func (r resourceAdapter) TransformWithContext(ctx context.Context, t ...Resource</span><span class="c"> 		spec:        r.spec,</span><span class="c"> 		Staler:      r.Staler,</span><span class="c"> 		publishOnce: &amp;publishOnce{},</span><span class="r">-		target:      r.target,</span><span class="a">+		target:      r.sourceTarget,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	return &amp;r, nil</span><span class="f">tpl/css/build_integration_test.go</span><span class="h">index 6ddb23331..e72a1bb03 100644</span><span class="h">@@ -537,6 +537,49 @@ ARTIFACT: {{ .RelPermalink }}|{{ .Permalink }}|{{ .MediaType.Type }}</span><span class="c"> 	b.AssertFileExists(&quot;public/css/main.css.map&quot;, true)</span><span class="c"> }</span><span class="c"> </span><span class="a">+func TestCSSBuildDataArtifactsAndThenFingerprint(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &quot;https://example.org/mysite/&quot;</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- assets/css/main.css --</span><span class="a">+@import &quot;/fonts/fonts.css&quot;;</span><span class="a">+body { color: #222; }</span><span class="a">+-- assets/fonts/fonts.css --</span><span class="a">+@font-face {</span><span class="a">+  font-family: &#39;Comic Neue&#39;;</span><span class="a">+  src: url(ComicNeue-Regular.woff2) format(&#39;woff2&#39;), url(ComicNeue-Regular.ttf) format(&#39;truetype&#39;);</span><span class="a">+}</span><span class="a">+-- assets/fonts/ComicNeue-Regular.ttf --</span><span class="a">+fakefontdata</span><span class="a">+-- assets/fonts/ComicNeue-Regular.woff2 --</span><span class="a">+fakefontdata2</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ with resources.Get &quot;css/main.css&quot; }}</span><span class="a">+ORIG CSS SHA256: {{ .Content | crypto.Hash &quot;sha256&quot; }}|</span><span class="a">+{{ with . | css.Build (dict &quot;minify&quot; true) }}</span><span class="a">+{{ range .Data.Artifacts }}</span><span class="a">+ARTIFACT: {{ .RelPermalink }}|{{ .Permalink }}|{{ .MediaType.Type }}</span><span class="a">+{{ end }}</span><span class="a">+BUILT CSS SHA256: {{ .Content | crypto.Hash &quot;sha256&quot; }}|</span><span class="a">+{{ with . | fingerprint }}</span><span class="a">+FINGERPRINTED: {{ .RelPermalink }}|</span><span class="a">+{{ end }}</span><span class="a">+{{ end }}</span><span class="a">+{{ end }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files, hugolib.TestOptOsFs())</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+		&quot;ARTIFACT: /mysite/css/ComicNeue-Regular-UA4ODE7N.ttf|&quot;,</span><span class="a">+		&quot;ORIG CSS SHA256: a2b878c05df0f346c3854caebd21f00bb0965b46628440b8ccb31ce675af6bfe|&quot;,</span><span class="a">+		&quot;BUILT CSS SHA256: 5f8757d5579386b8755e0df759c7eecfd069c385294dfe7bc3695862d7f218b1|&quot;,</span><span class="a">+		&quot;FINGERPRINTED: /mysite/css/main.5f8757d5579386b8755e0df759c7eecfd069c385294dfe7bc3695862d7f218b1.css|&quot;,</span><span class="a">+	)</span><span class="a">+}</span><span class="a">+</span><span class="c"> // Issue #14623</span><span class="c"> func TestCSSBuildLoadersPartial(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>I&#39;ve fixed the bug in <code>resources/transform.go</code>, but none of it has been compiled or tested. This environment can&#39;t download Go modules, so every <code>./bt-test</code> build fails. I also removed the regression test from the diff, because I never saw it fail before the fix or pass after it.</p>
+<p><strong>What was wrong:</strong> reading <code>.Data</code> on a <code>css.Build</code> result runs the transformation chain, and that replaces the resource&#39;s <code>target</code> with the transformed output. Piping that result into another transformation (such as <code>fingerprint</code>) then built a new resource with the full chain <em>and</em> the already-transformed target. So <code>css.Build</code> ran a second time on its own output. When the whole chain is set up before anything is read, the target is still the original file, which is why the common pattern worked.</p>
+<p><strong>What I changed</strong> (<code>resources/transform.go</code> only):</p>
+<ul><li>Added a <code>source</code> field to <code>resourceAdapterInner</code>: the original, untransformed resource. It is set in <code>newResourceAdapter</code> and never changes afterwards.</li><li><code>TransformWithContext</code> now applies the full chain to <code>source</code> instead of <code>target</code>. The result is the same whether or not the parent was already evaluated, and it has the same cache key as the &quot;whole chain first&quot; case.</li><li><code>cloneTo</code> (used by <code>resources.Copy</code>) sets <code>source</code> as well. With no transformations it is the copy itself; otherwise it is the original moved to the copy&#39;s path.</li><li>Every place that builds <code>resourceAdapterInner</code> now sets <code>source</code>, and the cache-hit path keeps a valid one, since equal cache keys mean equivalent sources. The reviewer confirmed both and found nothing else changed.</li></ul>
+<p><strong>Behaviour change to know about:</strong> say a transformed resource is passed to <code>resources.Copy</code>, evaluated, and then transformed again. The chain now re-runs on the original file at the copy&#39;s path. That means relative imports in <code>js.Build</code> or Sass would resolve from the copy&#39;s directory. This is how copies made before evaluation already behaved; before the fix, copies made after evaluation had the chain applied twice instead. I kept it this way so results don&#39;t depend on what the template read first.</p>
+<p><strong>Test evidence:</strong></p>
+<ul><li><code>./bt-test ./resources/ ./tpl/css/</code> produced no test results. Every package failed to build with errors like <code>github.com/bep/helpers@v0.12.0: Get &quot;https://proxy.golang.org/...&quot;: dial tcp: lookup proxy.golang.org ... server misbehaving</code>. The module cache is empty and there is no <code>vendor/</code> directory.</li><li>The gate didn&#39;t report this as an infrastructure failure, but it is one.</li><li><code>gofmt</code> is clean.</li></ul>
+<p><strong>Dropped regression test:</strong> the test-writer wrote <code>TestCSSBuildTransformChainAfterDataAccess</code> for <code>tpl/css/build_integration_test.go</code>. It renders <code>css.Build</code> (inline sourcemap, with an <code>@import</code>), reads <code>{{ $d := .Data }}</code>, then pipes to <code>fingerprint</code>. It checks that the output is identical to <code>css.Build | fingerprint</code> without <code>.Data</code>, and that it contains <code>background: red</code>. I removed it, so the diff contains no test — the requirement to include one isn&#39;t met. There&#39;s also an open question: if esbuild produces the same output when run twice on its own output, the test would pass even on the old code, and a <code>js.Build</code> chain would be a better check. I kept a copy at <code>/tmp/regression_test.diff</code>, outside the repo; apply it with <code>git apply</code> once modules are available, then run <code>./bt-test ./tpl/css/ -run TestCSSBuildTransformChainAfterDataAccess</code>.</p>
+<p><strong>Requirements:</strong></p>
+<ol><li>Accessing <code>.Data</code> on a <code>css.Build</code> result, then <code>fingerprint</code>, must apply <code>css.Build</code> only once — <strong>fixed, not tested</strong> (the build failure above).</li><li>The existing &quot;whole chain first&quot; pattern must keep working — <strong>reasoned unchanged, not tested</strong>. Before evaluation, <code>target</code> and <code>source</code> are the same object, so the behaviour and cache key are the same as before.</li><li>The report&#39;s workaround (reading <code>.Data.Artifacts</code> after <code>fingerprint</code>) — <strong>not needed after the fix</strong>; nothing changed there.</li></ol>
+<p>The deletions of <code>AGENTS.md</code> and <code>CLAUDE.md</code> were already in the working tree before I started; I left them alone. Nothing is committed.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260930-140149/15174/">Previous · #15174</a>
+  <a class="mid" href="/backtests/hugo/run-20260930-140149/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260930-140149/15199/">Next · #15199</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

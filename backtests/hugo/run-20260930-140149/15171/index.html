@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15171 Remove -embedded from the default exec.allow — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15171 in gohugoio/hugo, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260930-140149/15171/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260930-140149/">run-20260930-140149</a><span aria-hidden="true">/</span><span aria-current="page">#15171</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15171" rel="noopener" target="_blank">#15171</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/8a55df7af2e6da31297245cc54fa2e3b521d93e8" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-140149</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Remove -embedded from the default exec.allow</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The issue asks only to remove &#39;-embedded&#39; from the default exec.allow sass pattern. Patch B does exactly that: it changes &#39;^(dart-)?sass(-embedded)?$&#39; to &#39;^(dart-)?sass$&#39;, updates the TOML test, and adds assertions to TestDecodeConfigDefault. Those assertions check that &#39;sass&#39; and &#39;dart-sass&#39; are still allowed and &#39;dart-sass-embedded&#39; is now rejected, which would fail before the change and pass after it. B also updates the docs (Babel.md and docs.yaml) to match. Patch A makes the same sass change but also removes &#39;^tailwindcss$&#39; from the default allow list. That was not requested, and it is a behavior-breaking regression: users running TailwindCSS with default config would suddenly be blocked. A papers over this by editing the tailwind integration tests to add tailwindcss to exec.allow explicitly, which shows the breakage rather than justifying it. A also adds no new behavioral assertions beyond the TOML string update. B is correct, well-tested, and properly scoped. A adds risk through unrelated removal of a default.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">26m 46s<small>18 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,694 passed · 99 skipped · 3,802 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">17<small>vs 15 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15171" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>Not relevant anymore.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+10</span> <span class="r">−7</span></span></div><pre class="diff"><span class="f">config/security/securityConfig.go</span><span class="h">index 510abe6bb..06d7287a5 100644</span><span class="h">@@ -39,10 +39,10 @@ const securityConfigKey = &quot;security&quot;</span><span class="c"> var DefaultConfig = Config{</span><span class="c"> 	Exec: Exec{</span><span class="c"> 		Allow: MustNewWhitelist(</span><span class="r">-			&quot;^(dart-)?sass(-embedded)?$&quot;, // sass, dart-sass, dart-sass-embedded.</span><span class="r">-			&quot;^go$&quot;,                       // for Go Modules</span><span class="r">-			&quot;^git$&quot;,                      // For Git info</span><span class="r">-			&quot;^node$&quot;,                     // Used as the runtime for Node tools.</span><span class="a">+			&quot;^(dart-)?sass$&quot;, // sass, dart-sass.</span><span class="a">+			&quot;^go$&quot;,           // for Go Modules</span><span class="a">+			&quot;^git$&quot;,          // For Git info</span><span class="a">+			&quot;^node$&quot;,         // Used as the runtime for Node tools.</span><span class="c"> 			&quot;^postcss$&quot;,</span><span class="c"> 			&quot;^tailwindcss$&quot;,</span><span class="c"> 		),</span><span class="f">config/security/securityConfig_test.go</span><span class="h">index 69feae858..4d14c21e7 100644</span><span class="h">@@ -135,7 +135,7 @@ func TestToTOML(t *testing.T) {</span><span class="c"> 	got := DefaultConfig.ToTOML()</span><span class="c"> </span><span class="c"> 	c.Assert(got, qt.Equals,</span><span class="r">-		&quot;[security]\n  allowContent = [&#39;! ^text/html$&#39;]\n  enableInlineShortcodes = false\n\n  [security.exec]\n    allow = [&#39;^(dart-)?sass(-embedded)?$&#39;, &#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^postcss$&#39;, &#39;^tailwindcss$&#39;]\n    osEnv = [&#39;(?i)^((HTTPS?|NO)_PROXY|PATH(EXT)?|APPDATA|TE?MP|TERM|GO\\w+|(XDG_CONFIG_)?HOME|USERPROFILE|SSH_AUTH_SOCK|DISPLAY|LANG|SYSTEMDRIVE|PROGRAMDATA)$&#39;]\n\n  [security.funcs]\n    getenv = [&#39;^HUGO_&#39;, &#39;^CI$&#39;]\n\n  [security.http]\n    methods = [&#39;(?i)GET|POST&#39;]\n    urls = [&#39;(?i)^https?://[a-z0-9]&#39;, &#39;! ^https?://\\d+\\.&#39;, &#39;! (?i)localhost&#39;, &#39;! (?i)^https?://[^/?#]*@&#39;]\n\n  [security.node]\n    [security.node.permissions]\n      allowAddons = [&#39;tailwindcss&#39;]\n      allowChildProcess = [&#39;tailwindcss&#39;]\n      allowRead = [&#39;.&#39;]\n      allowWorker = [&#39;tailwindcss&#39;]\n      allowWrite = []\n      disable = false&quot;,</span><span class="a">+		&quot;[security]\n  allowContent = [&#39;! ^text/html$&#39;]\n  enableInlineShortcodes = false\n\n  [security.exec]\n    allow = [&#39;^(dart-)?sass$&#39;, &#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^postcss$&#39;, &#39;^tailwindcss$&#39;]\n    osEnv = [&#39;(?i)^((HTTPS?|NO)_PROXY|PATH(EXT)?|APPDATA|TE?MP|TERM|GO\\w+|(XDG_CONFIG_)?HOME|USERPROFILE|SSH_AUTH_SOCK|DISPLAY|LANG|SYSTEMDRIVE|PROGRAMDATA)$&#39;]\n\n  [security.funcs]\n    getenv = [&#39;^HUGO_&#39;, &#39;^CI$&#39;]\n\n  [security.http]\n    methods = [&#39;(?i)GET|POST&#39;]\n    urls = [&#39;(?i)^https?://[a-z0-9]&#39;, &#39;! ^https?://\\d+\\.&#39;, &#39;! (?i)localhost&#39;, &#39;! (?i)^https?://[^/?#]*@&#39;]\n\n  [security.node]\n    [security.node.permissions]\n      allowAddons = [&#39;tailwindcss&#39;]\n      allowChildProcess = [&#39;tailwindcss&#39;]\n      allowRead = [&#39;.&#39;]\n      allowWorker = [&#39;tailwindcss&#39;]\n      allowWrite = []\n      disable = false&quot;,</span><span class="c"> 	)</span><span class="c"> }</span><span class="c"> </span><span class="h">@@ -149,6 +149,9 @@ func TestDecodeConfigDefault(t *testing.T) {</span><span class="c"> 	c.Assert(pc.Exec.Allow.Accept(&quot;a&quot;), qt.IsFalse)</span><span class="c"> 	c.Assert(pc.Exec.Allow.Accept(&quot;node&quot;), qt.IsTrue)</span><span class="c"> 	c.Assert(pc.Exec.Allow.Accept(&quot;npx&quot;), qt.IsFalse)</span><span class="a">+	c.Assert(pc.Exec.Allow.Accept(&quot;sass&quot;), qt.IsTrue)</span><span class="a">+	c.Assert(pc.Exec.Allow.Accept(&quot;dart-sass&quot;), qt.IsTrue)</span><span class="a">+	c.Assert(pc.Exec.Allow.Accept(&quot;dart-sass-embedded&quot;), qt.IsFalse)</span><span class="c"> </span><span class="c"> 	c.Assert(pc.HTTP.URLs.Accept(&quot;https://example.org&quot;), qt.IsTrue)</span><span class="c"> 	c.Assert(pc.HTTP.Methods.Accept(&quot;POST&quot;), qt.IsTrue)</span><span class="f">docs/content/en/functions/js/Babel.md</span><span class="h">index 26b5a16e7..1b04c8fc4 100644</span><span class="h">@@ -51,7 +51,7 @@ Step 5</span><span class="c"> </span><span class="c">   {{&lt; code-toggle file=hugo &gt;}}</span><span class="c">   [security.exec]</span><span class="r">-    allow = [&#39;^(dart-)?sass(-embedded)?$&#39;, &#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^postcss$&#39;, &#39;^tailwindcss$&#39;, &#39;^babel$&#39;]</span><span class="a">+    allow = [&#39;^(dart-)?sass$&#39;, &#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^postcss$&#39;, &#39;^tailwindcss$&#39;, &#39;^babel$&#39;]</span><span class="c">   {{&lt; /code-toggle &gt;}}</span><span class="c"> </span><span class="c"> Step 6</span><span class="f">docs/data/docs.yaml</span><span class="h">index 19b950dd5..43733812d 100644</span><span class="h">@@ -2224,7 +2224,7 @@ config:</span><span class="c">     enableInlineShortcodes: false</span><span class="c">     exec:</span><span class="c">       allow:</span><span class="r">-      - ^(dart-)?sass(-embedded)?$</span><span class="a">+      - ^(dart-)?sass$</span><span class="c">       - ^go$</span><span class="c">       - ^git$</span><span class="c">       - ^node$</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/8a55df7af2e6da31297245cc54fa2e3b521d93e8" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+9</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">config/security/securityConfig.go</span><span class="h">index 510abe6bb..daf642129 100644</span><span class="h">@@ -39,12 +39,11 @@ const securityConfigKey = &quot;security&quot;</span><span class="c"> var DefaultConfig = Config{</span><span class="c"> 	Exec: Exec{</span><span class="c"> 		Allow: MustNewWhitelist(</span><span class="r">-			&quot;^(dart-)?sass(-embedded)?$&quot;, // sass, dart-sass, dart-sass-embedded.</span><span class="r">-			&quot;^go$&quot;,                       // for Go Modules</span><span class="r">-			&quot;^git$&quot;,                      // For Git info</span><span class="r">-			&quot;^node$&quot;,                     // Used as the runtime for Node tools.</span><span class="a">+			&quot;^(dart-)?sass$&quot;, // sass, dart-sass</span><span class="a">+			&quot;^go$&quot;,           // for Go Modules</span><span class="a">+			&quot;^git$&quot;,          // For Git info</span><span class="a">+			&quot;^node$&quot;,         // Used as the runtime for Node tools.</span><span class="c"> 			&quot;^postcss$&quot;,</span><span class="r">-			&quot;^tailwindcss$&quot;,</span><span class="c"> 		),</span><span class="c"> 		// These have been tested to work with Hugo&#39;s external programs</span><span class="c"> 		// on Windows, Linux and MacOS.</span><span class="f">config/security/securityConfig_test.go</span><span class="h">index 69feae858..8318d5d6f 100644</span><span class="h">@@ -135,7 +135,7 @@ func TestToTOML(t *testing.T) {</span><span class="c"> 	got := DefaultConfig.ToTOML()</span><span class="c"> </span><span class="c"> 	c.Assert(got, qt.Equals,</span><span class="r">-		&quot;[security]\n  allowContent = [&#39;! ^text/html$&#39;]\n  enableInlineShortcodes = false\n\n  [security.exec]\n    allow = [&#39;^(dart-)?sass(-embedded)?$&#39;, &#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^postcss$&#39;, &#39;^tailwindcss$&#39;]\n    osEnv = [&#39;(?i)^((HTTPS?|NO)_PROXY|PATH(EXT)?|APPDATA|TE?MP|TERM|GO\\w+|(XDG_CONFIG_)?HOME|USERPROFILE|SSH_AUTH_SOCK|DISPLAY|LANG|SYSTEMDRIVE|PROGRAMDATA)$&#39;]\n\n  [security.funcs]\n    getenv = [&#39;^HUGO_&#39;, &#39;^CI$&#39;]\n\n  [security.http]\n    methods = [&#39;(?i)GET|POST&#39;]\n    urls = [&#39;(?i)^https?://[a-z0-9]&#39;, &#39;! ^https?://\\d+\\.&#39;, &#39;! (?i)localhost&#39;, &#39;! (?i)^https?://[^/?#]*@&#39;]\n\n  [security.node]\n    [security.node.permissions]\n      allowAddons = [&#39;tailwindcss&#39;]\n      allowChildProcess = [&#39;tailwindcss&#39;]\n      allowRead = [&#39;.&#39;]\n      allowWorker = [&#39;tailwindcss&#39;]\n      allowWrite = []\n      disable = false&quot;,</span><span class="a">+		&quot;[security]\n  allowContent = [&#39;! ^text/html$&#39;]\n  enableInlineShortcodes = false\n\n  [security.exec]\n    allow = [&#39;^(dart-)?sass$&#39;, &#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^postcss$&#39;]\n    osEnv = [&#39;(?i)^((HTTPS?|NO)_PROXY|PATH(EXT)?|APPDATA|TE?MP|TERM|GO\\w+|(XDG_CONFIG_)?HOME|USERPROFILE|SSH_AUTH_SOCK|DISPLAY|LANG|SYSTEMDRIVE|PROGRAMDATA)$&#39;]\n\n  [security.funcs]\n    getenv = [&#39;^HUGO_&#39;, &#39;^CI$&#39;]\n\n  [security.http]\n    methods = [&#39;(?i)GET|POST&#39;]\n    urls = [&#39;(?i)^https?://[a-z0-9]&#39;, &#39;! ^https?://\\d+\\.&#39;, &#39;! (?i)localhost&#39;, &#39;! (?i)^https?://[^/?#]*@&#39;]\n\n  [security.node]\n    [security.node.permissions]\n      allowAddons = [&#39;tailwindcss&#39;]\n      allowChildProcess = [&#39;tailwindcss&#39;]\n      allowRead = [&#39;.&#39;]\n      allowWorker = [&#39;tailwindcss&#39;]\n      allowWrite = []\n      disable = false&quot;,</span><span class="c"> 	)</span><span class="c"> }</span><span class="c"> </span><span class="f">resources/resource_transformers/cssjs/tailwindcss_integration_test.go</span><span class="h">index 03cd1e07e..21702c303 100644</span><span class="h">@@ -28,6 +28,7 @@ func TestTailwindV4Basic(t *testing.T) {</span><span class="c"> </span><span class="c"> 	files := `</span><span class="c"> -- hugo.toml --</span><span class="a">+security.exec.allow = [&#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^tailwindcss$&#39;]</span><span class="c"> -- package.json --</span><span class="c"> {</span><span class="c">   &quot;license&quot;: &quot;MIT&quot;,</span><span class="h">@@ -72,6 +73,7 @@ func TestTailwindCSSImportContext(t *testing.T) {</span><span class="c"> 	files := `</span><span class="c"> -- hugo.toml --</span><span class="c"> disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+security.exec.allow = [&#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^tailwindcss$&#39;]</span><span class="c"> -- assets/css/main.css --</span><span class="c"> @import &quot;tailwindcss&quot;;</span><span class="c"> </span><span class="h">@@ -112,6 +114,8 @@ func TestTailwindCSSNoInlineImportsIssue13719(t *testing.T) {</span><span class="c"> disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="c"> theme = &#39;my-theme&#39;</span><span class="c"> </span><span class="a">+security.exec.allow = [&#39;^go$&#39;, &#39;^git$&#39;, &#39;^node$&#39;, &#39;^tailwindcss$&#39;]</span><span class="a">+</span><span class="c"> [[module.mounts]]</span><span class="c"> source = &#39;assets&#39;</span><span class="c"> target = &#39;assets&#39;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p><code>dart-sass-embedded</code> is no longer allowed by default. The official test gate (<code>./bt-test</code>) couldn&#39;t run: the container has no network, so Go couldn&#39;t download modules. I ran the same tests directly against a local module cache at <code>/bt/cache/go-mod</code> instead. There they fail without the fix and pass with it.</p>
+<p><strong>What was wrong:</strong> The default <code>security.exec.allow</code> still had <code>^(dart-)?sass(-embedded)?$</code>. Hugo stopped supporting the old <code>dart-sass-embedded</code> binary in 0.139.0, so the <code>-embedded</code> part only allowed a program Hugo already refuses to use.</p>
+<p><strong>What I changed:</strong></p>
+<ul><li><code>config/security/securityConfig.go:42</code>: the default entry is now <code>^(dart-)?sass$</code> (the comment reads &quot;sass, dart-sass.&quot;). Only whitespace changed on the neighbouring comment lines.</li><li><code>docs/content/en/functions/js/Babel.md</code> and <code>docs/data/docs.yaml</code>: the default allow list shown there now matches the new value.</li><li><code>config/security/securityConfig_test.go</code>:</li><li><code>TestDecodeConfigDefault</code> now checks that <code>sass</code> and <code>dart-sass</code> are allowed and <code>dart-sass-embedded</code> is not.</li><li><code>TestToTOML</code>&#39;s expected string changed only in the allow entry, to match the new default. This updates the expected value; it doesn&#39;t loosen the test.</li></ul>
+<p><strong>Test evidence:</strong></p>
+<ul><li>Old default restored: <code>TestToTOML</code> and <code>TestDecodeConfigDefault</code> both fail, the second on the <code>dart-sass-embedded</code> check.</li><li>With the fix: <code>ok github.com/gohugoio/hugo/config/security</code>.</li><li>Nearby tests also pass: the <code>TestSecurityPolicies</code> tests in <code>hugolib</code>, the root <code>TestCommands/config</code> tests (which print the security config), and the <code>tocss/dartsass</code> package.</li></ul>
+<p><strong>What else was affected:</strong> Users who still have <code>dart-sass-embedded</code> installed see the same message as before: &quot;unsupported Dart Sass version detected, please upgrade…&quot;. That check in <code>resources/resource_transformers/tocss/dartsass/client.go:55</code> runs before the allowlist check, so the removed pattern never came into play for them.</p>
+<p><strong>Requirements:</strong></p>
+<ol><li>Remove <code>-embedded</code> from the default <code>exec.allow</code>: <strong>done</strong>, with the test evidence above.</li><li>Keep the docs consistent: <strong>done</strong> in both docs files; a repo-wide search finds no other default allow list still containing <code>-embedded</code>.</li></ol>
+<p>The existing test in <code>hugolib/securitypolicies_test.go:210</code> matches the error with <code>sass(-embedded)?</code>. It still works with the new default, so I left it alone. Everything is left as uncommitted edits; <code>AGENTS.md</code> and <code>CLAUDE.md</code> were already deleted before I started and I didn&#39;t touch them.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260930-140149/15169/">Previous · #15169</a>
+  <a class="mid" href="/backtests/hugo/run-20260930-140149/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260930-140149/15174/">Next · #15174</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

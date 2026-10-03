@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#12543 resources/images: Poor overlay quality when background image is an indexed (not true color) PNG — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #12543 in gohugoio/hugo, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260930-140149/12543/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260930-140149/">run-20260930-140149</a><span aria-hidden="true">/</span><span aria-current="page">#12543</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/12543" rel="noopener" target="_blank">#12543</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/77856683d34f1de999546dacd0bff7bd130b2f64" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-140149</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">resources/images: Poor overlay quality when background image is an indexed (not true color) PNG</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same core fix in `resources/image.go`: they skip re-applying the source image&#39;s palette when the action is a filter. This addresses the root cause, since `images.Overlay` and `images.Text` output was being clamped back to the indexed PNG&#39;s palette. Both also update the paletted overlay and text golden images. Patch A adds an `ActionFilter` constant, which is slightly cleaner than B&#39;s string literal &quot;filter&quot;. However, Patch A also bundles a separate change for a different issue (12536). It switches hex parsing from `color.RGBA` to `color.NRGBA`, normalizes `Color.init` to NRGBA (which changes stored colors and luminance input), and rewrites `ColorGoToHexString` and `AddColorToPalette` equality semantics. It also regenerates an unrelated golden file (`padding-transparent-chained.png`) and edits existing color test expectations. That is unrelated behavior change in a widely used color path, so it adds regression risk and obscures the actual fix. On tests, Patch B adds a targeted integration test. It overlays a JPEG onto an indexed PNG, then asserts the output is not paletted and has more distinct colors than the source palette. This test would fail before the fix and pass after it. Patch A&#39;s coverage for this issue is only the regenerated golden images; its new unit tests concern the unrelated hex/NRGBA change. With equal correctness on the reported issue, B wins on a real regression test and a tighter, lower-risk scope.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">39m 35s<small>22 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,752 passed · 99 skipped · 3,853 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">51<small>vs 58 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/12543" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Reference: &lt;https://discourse.gohugo.io/t/image-overlay-quality-is-poor/50034&gt;</p>
+<p>Before getting into the details, I have verified that this is not an upstream issue with <a href="https://github.com/disintegration/gift" rel="noopener nofollow" target="_blank">disintegration/gift</a>. I tested with this:</p>
+<p>&lt;details&gt;<br>&lt;summary&gt;main.go&lt;/summary&gt;</p>
+<pre><code class="lang-go">package main
+
+import (
+	&quot;image&quot;
+	&quot;image/png&quot;
+	&quot;log&quot;
+	&quot;os&quot;
+
+	_ &quot;image/png&quot;
+
+	&quot;github.com/disintegration/gift&quot;
+)
+
+func main() {
+	// Get the background image (24 bit: indexed not true color)
+	f, err := os.Open(&quot;background.png&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	bgImage, _, err := image.Decode(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Get the foreground image (24 bit with 8 bit alpha channel)
+	f, err = os.Open(&quot;foreground.png&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fgImage, _, err := image.Decode(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a new image with dimensions of the bgImage.
+	dstImage := image.NewRGBA(bgImage.Bounds())
+	// Copy the bgImage to the dstImage.
+	gift.New().Draw(dstImage, bgImage)
+	// Draw the fgImage over the dstImage at the (20, 20) position.
+	gift.New().DrawAt(dstImage, fgImage, image.Pt(20, 20), gift.OverOperator)
+
+	// Create the composite file.
+	f, err = os.Create(&quot;composite.png&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	// Encode the composite image.
+	err = png.Encode(f, dstImage)
+	if err != nil {
+		log.Fatal(err)
+	}
+}</code></pre>
+<p>&lt;/details&gt;</p>
+<p>Details:</p>
+<ul><li>Background image is a 24 bit indexed PNG file with 256 colors in its palette</li><li>Foreground image is a 24 bit true color PNG with an 8 bit alpha channel</li><li>The final (composite) image seems to be limited to the palette of the background image</li></ul>
+<p>Simple example:</p>
+<pre><code class="lang-text">git clone --single-branch -b hugo-github-issue-12543 https://github.com/jmooring/hugo-testing hugo-github-issue-12543
+cd hugo-github-issue-12543
+hugo server</code></pre>
+<p>Note that GIF images (also indexed) work fine.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+50</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">resources/image.go</span><span class="h">index 467e23f26..cf5134fcf 100644</span><span class="h">@@ -438,7 +438,9 @@ func (i *imageResource) doWithImageConfig(conf images.ImageConfig, f func(src im</span><span class="c"> 			converted = tmp</span><span class="c"> 		}</span><span class="c"> </span><span class="r">-		if conf.TargetFormat == images.PNG {</span><span class="a">+		// Filters may introduce colors not in the source palette (e.g. overlays, text),</span><span class="a">+		// so only re-apply the source palette for resize/fit/fill/crop.</span><span class="a">+		if conf.TargetFormat == images.PNG &amp;&amp; conf.Action != &quot;filter&quot; {</span><span class="c"> 			// Apply the colour palette from the source</span><span class="c"> 			if paletted, ok := src.(*image.Paletted); ok {</span><span class="c"> 				palette := paletted.Palette</span><span class="f">resources/images/images_integration_test.go</span><span class="h">index 172449d21..6c5213a38 100644</span><span class="h">@@ -14,9 +14,14 @@</span><span class="c"> package images_test</span><span class="c"> </span><span class="c"> import (</span><span class="a">+	&quot;image&quot;</span><span class="a">+	&quot;image/color&quot;</span><span class="a">+	&quot;image/png&quot;</span><span class="a">+	&quot;strings&quot;</span><span class="c"> 	&quot;testing&quot;</span><span class="c"> </span><span class="c"> 	&quot;github.com/bep/logg&quot;</span><span class="a">+	qt &quot;github.com/frankban/quicktest&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/htesting&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/hugolib&quot;</span><span class="c"> )</span><span class="h">@@ -105,6 +110,48 @@ CropSmart: {{ .Width }}x{{ .Height }}|</span><span class="c"> 	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Original: 900x562|CropTopLeft: 900x561|CropSmart: 900x561|&quot;)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Filtering an indexed PNG must not clamp the result to the source palette.</span><span class="a">+// See issue 12543.</span><span class="a">+func TestFilterPalettedPNGNotClampedToSourcePalette(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+-- assets/gohugoio8.png --</span><span class="a">+sourcefilename: ../testdata/gohugoio8.png</span><span class="a">+-- assets/sunset.jpg --</span><span class="a">+sourcefilename: ../testdata/sunset.jpg</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $bg := resources.Get &quot;gohugoio8.png&quot; }}</span><span class="a">+{{ $sunset := (resources.Get &quot;sunset.jpg&quot;).Resize &quot;x160&quot; }}</span><span class="a">+{{ with $bg.Filter (images.Overlay $sunset 0 0) | resources.Copy &quot;images/overlay.png&quot; }}{{ .Publish }}{{ end }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	decode := func(filename string) image.Image {</span><span class="a">+		img, err := png.Decode(strings.NewReader(b.FileContent(filename)))</span><span class="a">+		b.Assert(err, qt.IsNil)</span><span class="a">+		return img</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	src, ok := decode(&quot;assets/gohugoio8.png&quot;).(*image.Paletted)</span><span class="a">+	b.Assert(ok, qt.IsTrue)</span><span class="a">+</span><span class="a">+	overlay := decode(&quot;public/images/overlay.png&quot;)</span><span class="a">+	_, ok = overlay.(*image.Paletted)</span><span class="a">+	b.Assert(ok, qt.IsFalse)</span><span class="a">+</span><span class="a">+	colors := make(map[color.Color]bool)</span><span class="a">+	bounds := overlay.Bounds()</span><span class="a">+	for y := bounds.Min.Y; y &lt; bounds.Max.Y; y++ {</span><span class="a">+		for x := bounds.Min.X; x &lt; bounds.Max.X; x++ {</span><span class="a">+			colors[color.NRGBAModel.Convert(overlay.At(x, y))] = true</span><span class="a">+		}</span><span class="a">+	}</span><span class="a">+	b.Assert(len(colors) &gt; len(src.Palette), qt.IsTrue, qt.Commentf(&quot;got %d colors, source palette has %d&quot;, len(colors), len(src.Palette)))</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestImagingGlobalsDeprecated(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span><span class="f">resources/images/testdata/images_golden/filters/paletted/overlay.png</span><span class="h">index 10d9dd6fd..631854dd8 100644</span><span class="h">Binary files a/resources/images/testdata/images_golden/filters/paletted/overlay.png and b/resources/images/testdata/images_golden/filters/paletted/overlay.png differ</span><span class="f">resources/images/testdata/images_golden/filters/paletted/text.png</span><span class="h">index 71a9c3e2d..65d1a60ce 100644</span><span class="h">Binary files a/resources/images/testdata/images_golden/filters/paletted/text.png and b/resources/images/testdata/images_golden/filters/paletted/text.png differ</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/77856683d34f1de999546dacd0bff7bd130b2f64" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+39</span> <span class="r">−19</span></span></div><pre class="diff"><span class="f">resources/image.go</span><span class="h">index 467e23f26..a2ed5f3c9 100644</span><span class="h">@@ -321,7 +321,7 @@ func (i *imageResource) Filter(filters ...any) (images.ImageResource, error) {</span><span class="c"> 		return nil, err</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	confMain.Action = &quot;filter&quot;</span><span class="a">+	confMain.Action = images.ActionFilter</span><span class="c"> 	confMain.Key = hashing.HashString(gfilters)</span><span class="c"> </span><span class="c"> 	return i.doWithImageConfig(confMain, func(src image.Image) (image.Image, error) {</span><span class="h">@@ -438,7 +438,11 @@ func (i *imageResource) doWithImageConfig(conf images.ImageConfig, f func(src im</span><span class="c"> 			converted = tmp</span><span class="c"> 		}</span><span class="c"> </span><span class="r">-		if conf.TargetFormat == images.PNG {</span><span class="a">+		// Preserve the source palette for the geometric actions so an indexed</span><span class="a">+		// PNG stays indexed. Filters (e.g. images.Overlay, images.Text) routinely</span><span class="a">+		// introduce colors outside the source palette, and clamping the result</span><span class="a">+		// back to that palette destroys the filtered output. See issue 12543.</span><span class="a">+		if conf.TargetFormat == images.PNG &amp;&amp; conf.Action != images.ActionFilter {</span><span class="c"> 			// Apply the colour palette from the source</span><span class="c"> 			if paletted, ok := src.(*image.Paletted); ok {</span><span class="c"> 				palette := paletted.Palette</span><span class="f">resources/images/color.go</span><span class="h">index fe233c7b7..72f3710e3 100644</span><span class="h">@@ -69,9 +69,12 @@ func (c Color) Key() string {</span><span class="c"> }</span><span class="c"> </span><span class="c"> func (c *Color) init() error {</span><span class="r">-	c.hex = ColorGoToHexString(c.color)</span><span class="r">-	r, g, b, _ := c.color.RGBA()</span><span class="r">-	c.luminance = 0.2126*c.toSRGB(uint8(r)) + 0.7152*c.toSRGB(uint8(g)) + 0.0722*c.toSRGB(uint8(b))</span><span class="a">+	// Normalize to the canonical non-premultiplied form so that equal colors</span><span class="a">+	// compare equal whether they came from a hex string or from image pixels.</span><span class="a">+	nrgba := color.NRGBAModel.Convert(c.color).(color.NRGBA)</span><span class="a">+	c.color = nrgba</span><span class="a">+	c.hex = ColorGoToHexString(nrgba)</span><span class="a">+	c.luminance = 0.2126*c.toSRGB(nrgba.R) + 0.7152*c.toSRGB(nrgba.G) + 0.0722*c.toSRGB(nrgba.B)</span><span class="c"> 	return nil</span><span class="c"> }</span><span class="c"> </span><span class="h">@@ -88,10 +91,13 @@ func (c Color) toSRGB(i uint8) float64 {</span><span class="c"> // Note that it does no additional checks, so callers must make sure</span><span class="c"> // that the palette is valid for the relevant format.</span><span class="c"> func AddColorToPalette(c color.Color, p color.Palette) color.Palette {</span><span class="r">-	var found bool</span><span class="r">-	if slices.Contains(p, c) {</span><span class="r">-		found = true</span><span class="r">-	}</span><span class="a">+	// Compare color values rather than interface values, so that e.g. a</span><span class="a">+	// color.NRGBA is found even if the palette holds it as a color.RGBA.</span><span class="a">+	cr, cg, cb, ca := c.RGBA()</span><span class="a">+	found := slices.ContainsFunc(p, func(v color.Color) bool {</span><span class="a">+		vr, vg, vb, va := v.RGBA()</span><span class="a">+		return cr == vr &amp;&amp; cg == vg &amp;&amp; cb == vb &amp;&amp; ca == va</span><span class="a">+	})</span><span class="c"> </span><span class="c"> 	if !found {</span><span class="c"> 		p = append(color.Palette{c}, p...)</span><span class="h">@@ -108,12 +114,13 @@ func ReplaceColorInPalette(c color.Color, p color.Palette) {</span><span class="c"> </span><span class="c"> // ColorGoToHexString converts a color.Color to a hex string.</span><span class="c"> func ColorGoToHexString(c color.Color) string {</span><span class="r">-	r, g, b, a := c.RGBA()</span><span class="r">-	rgba := color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)}</span><span class="r">-	if rgba.A == 0xff {</span><span class="r">-		return fmt.Sprintf(&quot;#%.2x%.2x%.2x&quot;, rgba.R, rgba.G, rgba.B)</span><span class="a">+	// Hex notation is not alpha-premultiplied, so convert via NRGBA to</span><span class="a">+	// un-premultiply the color components of any transparent color.</span><span class="a">+	nrgba := color.NRGBAModel.Convert(c).(color.NRGBA)</span><span class="a">+	if nrgba.A == 0xff {</span><span class="a">+		return fmt.Sprintf(&quot;#%.2x%.2x%.2x&quot;, nrgba.R, nrgba.G, nrgba.B)</span><span class="c"> 	}</span><span class="r">-	return fmt.Sprintf(&quot;#%.2x%.2x%.2x%.2x&quot;, rgba.R, rgba.G, rgba.B, rgba.A)</span><span class="a">+	return fmt.Sprintf(&quot;#%.2x%.2x%.2x%.2x&quot;, nrgba.R, nrgba.G, nrgba.B, nrgba.A)</span><span class="c"> }</span><span class="c"> </span><span class="c"> // ColorGoToColor converts a color.Color to a Color.</span><span class="h">@@ -195,5 +202,8 @@ func hexStringToColorGo(s string) (color.Color, error) {</span><span class="c"> 		return nil, err</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	return color.RGBA{b[0], b[1], b[2], b[3]}, nil</span><span class="a">+	// Hex notation is not alpha-premultiplied, so this must be a color.NRGBA;</span><span class="a">+	// as a color.RGBA any transparent color would be invalid (component &gt; alpha)</span><span class="a">+	// and corrupted when drawn onto an alpha-premultiplied image. See issue 12536.</span><span class="a">+	return color.NRGBA{b[0], b[1], b[2], b[3]}, nil</span><span class="c"> }</span><span class="f">resources/images/color_test.go</span><span class="h">index 540f3bea8..47bc5ae8b 100644</span><span class="h">@@ -39,8 +39,12 @@ func TestHexStringToColor(t *testing.T) {</span><span class="c"> 		{&quot;#ffffff&quot;, color.White},</span><span class="c"> 		{&quot;ffffff&quot;, color.White},</span><span class="c"> 		{&quot;#000&quot;, color.Black},</span><span class="r">-		{&quot;#4287f5&quot;, color.RGBA{R: 0x42, G: 0x87, B: 0xf5, A: 0xff}},</span><span class="r">-		{&quot;777&quot;, color.RGBA{R: 0x77, G: 0x77, B: 0x77, A: 0xff}},</span><span class="a">+		{&quot;#4287f5&quot;, color.NRGBA{R: 0x42, G: 0x87, B: 0xf5, A: 0xff}},</span><span class="a">+		{&quot;777&quot;, color.NRGBA{R: 0x77, G: 0x77, B: 0x77, A: 0xff}},</span><span class="a">+		// Hex notation is not alpha-premultiplied, so a transparent color</span><span class="a">+		// must parse to a color.NRGBA. See issue 12536.</span><span class="a">+		{&quot;#00f7&quot;, color.NRGBA{R: 0x00, G: 0x00, B: 0xff, A: 0x77}},</span><span class="a">+		{&quot;4287f580&quot;, color.NRGBA{R: 0x42, G: 0x87, B: 0xf5, A: 0x80}},</span><span class="c"> 	} {</span><span class="c"> </span><span class="c"> 		c.Run(test.arg, func(c *qt.C) {</span><span class="h">@@ -71,10 +75,11 @@ func TestColorToHexString(t *testing.T) {</span><span class="c"> 		{color.Black, &quot;#000000&quot;},</span><span class="c"> 		{color.RGBA{R: 0x42, G: 0x87, B: 0xf5, A: 0xff}, &quot;#4287f5&quot;},</span><span class="c"> </span><span class="r">-		// 50% opacity.</span><span class="a">+		// 50% opacity. Hex notation is not alpha-premultiplied, so the</span><span class="a">+		// components of a transparent color are the non-premultiplied ones.</span><span class="c"> 		// Note that the .Colors (dominant colors) received from the Image resource</span><span class="c"> 		// will always have an alpha value of 0xff.</span><span class="r">-		{color.RGBA{R: 0x42, G: 0x87, B: 0xf5, A: 0x80}, &quot;#4287f580&quot;},</span><span class="a">+		{color.NRGBA{R: 0x42, G: 0x87, B: 0xf5, A: 0x80}, &quot;#4287f580&quot;},</span><span class="c"> 	} {</span><span class="c"> </span><span class="c"> 		c.Run(test.expect, func(c *qt.C) {</span><span class="f">resources/images/config.go</span><span class="h">index 4cbd7e629..e8fd69c94 100644</span><span class="h">@@ -36,6 +36,7 @@ const (</span><span class="c"> 	ActionCrop   = &quot;crop&quot;</span><span class="c"> 	ActionFit    = &quot;fit&quot;</span><span class="c"> 	ActionFill   = &quot;fill&quot;</span><span class="a">+	ActionFilter = &quot;filter&quot;</span><span class="c"> )</span><span class="c"> </span><span class="c"> var Actions = map[string]bool{</span><span class="f">resources/images/testdata/images_golden/filters/padding/padding-transparent-chained.png</span><span class="h">index 899e21f25..34392755c 100644</span><span class="h">Binary files a/resources/images/testdata/images_golden/filters/padding/padding-transparent-chained.png and b/resources/images/testdata/images_golden/filters/padding/padding-transparent-chained.png differ</span><span class="f">resources/images/testdata/images_golden/filters/paletted/overlay.png</span><span class="h">index 10d9dd6fd..631854dd8 100644</span><span class="h">Binary files a/resources/images/testdata/images_golden/filters/paletted/overlay.png and b/resources/images/testdata/images_golden/filters/paletted/overlay.png differ</span><span class="f">resources/images/testdata/images_golden/filters/paletted/text.png</span><span class="h">index 71a9c3e2d..65d1a60ce 100644</span><span class="h">Binary files a/resources/images/testdata/images_golden/filters/paletted/text.png and b/resources/images/testdata/images_golden/filters/paletted/text.png differ</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>I fixed the bug: an overlay or text filter on an indexed PNG now keeps the new colors instead of being squeezed back into the background&#39;s palette. I couldn&#39;t verify it through <code>./bt-test</code>, though. Its test run can&#39;t download Go modules because there&#39;s no network, so the package failed to build and no tests ran. All the results below come from running <code>go test</code> directly against the module cache already on disk (<code>GOMODCACHE=/bt/cache/go-mod GOPROXY=off</code>).</p>
+<p><strong>What was wrong:</strong> After any image operation, <code>doWithImageConfig</code> in <code>resources/image.go</code> checked whether the source was an indexed PNG. If it was, it redrew the result using only the source&#39;s palette (at most 256 colors). That&#39;s fine for resize, fit, fill and crop, which don&#39;t add colors. But overlays and text do add colors, so the composite was reduced to the background&#39;s palette. GIFs weren&#39;t affected because this step only runs for PNG output.</p>
+<p><strong>What I changed:</strong></p>
+<ul><li><strong>The fix</strong> (<code>resources/image.go:441</code>): that palette step is now skipped when the operation is a filter (<code>conf.Action != &quot;filter&quot;</code>). Resize, fit, fill and crop still keep the palette.</li><li><strong>Golden images:</strong> I regenerated <code>resources/images/testdata/images_golden/filters/paletted/overlay.png</code> and <code>text.png</code>. The most recent commit added them with the note that they were made before any fix. So they captured the bad output, and the old <code>overlay.png</code> is itself an indexed 256-color image. I didn&#39;t change the test code in <code>TestImagesGoldenFiltersPaletted</code>, and no other golden files changed.</li><li><strong>New test:</strong> <code>TestFilterPalettedPNGNotClampedToSourcePalette</code> in <code>resources/images/images_integration_test.go</code>. It overlays <code>sunset.jpg</code> on the indexed <code>gohugoio8.png</code> with <code>images.Overlay</code>. It then checks that the published PNG is not indexed and has more distinct colors than the source palette.</li></ul>
+<p><strong>Test results:</strong></p>
+<ul><li><strong>Before the fix:</strong> <code>TestImagesGoldenFiltersPaletted</code> passed against the bad golden files.</li><li><strong>Fix applied, old golden files:</strong> it failed on <code>overlay.png</code>. After regenerating, it passes.</li><li><strong>New test with the fix temporarily removed:</strong> it failed (the output was still indexed). With the fix, it passes.</li><li><strong>Wider runs:</strong> <code>./resources/images/</code>, <code>./resources/</code> and <code>./tpl/images/</code> all pass. Across <code>./resources/...</code>, only two tests failed: <code>TestGetRemoteHead</code> and <code>TestGetRemoteResponseHeaders</code>. Both fetch <code>https://gohugo.io/img/hugo.png</code> and got &quot;Forbidden&quot; because there&#39;s no network, so they&#39;re unrelated to this change.</li></ul>
+<p><strong>Side effects:</strong></p>
+<ul><li>Any filter on an indexed PNG, including grayscale or brightness, now writes a full-color PNG, so those files can be larger. This makes sense because any filter can add colors, but it may be worth a release note.</li><li>Filtered images already cached in <code>resources/_gen</code> will keep the old output until that cache is cleared. Bumping the PNG format version would force a refresh, but it would also invalidate every cached PNG, so I didn&#39;t do it.</li></ul>
+<p><strong>What the report asked for:</strong></p>
+<ol><li><strong>Better overlay quality on an indexed PNG background:</strong> done, with the new test and the updated golden <code>overlay.png</code>.</li><li><strong>Output no longer limited to the background&#39;s palette:</strong> done. The new test checks the output isn&#39;t indexed and has more colors than the palette.</li><li><strong>Confirm it isn&#39;t an upstream <code>gift</code> problem:</strong> it isn&#39;t. The palette step was in Hugo&#39;s <code>resources/image.go</code>, not in <code>gift</code>.</li><li><strong>GIFs work fine:</strong> unchanged. The palette step only applies to PNG output, and the GIF tests still pass.</li></ol>
+<p>Everything is left as uncommitted changes. <code>AGENTS.md</code> and <code>CLAUDE.md</code> were already showing as deleted before I started, and I didn&#39;t touch them.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260930-140149/12536/">Previous · #12536</a>
+  <a class="mid" href="/backtests/hugo/run-20260930-140149/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260930-140149/15027/">Next · #15027</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

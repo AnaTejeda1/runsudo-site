@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#11302 The &quot;failed to extract&quot; error refers to outer shortcode instead of inner shortcode — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #11302 in gohugoio/hugo, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260930-140149/11302/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260930-140149/">run-20260930-140149</a><span aria-hidden="true">/</span><span aria-current="page">#11302</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/11302" rel="noopener" target="_blank">#11302</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/cc27bf620e42699eb617b5a2e0437a4f7b0bfae4" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-140149</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">The &quot;failed to extract&quot; error refers to outer shortcode instead of inner shortcode</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">In the issue, `img` has a template that uses `.Inner`, so the parser expects `img` to be closed. It never is. The parser nests `figcaption` inside `img`, then accepts `{{&lt; /figure &gt;}}` as the closer for `img` without checking the name. `figure` then reaches EOF and is reported as the unclosed shortcode. The root cause is that missing name check on closing tags.
+
+Patch A adds exactly that check: when a closing tag&#39;s name differs from `sc.name`, it returns &quot;shortcode %q must be closed or self-closed&quot; for the inner shortcode. It also wraps nested errors with the nested item&#39;s position. Its test reproduces the issue&#39;s figure/img/figcaption structure. It asserts the new message names `img` and does not mention `figure`, and it checks the error position. That test would fail before the change.
+
+Patch B only wraps nested extraction errors with the nested shortcode&#39;s position. That helps when the inner error is something like a missing template. It does nothing for the reported case: the mismatched close still silently closes `img`, and the error still says unclosed shortcode &quot;figure&quot;. Its test covers a different scenario (inner template not found) rather than the issue&#39;s.
+
+A fixes the root cause and tests the reported scenario. B addresses an adjacent symptom.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">9m 38s<small>13 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,482 passed · 85 skipped · 3,579 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">48<small>vs 43 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/11302" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>&lt;!-- Please answer these questions before submitting your issue. Thanks! --&gt;</p>
+<h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>&lt;pre&gt;<br>$ hugo version<br>hugo v0.111.1-39a4a3cf676533859217805c36181c7a3dfa321c darwin/arm64 BuildDate=2023-03-02T10:08:26Z VendorInfo=gohugoio<br>&lt;/pre&gt;</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>yes</p>
+<p>When evaluating this file:</p>
+<pre><code class="lang-md">+++
+Type = &quot;note&quot;
+Date = &quot;2020-03-30T01:19:59-05:00&quot;
+
++++
+
+{{&lt; figure &gt;}}
+{{&lt; img src=&quot;lighting-in-pantry.jpg&quot; alt=&quot;a pantry with led lights shining bright light out of it&quot; &gt;}}
+{{% figcaption %}}
+Snazzy 💡
+{{% /figcaption %}}
+{{&lt; /figure &gt;}}</code></pre>
+<p>i get this error:</p>
+<pre><code>Start building sites … 
+hugo v0.111.1-39a4a3cf676533859217805c36181c7a3dfa321c darwin/arm64 BuildDate=2023-03-02T10:08:26Z VendorInfo=gohugoio
+Error: Error building site: &quot;/Users/calebjasik/Git/jasik-xyz/content/2020-03-30-0119/index.md:7:1&quot;: failed to extract shortcode: unclosed shortcode &quot;figure&quot;
+Total in 88 ms</code></pre>
+<p>Before v0.111.0, this compiled fine, but I&#39;m not sure the &quot;is closed&quot; detector is effective if there is additional shortcodes in the <code>.Inner</code> of the shortcode?</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+45</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">hugolib/hugo_sites_build_errors_test.go</span><span class="h">index 3209f664d..073fd24ed 100644</span><span class="h">@@ -421,6 +421,43 @@ line 4</span><span class="c"> 	b.Assert(errors[3].ErrorContext().Lines, qt.DeepEquals, []string{&quot;line 1&quot;, &quot;line 2&quot;, &quot;123{{ .ThisDoesNotExist }}&quot;, &quot;line 4&quot;})</span><span class="c"> }</span><span class="c"> </span><span class="a">+func TestErrorNestedUnclosedShortcodeShouldReferenceInner(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+-- content/_index.md --</span><span class="a">+---</span><span class="a">+title: &quot;Home&quot;</span><span class="a">+---</span><span class="a">+{{&lt; figure &gt;}}</span><span class="a">+{{&lt; img src=&quot;x.jpg&quot; &gt;}}</span><span class="a">+{{% figcaption %}}</span><span class="a">+Snazzy</span><span class="a">+{{% /figcaption %}}</span><span class="a">+{{&lt; /figure &gt;}}</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ .Content }}</span><span class="a">+-- layouts/_shortcodes/figure.html --</span><span class="a">+&lt;figure&gt;{{ .Inner }}&lt;/figure&gt;</span><span class="a">+-- layouts/_shortcodes/img.html --</span><span class="a">+&lt;img&gt;{{ .Inner }}</span><span class="a">+-- layouts/_shortcodes/figcaption.html --</span><span class="a">+&lt;figcaption&gt;{{ .Inner }}&lt;/figcaption&gt;</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b, err := TestE(t, files)</span><span class="a">+</span><span class="a">+	b.Assert(err, qt.IsNotNil)</span><span class="a">+	b.Assert(err.Error(), qt.Contains, `failed to extract shortcode: shortcode &quot;img&quot; must be closed or self-closed`)</span><span class="a">+	b.Assert(err.Error(), qt.Not(qt.Contains), `shortcode &quot;figure&quot;`)</span><span class="a">+</span><span class="a">+	errors := herrors.UnwrapFileErrorsWithErrorContext(err)</span><span class="a">+	b.Assert(errors, qt.Not(qt.HasLen), 0)</span><span class="a">+	b.Assert(errors[0].Position().LineNumber, qt.Equals, 5)</span><span class="a">+	b.Assert(errors[0].Position().ColumnNumber, qt.Equals, 1)</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestErrorRenderHookHeading(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span><span class="f">hugolib/shortcode.go</span><span class="h">index c680620cf..a4652f101 100644</span><span class="h">@@ -618,11 +618,13 @@ Loop:</span><span class="c"> 					s.addName(nested.name)</span><span class="c"> 				}</span><span class="c"> </span><span class="r">-				if err == nil {</span><span class="r">-					sc.inner = append(sc.inner, nested)</span><span class="r">-				} else {</span><span class="a">+				if err != nil {</span><span class="a">+					if _, ok := err.(herrors.FileError); !ok {</span><span class="a">+						err = herrors.NewFileErrorFromPos(err, posFromInput(&quot;&quot;, source, currItem.Pos()))</span><span class="a">+					}</span><span class="c"> 					return sc, err</span><span class="c"> 				}</span><span class="a">+				sc.inner = append(sc.inner, nested)</span><span class="c"> </span><span class="c"> 			} else {</span><span class="c"> 				sc.doMarkup = currItem.IsShortcodeMarkupDelimiter()</span><span class="h">@@ -659,6 +661,9 @@ Loop:</span><span class="c"> 				// self-closing</span><span class="c"> 				pt.Consume(1)</span><span class="c"> 			} else {</span><span class="a">+				if !next.IsError() &amp;&amp; next.ValStr(source) != sc.name {</span><span class="a">+					return sc, fmt.Errorf(&quot;%s: shortcode %q must be closed or self-closed&quot;, errorPrefix, sc.name)</span><span class="a">+				}</span><span class="c"> 				sc.isClosing = true</span><span class="c"> 				pt.Consume(2)</span><span class="c"> 			}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/cc27bf620e42699eb617b5a2e0437a4f7b0bfae4" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+42</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">hugolib/hugo_sites_build_errors_test.go</span><span class="h">index 3209f664d..10e9d123e 100644</span><span class="h">@@ -421,6 +421,39 @@ line 4</span><span class="c"> 	b.Assert(errors[3].ErrorContext().Lines, qt.DeepEquals, []string{&quot;line 1&quot;, &quot;line 2&quot;, &quot;123{{ .ThisDoesNotExist }}&quot;, &quot;line 4&quot;})</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Issue #11302: &quot;failed to extract&quot; error should refer to inner shortcode, not outer.</span><span class="a">+func TestErrorNestedShortcodeExtractInnerNotFound(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+-- content/_index.md --</span><span class="a">+---</span><span class="a">+title: &quot;Home&quot;</span><span class="a">+---</span><span class="a">+</span><span class="a">+## Hello</span><span class="a">+{{&lt; outer &gt;}}{{&lt; inner &gt;}}{{&lt; /outer &gt;}}</span><span class="a">+</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ .Content }}</span><span class="a">+-- layouts/_shortcodes/outer.html --</span><span class="a">+&lt;div&gt;{{ .Inner }}&lt;/div&gt;</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b, err := TestE(t, files)</span><span class="a">+</span><span class="a">+	b.Assert(err, qt.IsNotNil)</span><span class="a">+	fe := herrors.UnwrapFileError(err)</span><span class="a">+	b.Assert(fe, qt.Not(qt.IsNil))</span><span class="a">+</span><span class="a">+	// The error should point to the inner shortcode&#39;s position (line 6, column 12),</span><span class="a">+	// not the outer shortcode&#39;s position (line 6, column 1).</span><span class="a">+	b.Assert(fe.Position().LineNumber, qt.Equals, 6)</span><span class="a">+	b.Assert(fe.Position().ColumnNumber, qt.Equals, 12)</span><span class="a">+	b.Assert(fe.Error(), qt.Contains, `failed to extract shortcode: template for shortcode &quot;inner&quot; not found`)</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestErrorRenderHookHeading(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span><span class="f">hugolib/shortcode.go</span><span class="h">index c680620cf..5275dc04b 100644</span><span class="h">@@ -612,6 +612,7 @@ Loop:</span><span class="c"> 			if cnt &gt; 0 {</span><span class="c"> 				// nested shortcode; append it to inner content</span><span class="c"> 				pt.Backup()</span><span class="a">+				nestedPos := currItem.Pos()</span><span class="c"> 				nested, err := s.extractShortcode(nestedOrdinal, nextLevel, source, pt)</span><span class="c"> 				nestedOrdinal++</span><span class="c"> 				if nested != nil &amp;&amp; nested.name != &quot;&quot; {</span><span class="h">@@ -621,7 +622,14 @@ Loop:</span><span class="c"> 				if err == nil {</span><span class="c"> 					sc.inner = append(sc.inner, nested)</span><span class="c"> 				} else {</span><span class="r">-					return sc, err</span><span class="a">+					// Wrap the error with the nested shortcode&#39;s position so that</span><span class="a">+					// the error points to the correct shortcode (the inner one)</span><span class="a">+					// rather than the outer shortcode.</span><span class="a">+					if fe, ok := err.(herrors.FileError); ok {</span><span class="a">+						return sc, fe</span><span class="a">+					}</span><span class="a">+					pos := posFromInput(&quot;&quot;, source, nestedPos)</span><span class="a">+					return sc, herrors.NewFileErrorFromPos(err, pos)</span><span class="c"> 				}</span><span class="c"> </span><span class="c"> 			} else {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>The error now names the inner shortcode that is actually unclosed (<code>img</code>) and points at its line. The new regression test fails without the fix and passes with it. <code>./bt-test</code> could not run, so all test evidence comes from running <code>go test</code> directly.</p>
+<p><strong>What was wrong:</strong> In <code>extractShortcode</code> (<code>hugolib/shortcode.go</code>), a closing tag&#39;s name was never checked against the shortcode it was closing. In the reported content, <code>img</code>&#39;s template uses <code>.Inner</code>, so Hugo expects a closing tag for it. <code>img</code> took <code>{{&lt; /figure &gt;}}</code> as its own closing tag, which left <code>figure</code> reaching end of file unclosed. The error therefore blamed <code>figure</code>, at <code>figure</code>&#39;s line (4:1). Also, errors from a nested shortcode were reported at the outer shortcode&#39;s position.</p>
+<p><strong>What I changed</strong> (<code>hugolib/shortcode.go</code>, two small edits):</p>
+<ol><li><strong>Name check:</strong> if a shortcode that needs <code>.Inner</code> meets a closing tag with a different name, it now fails with <code>shortcode &quot;img&quot; must be closed or self-closed</code>. Self-closing tags, the existing &quot;does not evaluate .Inner … yet a closing tag was provided&quot; error, and errors the parser itself reports behave as before.</li><li><strong>Position:</strong> errors from a nested shortcode now carry that shortcode&#39;s own start position, unless they already have one. This is the same pattern <code>fail()</code> in <code>page__content.go</code> uses for top-level shortcodes.</li></ol>
+<p><strong>Test:</strong> I added <code>TestErrorNestedUnclosedShortcodeShouldReferenceInner</code> in <code>hugolib/hugo_sites_build_errors_test.go</code>, next to <code>TestErrorNestedShortcode</code>. It builds the exact <code>figure</code> / <code>img</code> / <code>figcaption</code> content from the report and checks that the error names <code>&quot;img&quot;</code>, does not mention <code>&quot;figure&quot;</code>, and is reported at line 5, column 1.</p>
+<p><strong>Test evidence:</strong></p>
+<ul><li><strong>The gate couldn&#39;t run:</strong> <code>./bt-test</code> exits 1 without running any tests. Its report shows the build failing because it can&#39;t download Go modules (<code>lookup proxy.golang.org ... server misbehaving</code>). So I ran <code>go test</code> directly with <code>GOMODCACHE=/bt/cache/go-mod GOPROXY=off</code>.</li><li><strong>Without the fix:</strong> the new test fails with <code>&quot;/content/_index.md:4:1&quot;: failed to extract shortcode: shortcode &quot;figure&quot; must be closed or self-closed</code>.</li><li><strong>With the fix:</strong> the new test passes, as do the other error and shortcode tests (<code>-run &#39;TestErrorNested|TestSiteBuildErrors|Shortcode|Inner&#39;</code>) and <code>./parser/...</code>.</li><li><strong>Full <code>./hugolib/</code> run</strong> (done by the implementer subagent): everything passes except three tests that try to download modules (<code>TestModulePrivateRepo</code> and two <code>TestGitInfoFromGitModule…</code> tests). They fail with <code>permission denied</code> on the module cache, and the implementer reported they fail the same way without the fix.</li></ul>
+<p><strong>Blast radius:</strong> only shortcode extraction is affected. Content that was already malformed but used to build will now error. For example, in <code>{{&lt; a &gt;}}{{&lt; b &gt;}}text{{&lt; /a &gt;}}</code>, where <code>a</code> doesn&#39;t use <code>.Inner</code>, <code>b</code> used to quietly accept <code>/a</code> as its closing tag. The reviewer checked path names (<code>{{&lt; /a/b &gt;}}</code>), inline shortcodes, <code>{{% %}}</code> closing tags and self-closing tags, and none of them change.</p>
+<p><strong>Requirements:</strong></p>
+<ul><li><strong>The error names the inner shortcode, not the outer one:</strong> implemented; shown by the new test.</li><li><strong>The &quot;is closed&quot; check misses shortcodes nested inside another shortcode&#39;s <code>.Inner</code>:</strong> fixed by the closing-name check; same test.</li><li><strong>&quot;Before v0.111.0 this compiled fine&quot;:</strong> not restored, on purpose. The content really does leave <code>img</code> unclosed, and the report only asks for a correct error. To build, the user needs to self-close it (<code>{{&lt; img ... /&gt;}}</code>) or remove <code>.Inner</code> from the <code>img</code> template.</li></ul>
+<p>The changes are uncommitted. <code>AGENTS.md</code> and <code>CLAUDE.md</code> were already deleted in the working tree before this session, and I left them alone.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <span class="disabled">Previous</span>
+  <a class="mid" href="/backtests/hugo/run-20260930-140149/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260930-140149/12536/">Next · #12536</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

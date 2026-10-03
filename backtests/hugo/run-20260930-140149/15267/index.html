@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15267 Bump fileCacheEntryVersion in transform.ToMath — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged on par with the merged fix. Issue #15267 in gohugoio/hugo, run 30 Sep 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20260930-140149/15267/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20260930-140149/">run-20260930-140149</a><span aria-hidden="true">/</span><span aria-current="page">#15267</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15267" rel="noopener" target="_blank">#15267</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/8d88b8b4dd6a58d11951c38bc40779aa91b6166c" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 30 Sep 2026 · <span class="runid">run-20260930-140149</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Bump fileCacheEntryVersion in transform.ToMath</h1>
+
+<div class="verdict-block">
+  <span class="pill par lg">Par</span>
+  <p class="line">Our patch was judged on par with the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical functional change in tpl/transform/transform.go: they bump fileCacheEntryVersion from &quot;v1&quot; to &quot;v2&quot;. This changes the cache key prefix (tomath/v2/...), so cached output from KaTeX 0.16.21 is invalidated and regenerated with 0.18.4. That addresses the root cause in the issue. Neither patch adds tests, and both are minimally scoped. The only difference is that Patch B extends the comment to &quot;e.g. KaTeX upgrades&quot;. This is a small documentation nicety that hints when to bump the version. It has no effect on behavior or risk and is too minor to count as a meaningful craft difference. The two patches are functionally equivalent.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">25m 43s<small>14 turns</small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,753 passed · 99 skipped · 3,854 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">2<small>vs 2 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15267" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>In ec52e638c we bumped KaTeX from 0.16.21 to 0.18.4. This produces different output.</p>
+<p>I ran into this when testing the docs site, specifically the chem example.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">tpl/transform/transform.go</span><span class="h">index 5c99b322c..edff5df9a 100644</span><span class="h">@@ -293,7 +293,7 @@ func (ns *Namespace) ToMath(ctx context.Context, args ...any) (template.HTML, er</span><span class="c"> 		Warnings []string `json:&quot;warnings,omitempty&quot;`</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	const fileCacheEntryVersion = &quot;v1&quot; // Increment on incompatible changes.</span><span class="a">+	const fileCacheEntryVersion = &quot;v2&quot; // Increment on incompatible changes, e.g. KaTeX upgrades.</span><span class="c"> </span><span class="c"> 	s := hashing.HashString(args...)</span><span class="c"> 	key := &quot;tomath/&quot; + fileCacheEntryVersion + &quot;/&quot; + s[:2] + &quot;/&quot; + s[2:]</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/8d88b8b4dd6a58d11951c38bc40779aa91b6166c" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">tpl/transform/transform.go</span><span class="h">index 5c99b322c..f9d0dabb0 100644</span><span class="h">@@ -293,7 +293,7 @@ func (ns *Namespace) ToMath(ctx context.Context, args ...any) (template.HTML, er</span><span class="c"> 		Warnings []string `json:&quot;warnings,omitempty&quot;`</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	const fileCacheEntryVersion = &quot;v1&quot; // Increment on incompatible changes.</span><span class="a">+	const fileCacheEntryVersion = &quot;v2&quot; // Increment on incompatible changes.</span><span class="c"> </span><span class="c"> 	s := hashing.HashString(args...)</span><span class="c"> 	key := &quot;tomath/&quot; + fileCacheEntryVersion + &quot;/&quot; + s[:2] + &quot;/&quot; + s[2:]</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+<section>
+  <h2>What the agent reported</h2>
+  <div class="card"><div class="md"><p>I bumped the cache key version in <code>transform.ToMath</code> from v1 to v2, but I couldn&#39;t run any tests: the test environment can&#39;t download Go modules. So the diff has no test. I wrote a regression test but removed it, because I never saw it fail before the fix or pass after it.</p>
+<p><strong>What was wrong:</strong> <code>ToMath</code> saves its rendered output in a file cache, and the saved entries are named using <code>fileCacheEntryVersion</code>. That was still <code>&quot;v1&quot;</code> after ec52e638c upgraded KaTeX from 0.16.21 to 0.18.4. Sites with an existing cache, like the docs site and its chem example, kept getting the old 0.16.21 output.</p>
+<p><strong>What I changed:</strong> one line in <code>tpl/transform/transform.go:296</code>, <code>&quot;v1&quot;</code> → <code>&quot;v2&quot;</code>. The comment now names KaTeX upgrades as a reason to bump it. Old cache entries are simply never looked up again. <code>ToMath</code> is the only code that uses KaTeX, and Markdown math also goes through it, so nothing else needed a bump.</p>
+<p><strong>Test evidence:</strong></p>
+<ul><li>Both runs of <code>./bt-test ./tpl/transform/ -run TestToMath</code>, one before the fix and one after, ended <code>FAIL github.com/gohugoio/hugo/tpl/transform [setup failed]</code>. The report had 93 errors like <code>lookup proxy.golang.org ... server misbehaving</code>. Running <code>go test</code> directly fails the same way (<code>Forbidden</code>), and the local module cache is empty.</li><li>The removed test was <code>TestToMathStaleFileCacheEntry</code>. It pre-writes a fake v1 cache entry containing <code>STALE_KATEX_0.16.21</code> exactly where the cache would look for it. It then builds a page with <code>transform.ToMath</code> and checks that the fake output is not served and real KaTeX output (<code>&lt;span class=&quot;katex&quot;&gt;&lt;math</code>) is.</li><li>A reviewer traced the cache code and agreed the test should fail on v1 and pass on v2. That is from reading only, not from a run.</li><li>The test is saved as a patch at <code>/tmp/tomath_stale_test.patch</code>. Once modules are available, restore it with <code>git apply /tmp/tomath_stale_test.patch</code> and run <code>./bt-test ./tpl/transform/ -run TestToMathStaleFileCacheEntry</code>.</li></ul>
+<p><strong>Requirements:</strong></p>
+<ol><li><strong>Bump <code>fileCacheEntryVersion</code> in <code>transform.ToMath</code>:</strong> done (v1 → v2), but not verified by any test run.</li><li><strong>KaTeX 0.16.21 → 0.18.4 changes output:</strong> the fix makes the cache ignore entries saved before the upgrade. <code>internal/warpc/katex.go</code> only uses the version number for the licence listing, not for caching.</li><li><strong>Docs site chem example:</strong> covered by the same fix, since it renders through <code>ToMath</code>. I didn&#39;t reproduce it because nothing can build here.</li></ol>
+<p><code>AGENTS.md</code> and <code>CLAUDE.md</code> were already deleted before I started; I left them alone. Nothing is committed and no scratch files are in the repository.</p></div></div>
+</section>
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20260930-140149/15266/">Previous · #15266</a>
+  <a class="mid" href="/backtests/hugo/run-20260930-140149/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20260930-140149/15301/">Next · #15301</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
