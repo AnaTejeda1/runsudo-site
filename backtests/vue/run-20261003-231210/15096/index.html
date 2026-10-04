@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15096 defineModel: named model with PropType + factory default infers wrong generic (regression from #14968) — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15096 in vuejs/core, run 3 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261003-231210/15096/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261003-231210/">run-20261003-231210</a><span aria-hidden="true">/</span><span aria-current="page">#15096</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15096" rel="noopener" target="_blank">#15096</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15097" rel="noopener" target="_blank">PR #15097</a></span>
+  <span>Run 3 Oct 2026 · <span class="runid">run-20261003-231210</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">defineModel: named model with PropType + factory default infers wrong generic (regression from #14968)</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The root cause is that `InferDefault&lt;Data, T&gt;` contains a conditional branch that exposes `T` as an inference site. TypeScript therefore takes a candidate for `T` from the `default` factory itself (`() =&gt; never[]`), and that candidate competes with the one from `type: PropType&lt;string[]&gt;`.
+
+Patch A fixes this directly. It wraps the validating `InferDefault` member in `NoInfer`, so the default can no longer drive inference. It also keeps a plain `T | factory` member so `T` is still inferable when no runtime `type` is given. Its comment explains this. The result does not depend on TypeScript&#39;s candidate-ordering heuristics.
+
+Patch B only swaps the order of the intersection members. Any fix this gives comes from the order in which inference candidates are collected and how the common supertype is chosen. That is fragile, undocumented compiler behavior, and the competing `() =&gt; never[]` candidate still exists. It may pass the narrow test, but it masks the symptom rather than removing the bad inference site, and could break under other default shapes or TypeScript versions.
+
+On tests, Patch A covers more:
+- named and unnamed array cases;
+- object and function `PropType`s with factory defaults;
+- a raw-array-default rejection with a runtime type;
+- a factory/type mismatch rejection.
+
+Patch B covers only the array case plus one mismatch. Both changes are tightly scoped. Patch A is the more robust and better-tested fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">15m 40s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,626 passed · 6 skipped · 3,632 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">49<small>vs 26 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15096" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.39</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNqtk81qGzEQx19l0MUJmDXUTaGLbUhKDi20DY1JD1Gold3ZjWJZEvpwbcwee+sjtC/XJ+lIi50EQk65rWb+M/Obj92xU2uLdURWsomvnLQBPIZoQQndTjkLnrMZ13JljQsQthZhBxfO2Hn67KBxZgUDSjDgmuvRCP79/Q1nsS1hfglSN+g8zHtVuENY1NiIqMICGlEF47Ygg0fVkNQHFDWYBhapymKYs1UieqlbEOBtdNJE3zOgc8YBuSqEq4gwLk6K8fuC68pQIrh1ZokapkDlpMbPpkZ1NFhLL2+lkmE7GMKOa8i5Sjh1TmxB+ENfEx8cVb2+mREFpCSJuYSjY5jO4PqGrN3xvt8/v+C7cUvhTNR1CVbq3GmLGp2sADdWyUoGtd3DNXKD9VO2h4KPKd+8DuZk1C+W1kiPgCurREB6AUxquZ7tdvt5dR3Qo+fruskoeVP8IYYN6SCoi0a2xb03mq4mA3JWmZWVCt1XGyR1yVnZoyefUMr8/JRtwUXMsDnmDqvlM/Z7v0k2zi4cenRr5OzgC8K1GHr3+eUX3ND3wbkydVSkfsH5Db1RMTH2sjNaGmE/0mXaj/neabhzf74JqP2+qQSalF3Wc0aX/+GF1h9wx8XbHEc7oSn+WNOPQWoaYH+6yRb81cF6Urwrxqz7D9k1OqM=" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNqtk81qGzEQx19l0MUJmDXUTaGLbUhKDi20DY1JD1Gold3ZjWJZEvpwbcwee+sjtC/XJ+lIi50EQk65rWb+M/Obj92xU2uLdURWsomvnLQBPIZoQQndTjkLnrMZ13JljQsQthZhBxfO2Hn67KBxZgUDSjDgmuvRCP79/Q1nsS1hfglSN+g8zHtVuENY1NiIqMICGlEF47Ygg0fVkNQHFDWYBhapymKYs1UieqlbEOBtdNJE3zOgc8YBuSqEq4gwLk6K8fuC68pQIrh1ZokapkDlpMbPpkZ1NFhLL2+lkmE7GMKOa8i5Sjh1TmxB+ENfEx8cVb2+mREFpCSJuYSjY5jO4PqGrN3xvt8/v+C7cUvhTNR1CVbq3GmLGp2sADdWyUoGtd3DNXKD9VO2h4KPKd+8DuZk1C+W1kiPgCurREB6AUxquZ7tdvt5dR3Qo+fruskoeVP8IYYN6SCoi0a2xb03mq4mA3JWmZWVCt1XGyR1yVnZoyefUMr8/JRtwUXMsDnmDqvlM/Z7v0k2zi4cenRr5OzgC8K1GHr3+eUX3ND3wbkydVSkfsH5Db1RMTH2sjNaGmE/0mXaj/neabhzf74JqP2+qQSalF3Wc0aX/+GF1h9wx8XbHEc7oSn+WNOPQWoaYH+6yRb81cF6Urwrxqz7D9k1OqM=</a></p>
+<h3>Steps to reproduce</h3>
+<p>In the reproduction, <code>broken</code> declares a named model with a runtime <code>type: PropType&lt;string[]&gt;</code> plus a factory <code>default: () =&gt; []</code>. <code>fixed</code> declares the same thing but with the generic pinned explicitly (<code>defineModel&lt;string[]&gt;(...)</code>).</p>
+<p>Run the type checker (or <code>vue-tsc --noEmit</code> locally) over this SFC.</p>
+<h3>What is expected?</h3>
+<p>Both <code>broken</code> and <code>fixed</code> should type-check cleanly — this is the recommended pattern for avoiding shared mutable state (per #14966 / #14968): a factory default combined with a runtime <code>PropType</code> declaration.</p>
+<h3>What is actually happening?</h3>
+<p>Only <code>broken</code> fails. TS infers the generic <code>T</code> from the <code>default</code> factory function&#39;s own type (<code>() =&gt; never[]</code>) instead of from the <code>type: PropType&lt;string[]&gt;</code> field:</p>
+<p>error TS2769: No overload matches this call.<br>Overload 1 of 4, &#39;(name: string, options: ({ required: true; } | { default: DefineModelDefault&lt;() =&gt; never[]&gt;; }) &amp; Omit&lt;PropOptions&lt;() =&gt; never[], () =&gt; never[]&gt;, &quot;default&quot;&gt; &amp; DefineModelOptions&lt;...&gt;): ModelRef&lt;...&gt;&#39;, gave the following error.<br>Type &#39;PropType&lt;string[]&gt;&#39; is not assignable to type &#39;true | PropType&lt;() =&gt; never[]&gt; | null | undefined&#39;.<br>Type &#39;new (...args: any[]) =&gt; string[]&#39; is not assignable to type &#39;true | PropType&lt;() =&gt; never[]&gt; | null | undefined&#39;.<br>Type &#39;new (...args: any[]) =&gt; string[]&#39; is not assignable to type &#39;new (...args: any[]) =&gt; () =&gt; never[]&#39;.<br>Type &#39;string[]&#39; is not assignable to type &#39;() =&gt; never[]&#39;.<br>Type &#39;string[]&#39; provides no match for the signature &#39;(): never[]&#39;.<br>Overload 2 of 4, &#39;(name: string, options?: DefineModelRuntimeOptions&lt;string[], string[], string[]&gt; | undefined): ModelRef&lt;string[] | undefined, string, string[] | undefined, string[] | undefined&gt;&#39;, gave the following error.<br>Object literal may only specify known properties, and &#39;default&#39; does not exist in type &#39;DefineModelRuntimeOptions&lt;string[], string[], string[]&gt;&#39;.</p>
+<p>his is a regression from #14968 (landed in 3.5.39), which introduced <code>DefineModelDefault&lt;T&gt; = InferDefault&lt;Data, T&gt;</code> for the named-model overload. When both a runtime <code>type: PropType&lt;T&gt;</code> field and a factory <code>default</code> are present on the same options object, TS resolves <code>T</code> from the <code>default</code> field first, breaking a pattern that worked prior to 3.5.39.</p>
+<p><strong>Workaround:</strong> explicitly pin the generic, as shown by <code>fixed</code> in the reproduction:</p>
+<pre><code class="lang-ts">const fixed = defineModel&lt;string[]&gt;(&#39;visibility2&#39;, {
+  type: Array as PropType&lt;string[]&gt;,
+  default: () =&gt; [],
+})</code></pre>
+<h3>System Info</h3>
+<pre><code class="lang-shell">vue: 3.5.39
+vue-tsc: 3.3.7
+typescript: 5.7.3</code></pre>
+<h3>Any additional comments?</h3>
+<p>Related to / regression from #14966 and #14968. Only reproduces on the <strong>named</strong> <code>defineModel(name, options)</code> overload when <code>type</code>/<code>PropType</code> and a factory <code>default</code> are combined; the unnamed <code>defineModel&lt;T&gt;({ ... })</code> form with an explicit generic is unaffected.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+44</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">packages-private/dts-test/setupHelpers.test-d.ts</span><span class="h">index 5ecc15443..30ba0644e 100644</span><span class="h">@@ -1,4 +1,5 @@</span><span class="c"> import {</span><span class="a">+  type PropType,</span><span class="c">   type Ref,</span><span class="c">   type Slots,</span><span class="c">   type VNode,</span><span class="h">@@ -429,6 +430,31 @@ describe(&#39;defineModel&#39;, () =&gt; {</span><span class="c">   })</span><span class="c">   expectType&lt;Ref&lt;{ foo: string }&gt;&gt;(objectDefault)</span><span class="c"> </span><span class="a">+  // infer type from runtime type when combined with a factory default</span><span class="a">+  const runtimeTypeArrayDefault = defineModel({</span><span class="a">+    type: Array as PropType&lt;string[]&gt;,</span><span class="a">+    default: () =&gt; [],</span><span class="a">+  })</span><span class="a">+  expectType&lt;Ref&lt;string[]&gt;&gt;(runtimeTypeArrayDefault)</span><span class="a">+</span><span class="a">+  const namedRuntimeTypeArrayDefault = defineModel(&#39;visibility&#39;, {</span><span class="a">+    type: Array as PropType&lt;string[]&gt;,</span><span class="a">+    default: () =&gt; [],</span><span class="a">+  })</span><span class="a">+  expectType&lt;Ref&lt;string[]&gt;&gt;(namedRuntimeTypeArrayDefault)</span><span class="a">+</span><span class="a">+  const namedRuntimeTypeObjectDefault = defineModel(&#39;obj&#39;, {</span><span class="a">+    type: Object as PropType&lt;{ foo: string }&gt;,</span><span class="a">+    default: () =&gt; ({ foo: &#39;bar&#39; }),</span><span class="a">+  })</span><span class="a">+  expectType&lt;Ref&lt;{ foo: string }&gt;&gt;(namedRuntimeTypeObjectDefault)</span><span class="a">+</span><span class="a">+  const namedRuntimeTypeFunctionDefault = defineModel(&#39;fn&#39;, {</span><span class="a">+    type: Function as PropType&lt;() =&gt; number&gt;,</span><span class="a">+    default: () =&gt; 1,</span><span class="a">+  })</span><span class="a">+  expectType&lt;Ref&lt;() =&gt; number&gt;&gt;(namedRuntimeTypeFunctionDefault)</span><span class="a">+</span><span class="c">   // infer type from default</span><span class="c">   const inferred = defineModel({ default: 123 })</span><span class="c">   expectType&lt;Ref&lt;number | undefined&gt;&gt;(inferred)</span><span class="h">@@ -472,6 +498,13 @@ describe(&#39;defineModel&#39;, () =&gt; {</span><span class="c">   defineModel&lt;number[]&gt;({ default: [] })</span><span class="c">   // @ts-expect-error raw object defaults must use a factory</span><span class="c">   defineModel&lt;{ foo: string }&gt;({ default: { foo: &#39;bar&#39; } })</span><span class="a">+  // @ts-expect-error raw array defaults must use a factory with runtime type</span><span class="a">+  defineModel(&#39;visibility&#39;, { type: Array as PropType&lt;string[]&gt;, default: [] })</span><span class="a">+  // @ts-expect-error factory default must match the runtime type</span><span class="a">+  defineModel(&#39;visibility&#39;, {</span><span class="a">+    type: Array as PropType&lt;string[]&gt;,</span><span class="a">+    default: () =&gt; [1],</span><span class="a">+  })</span><span class="c">   // @ts-expect-error unknown props option</span><span class="c">   defineModel({ foo: 123 })</span><span class="c"> </span><span class="f">packages/runtime-core/src/apiSetupHelpers.ts</span><span class="h">index 7a1d2e3a2..00cb3240d 100644</span><span class="h">@@ -273,7 +273,13 @@ export type DefineModelOptions&lt;T = any, G = T, S = T&gt; = {</span><span class="c"> type DefineModelRuntimeOptions&lt;T, G, S&gt; = Omit&lt;PropOptions&lt;T&gt;, &#39;default&#39;&gt; &amp;</span><span class="c">   DefineModelOptions&lt;T, G, S&gt;</span><span class="c"> </span><span class="r">-type DefineModelDefault&lt;T&gt; = InferDefault&lt;Data, T&gt;</span><span class="a">+// The first member keeps `T` as a naked inference site (as `PropOptions` does)</span><span class="a">+// so it is inferred from the runtime `type` option before the `default` value,</span><span class="a">+// while the `NoInfer` member validates the default without affecting inference.</span><span class="a">+type DefineModelDefault&lt;T&gt; = {</span><span class="a">+  default: (T | ((props: Data) =&gt; T | null | undefined)) &amp;</span><span class="a">+    NoInfer&lt;InferDefault&lt;Data, T&gt;&gt;</span><span class="a">+}</span><span class="c"> </span><span class="c"> /**</span><span class="c">  * Vue `&lt;script setup&gt;` compiler macro for declaring a</span><span class="h">@@ -309,8 +315,8 @@ type DefineModelDefault&lt;T&gt; = InferDefault&lt;Data, T&gt;</span><span class="c">  * ```</span><span class="c">  */</span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="r">-  options: ({ default: DefineModelDefault&lt;T&gt; } | { required: true }) &amp;</span><span class="r">-    DefineModelRuntimeOptions&lt;T, G, S&gt;,</span><span class="a">+  options: DefineModelRuntimeOptions&lt;T, G, S&gt; &amp;</span><span class="a">+    (DefineModelDefault&lt;T&gt; | { required: true }),</span><span class="c"> ): ModelRef&lt;T, M, G, S&gt;</span><span class="c"> </span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="h">@@ -319,8 +325,8 @@ export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="c"> </span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="c">   name: string,</span><span class="r">-  options: ({ default: DefineModelDefault&lt;T&gt; } | { required: true }) &amp;</span><span class="r">-    DefineModelRuntimeOptions&lt;T, G, S&gt;,</span><span class="a">+  options: DefineModelRuntimeOptions&lt;T, G, S&gt; &amp;</span><span class="a">+    (DefineModelDefault&lt;T&gt; | { required: true }),</span><span class="c"> ): ModelRef&lt;T, M, G, S&gt;</span><span class="c"> </span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15097" rel="noopener" target="_blank">PR #15097</a></span><span class="pm"><span class="a">+22</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">packages-private/dts-test/setupHelpers.test-d.ts</span><span class="h">index 5ecc15443..067b81b03 100644</span><span class="h">@@ -1,4 +1,5 @@</span><span class="c"> import {</span><span class="a">+  type PropType,</span><span class="c">   type Ref,</span><span class="c">   type Slots,</span><span class="c">   type VNode,</span><span class="h">@@ -421,6 +422,18 @@ describe(&#39;defineModel&#39;, () =&gt; {</span><span class="c">   const countDefault = defineModel&lt;number&gt;(&#39;count&#39;, { default: 1 })</span><span class="c">   expectType&lt;Ref&lt;number&gt;&gt;(countDefault)</span><span class="c"> </span><span class="a">+  const inferredNamedArrayDefault = defineModel(&#39;items&#39;, {</span><span class="a">+    type: Array as PropType&lt;string[]&gt;,</span><span class="a">+    default: () =&gt; [],</span><span class="a">+  })</span><span class="a">+  expectType&lt;Ref&lt;string[]&gt;&gt;(inferredNamedArrayDefault)</span><span class="a">+</span><span class="a">+  const inferredArrayDefault = defineModel({</span><span class="a">+    type: Array as PropType&lt;string[]&gt;,</span><span class="a">+    default: () =&gt; [],</span><span class="a">+  })</span><span class="a">+  expectType&lt;Ref&lt;string[]&gt;&gt;(inferredArrayDefault)</span><span class="a">+</span><span class="c">   const arrayDefault = defineModel&lt;number[]&gt;({ default: () =&gt; [] })</span><span class="c">   expectType&lt;Ref&lt;number[]&gt;&gt;(arrayDefault)</span><span class="c"> </span><span class="h">@@ -468,6 +481,11 @@ describe(&#39;defineModel&#39;, () =&gt; {</span><span class="c"> </span><span class="c">   // @ts-expect-error type / default mismatch</span><span class="c">   defineModel&lt;string&gt;({ default: 123 })</span><span class="a">+  // @ts-expect-error runtime type / default mismatch</span><span class="a">+  defineModel(&#39;items&#39;, {</span><span class="a">+    type: Array as PropType&lt;string[]&gt;,</span><span class="a">+    default: () =&gt; [1],</span><span class="a">+  })</span><span class="c">   // @ts-expect-error raw array defaults must use a factory</span><span class="c">   defineModel&lt;number[]&gt;({ default: [] })</span><span class="c">   // @ts-expect-error raw object defaults must use a factory</span><span class="f">packages/runtime-core/src/apiSetupHelpers.ts</span><span class="h">index 7a1d2e3a2..f71616988 100644</span><span class="h">@@ -309,8 +309,8 @@ type DefineModelDefault&lt;T&gt; = InferDefault&lt;Data, T&gt;</span><span class="c">  * ```</span><span class="c">  */</span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="r">-  options: ({ default: DefineModelDefault&lt;T&gt; } | { required: true }) &amp;</span><span class="r">-    DefineModelRuntimeOptions&lt;T, G, S&gt;,</span><span class="a">+  options: DefineModelRuntimeOptions&lt;T, G, S&gt; &amp;</span><span class="a">+    ({ default: DefineModelDefault&lt;T&gt; } | { required: true }),</span><span class="c"> ): ModelRef&lt;T, M, G, S&gt;</span><span class="c"> </span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="h">@@ -319,8 +319,8 @@ export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="c"> </span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="c">   name: string,</span><span class="r">-  options: ({ default: DefineModelDefault&lt;T&gt; } | { required: true }) &amp;</span><span class="r">-    DefineModelRuntimeOptions&lt;T, G, S&gt;,</span><span class="a">+  options: DefineModelRuntimeOptions&lt;T, G, S&gt; &amp;</span><span class="a">+    ({ default: DefineModelDefault&lt;T&gt; } | { required: true }),</span><span class="c"> ): ModelRef&lt;T, M, G, S&gt;</span><span class="c"> </span><span class="c"> export function defineModel&lt;T, M extends PropertyKey = string, G = T, S = T&gt;(</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261003-231210/15091/">Previous · #15091</a>
+  <a class="mid" href="/backtests/vue/run-20261003-231210/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261003-231210/15113/">Next · #15113</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

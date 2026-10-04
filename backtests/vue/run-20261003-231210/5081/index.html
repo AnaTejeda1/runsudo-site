@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#5081 Throw an error on createVNode with using `innerHTML` and `children` at the same time — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #5081 in vuejs/core, run 3 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261003-231210/5081/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261003-231210/">run-20261003-231210</a><span aria-hidden="true">/</span><span aria-current="page">#5081</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/5081" rel="noopener" target="_blank">#5081</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15194" rel="noopener" target="_blank">PR #15194</a></span>
+  <span>Run 3 Oct 2026 · <span class="runid">run-20261003-231210</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">Throw an error on createVNode with using <code>innerHTML</code> and <code>children</code> at the same time</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Patch A fixes the behavior the issue asks for, and Patch B does not.
+
+**Patch A.** The issue wants an element whose `innerHTML` is toggled between a value and `undefined` to fall back to its children. Patch A changes `patchElement` in two ways:
+- The unset check now uses `!= null` instead of truthiness, so going from an empty-string `innerHTML` or `textContent` to `undefined` is handled.
+- When the prop is removed and the new children are text, it restores that text immediately. Without this, the text-children diff sees the old and new text as equal, skips the update, and leaves the element empty.
+
+This is the real root cause of the dynamic scenario the user describes (&quot;change innerHTML of props and children dynamic at same time&quot;). Its tests are behavioral and would fail before the change. Examples include `innerHTML: &#39;&lt;span&gt;foo&lt;/span&gt;&#39;` → `undefined` with the same `&#39;a&#39;` child expecting `&lt;div&gt;a&lt;/div&gt;`, the empty-string → `undefined` case, and the textContent variants. It also covers mount with `innerHTML: undefined`, array children, and a reactive component case. The change is small and sits next to the existing #9135 logic.
+
+**Patch B.** It only adds a dev-mode warning when a non-nullish `innerHTML`/`textContent` is combined with children. It deliberately skips the nullish case, which is exactly the issue&#39;s reproduction (`innerHTML: undefined`), so it does nothing for that scenario. It also does not fix the update bug where the text fails to reappear after the prop is removed. Its tests only check that warnings appear, not rendering correctness. Adding warnings to existing SSR tests is unrelated churn. It also contradicts the user&#39;s stated intent to use both together, with `innerHTML` taking precedence when it is set.
+
+Patch A is clearly the better fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 35s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,648 passed · 6 skipped · 3,654 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">99<small>vs 81 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/5081" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Version</h3>
+<p>3.2.24</p>
+<h3>Reproduction link</h3>
+<p><a href="https://codesandbox.io/s/brave-lamport-r6fi4?file=/src/main.js" rel="noopener nofollow" target="_blank">codesandbox.io</a></p>
+<h3>Steps to reproduce</h3>
+<pre><code>import { createApp, defineComponent, h } from &quot;vue&quot;;
+
+const App = defineComponent({
+  setup() {
+    return () =&gt; h(&quot;div&quot;, { innerHTML: undefined }, &quot;a&quot;);
+  }
+});
+
+createApp(App).mount(&quot;#app&quot;);</code></pre>
+<p>I want to change innerHTML of props and children dynamic at same time.</p>
+<h3>What is expected?</h3>
+<p>no Error and use innerHTML if provided or children content.</p>
+<h3>What is actually happening?</h3>
+<p>throw an error.</p>
+<p><code>TypeError Cannot read properties of undefined (reading &#39;__asyncLoader&#39;)</code></p>
+<p>&lt;!-- generated by vue-issues. DO NOT REMOVE --&gt;</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+96</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">packages/runtime-core/src/renderer.ts</span><span class="h">index c0fab7373..bd0f27420 100644</span><span class="h">@@ -872,10 +872,15 @@ function baseCreateRenderer(</span><span class="c">     // #9135 innerHTML / textContent unset needs to happen before possible</span><span class="c">     // new children mount</span><span class="c">     if (</span><span class="r">-      (oldProps.innerHTML &amp;&amp; newProps.innerHTML == null) ||</span><span class="r">-      (oldProps.textContent &amp;&amp; newProps.textContent == null)</span><span class="a">+      (oldProps.innerHTML != null &amp;&amp; newProps.innerHTML == null) ||</span><span class="a">+      (oldProps.textContent != null &amp;&amp; newProps.textContent == null)</span><span class="c">     ) {</span><span class="r">-      hostSetElementText(el, &#39;&#39;)</span><span class="a">+      // #5093 if the new children are text, restore them here since the</span><span class="a">+      // children diff below skips unchanged text children</span><span class="a">+      hostSetElementText(</span><span class="a">+        el,</span><span class="a">+        n2.shapeFlag &amp; ShapeFlags.TEXT_CHILDREN ? (n2.children as string) : &#39;&#39;,</span><span class="a">+      )</span><span class="c">     }</span><span class="c"> </span><span class="c">     if (dynamicChildren) {</span><span class="f">packages/runtime-dom/__tests__/patchProps.spec.ts</span><span class="h">index 304d9f9c1..4a9190e15 100644</span><span class="h">@@ -165,6 +165,94 @@ describe(&#39;runtime-dom: props patching&#39;, () =&gt; {</span><span class="c">     expect(root.innerHTML).toBe(`&lt;div&gt;&lt;/div&gt;`)</span><span class="c">   })</span><span class="c"> </span><span class="a">+  // #5093</span><span class="a">+  test(&#39;innerHTML w/ undefined value and text children&#39;, async () =&gt; {</span><span class="a">+    const root = document.createElement(&#39;div&#39;)</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: undefined }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;a&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: &#39;&lt;span&gt;foo&lt;/span&gt;&#39; }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;&lt;span&gt;foo&lt;/span&gt;&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: undefined }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;a&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: undefined }, &#39;b&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;b&lt;/div&gt;`)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  // #5093</span><span class="a">+  test(&#39;innerHTML w/ undefined value and dynamic props/children&#39;, async () =&gt; {</span><span class="a">+    const root = document.createElement(&#39;div&#39;)</span><span class="a">+    const html = ref&lt;string | undefined&gt;(undefined)</span><span class="a">+    const text = ref(&#39;a&#39;)</span><span class="a">+    const Comp = {</span><span class="a">+      render: () =&gt; h(&#39;div&#39;, { innerHTML: html.value }, text.value),</span><span class="a">+    }</span><span class="a">+    render(h(Comp), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;a&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    html.value = &#39;foo&#39;</span><span class="a">+    text.value = &#39;b&#39;</span><span class="a">+    await nextTick()</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;foo&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    html.value = undefined</span><span class="a">+    await nextTick()</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;b&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(null, root)</span><span class="a">+    expect(root.innerHTML).toBe(``)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  // #5093</span><span class="a">+  test(&#39;innerHTML w/ undefined value and array children&#39;, async () =&gt; {</span><span class="a">+    const fn = vi.fn()</span><span class="a">+    const comp = {</span><span class="a">+      render: () =&gt; &#39;foo&#39;,</span><span class="a">+      unmounted: fn,</span><span class="a">+    }</span><span class="a">+    const root = document.createElement(&#39;div&#39;)</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: undefined }, [h(comp)]), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;foo&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: undefined }, [h(&#39;span&#39;, &#39;bar&#39;)]), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;&lt;span&gt;bar&lt;/span&gt;&lt;/div&gt;`)</span><span class="a">+    expect(fn).toHaveBeenCalledTimes(1)</span><span class="a">+</span><span class="a">+    render(null, root)</span><span class="a">+    expect(root.innerHTML).toBe(``)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  // #5093</span><span class="a">+  test(&#39;textContent w/ undefined value and text children&#39;, async () =&gt; {</span><span class="a">+    const root = document.createElement(&#39;div&#39;)</span><span class="a">+    render(h(&#39;div&#39;, { textContent: undefined }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;a&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { textContent: &#39;foo&#39; }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;foo&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { textContent: undefined }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;a&lt;/div&gt;`)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  // #5093</span><span class="a">+  test(&#39;innerHTML/textContent w/ empty string value then undefined&#39;, () =&gt; {</span><span class="a">+    const root = document.createElement(&#39;div&#39;)</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: &#39;&#39; }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { innerHTML: undefined }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;a&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { textContent: &#39;&#39; }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    render(h(&#39;div&#39;, { textContent: undefined }, &#39;a&#39;), root)</span><span class="a">+    expect(root.innerHTML).toBe(`&lt;div&gt;a&lt;/div&gt;`)</span><span class="a">+  })</span><span class="a">+</span><span class="c">   test(&#39;textContent unmount prev children&#39;, () =&gt; {</span><span class="c">     const fn = vi.fn()</span><span class="c">     const comp = {</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15194" rel="noopener" target="_blank">PR #15194</a></span><span class="pm"><span class="a">+81</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/vnode.spec.ts</span><span class="h">index 3a88f302b..000ded438 100644</span><span class="h">@@ -92,6 +92,50 @@ describe(&#39;vnode&#39;, () =&gt; {</span><span class="c">     expect(`VNode created with invalid key (NaN)`).toHaveBeenWarned()</span><span class="c">   })</span><span class="c"> </span><span class="a">+  // #5081</span><span class="a">+  describe(&#39;children overridden by innerHTML / textContent&#39;, () =&gt; {</span><span class="a">+    test(&#39;warn on text children&#39;, () =&gt; {</span><span class="a">+      createVNode(&#39;div&#39;, { innerHTML: &#39;&lt;span/&gt;&#39; }, &#39;hello&#39;)</span><span class="a">+      expect(</span><span class="a">+        `The \`innerHTML\` prop on &lt;div&gt; will override its children`,</span><span class="a">+      ).toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;warn on array children&#39;, () =&gt; {</span><span class="a">+      createVNode(&#39;div&#39;, { innerHTML: &#39;&lt;span/&gt;&#39; }, [createVNode(&#39;span&#39;)])</span><span class="a">+      expect(</span><span class="a">+        `The \`innerHTML\` prop on &lt;div&gt; will override its children`,</span><span class="a">+      ).toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;warn on textContent&#39;, () =&gt; {</span><span class="a">+      createVNode(&#39;div&#39;, { textContent: &#39;text&#39; }, &#39;hello&#39;)</span><span class="a">+      expect(</span><span class="a">+        `The \`textContent\` prop on &lt;div&gt; will override its children`,</span><span class="a">+      ).toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;no warning when the prop is nullish&#39;, () =&gt; {</span><span class="a">+      createVNode(&#39;div&#39;, { innerHTML: undefined }, &#39;hello&#39;)</span><span class="a">+      createVNode(&#39;div&#39;, { innerHTML: null }, &#39;hello&#39;)</span><span class="a">+      createVNode(&#39;div&#39;, { textContent: undefined }, &#39;hello&#39;)</span><span class="a">+      expect(`will override its children`).not.toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;no warning without renderable children&#39;, () =&gt; {</span><span class="a">+      createVNode(&#39;div&#39;, { innerHTML: &#39;&lt;span/&gt;&#39; })</span><span class="a">+      createVNode(&#39;div&#39;, { innerHTML: &#39;&lt;span/&gt;&#39; }, &#39;&#39;)</span><span class="a">+      createVNode(&#39;div&#39;, { innerHTML: &#39;&lt;span/&gt;&#39; }, [])</span><span class="a">+      expect(`will override its children`).not.toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;no warning for component vnodes&#39;, () =&gt; {</span><span class="a">+      const Comp = { props: [&#39;innerHTML&#39;], render: () =&gt; null }</span><span class="a">+      createVNode(Comp, { innerHTML: &#39;&lt;span/&gt;&#39; }, { default: () =&gt; &#39;slot&#39; })</span><span class="a">+      expect(`will override its children`).not.toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+  })</span><span class="a">+</span><span class="c">   test(&#39;create with class component&#39;, () =&gt; {</span><span class="c">     class Component {</span><span class="c">       $props: any</span><span class="f">packages/runtime-core/src/vnode.ts</span><span class="h">index e9745c503..30d7fdfda 100644</span><span class="h">@@ -499,6 +499,25 @@ function createBaseVNode(</span><span class="c">     warn(`VNode created with invalid key (NaN). VNode type:`, vnode.type)</span><span class="c">   }</span><span class="c"> </span><span class="a">+  // #5081 validate children that will be silently discarded by innerHTML /</span><span class="a">+  // textContent. The template compiler already errors on `v-html` / `v-text`</span><span class="a">+  // used with children, but render functions have no such check.</span><span class="a">+  if (__DEV__ &amp;&amp; props &amp;&amp; vnode.shapeFlag &amp; ShapeFlags.ELEMENT) {</span><span class="a">+    const overwritingProp =</span><span class="a">+      props.innerHTML != null</span><span class="a">+        ? &#39;innerHTML&#39;</span><span class="a">+        : props.textContent != null</span><span class="a">+          ? &#39;textContent&#39;</span><span class="a">+          : null</span><span class="a">+    if (overwritingProp &amp;&amp; hasContentChildren(vnode.children)) {</span><span class="a">+      warn(</span><span class="a">+        `The \`${overwritingProp}\` prop on &lt;${vnode.type as string}&gt; will ` +</span><span class="a">+          `override its children. Remove either the \`${overwritingProp}\` ` +</span><span class="a">+          `prop or the children.`,</span><span class="a">+      )</span><span class="a">+    }</span><span class="a">+  }</span><span class="a">+</span><span class="c">   // track vnode for block tree</span><span class="c">   if (</span><span class="c">     isBlockTreeEnabled &gt; 0 &amp;&amp;</span><span class="h">@@ -528,6 +547,18 @@ function createBaseVNode(</span><span class="c"> </span><span class="c"> export { createBaseVNode as createElementVNode }</span><span class="c"> </span><span class="a">+/**</span><span class="a">+ * dev only</span><span class="a">+ * Whether children would actually render something. Empty text and empty</span><span class="a">+ * arrays are ignored, mirroring the compiler&#39;s `node.children.length` check</span><span class="a">+ * for `v-html` / `v-text`.</span><span class="a">+ */</span><span class="a">+function hasContentChildren(children: VNode[&#39;children&#39;]): boolean {</span><span class="a">+  if (isString(children)) return children !== &#39;&#39;</span><span class="a">+  if (isArray(children)) return children.length &gt; 0</span><span class="a">+  return false</span><span class="a">+}</span><span class="a">+</span><span class="c"> export const createVNode = (</span><span class="c">   __DEV__ ? createVNodeWithArgsTransform : _createVNode</span><span class="c"> ) as typeof _createVNode</span><span class="f">packages/server-renderer/__tests__/render.spec.ts</span><span class="h">index f537a6219..37de08bd4 100644</span><span class="h">@@ -664,6 +664,9 @@ function testRender(type: string, render: typeof renderToString) {</span><span class="c">             ),</span><span class="c">           ),</span><span class="c">         ).toBe(`&lt;div&gt;&lt;span&gt;hello&lt;/span&gt;&lt;/div&gt;`)</span><span class="a">+        expect(</span><span class="a">+          `The \`innerHTML\` prop on &lt;div&gt; will override its children`,</span><span class="a">+        ).toHaveBeenWarned()</span><span class="c">       })</span><span class="c"> </span><span class="c">       test(&#39;textContent&#39;, async () =&gt; {</span><span class="h">@@ -678,6 +681,9 @@ function testRender(type: string, render: typeof renderToString) {</span><span class="c">             ),</span><span class="c">           ),</span><span class="c">         ).toBe(`&lt;div&gt;${escapeHtml(`&lt;span&gt;hello&lt;/span&gt;`)}&lt;/div&gt;`)</span><span class="a">+        expect(</span><span class="a">+          `The \`textContent\` prop on &lt;div&gt; will override its children`,</span><span class="a">+        ).toHaveBeenWarned()</span><span class="c">       })</span><span class="c"> </span><span class="c">       test(&#39;textarea value&#39;, async () =&gt; {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <span class="disabled">Previous</span>
+  <a class="mid" href="/backtests/vue/run-20261003-231210/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261003-231210/7506/">Next · #7506</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

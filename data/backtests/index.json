@@ -199,6 +199,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-03",
+          "id": "run-20261003-231210",
+          "source_runs": [
+            "run-20261003-231210"
+          ],
+          "tickets": 30,
+          "better": 27,
+          "par": 0,
+          "worse": 2,
+          "error": 1,
+          "notes": "Foreman lane on sudo-solver 0.4.0, same sample as the first vuejs/core run",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-02",
           "id": "run-20261002-115633",
           "source_runs": [

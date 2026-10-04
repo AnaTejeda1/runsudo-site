@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15091 hydrateOnVisible: Cannot read properties of null (reading &#39;nodeType&#39;) when the SSR node is detached before the IntersectionObserver callback fires — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15091 in vuejs/core, run 3 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261003-231210/15091/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261003-231210/">run-20261003-231210</a><span aria-hidden="true">/</span><span aria-current="page">#15091</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15091" rel="noopener" target="_blank">#15091</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15092" rel="noopener" target="_blank">PR #15092</a></span>
+  <span>Run 3 Oct 2026 · <span class="runid">run-20261003-231210</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">hydrateOnVisible: Cannot read properties of null (reading &#39;nodeType&#39;) when the SSR node is detached before the IntersectionObserver callback fires</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches put the same guard in `__asyncHydrate`&#39;s `performHydrate`: record `wasConnected` when hydration is scheduled, then bail if `!el.parentNode || (wasConnected &amp;&amp; !el.isConnected)`. So both fix the root cause the issue identifies, and they behave identically for the reported scenario (node detached, or an ancestor detached, before the IntersectionObserver callback fires).
+
+Differences:
+
+1. Defense-in-depth. B also makes `getContainerType` accept a `null` container and drops the non-null assertion at the async-component call site. The issue explicitly suggests this hardening. It is small and low-risk, and it protects other paths where `parentNode(node)` could be null. On its own this is neutral, but it does not obscure the fix.
+
+2. Tests. A tests `hydrateOnVisible` with two cases: the root detached and an ancestor detached. The ancestor case is the one that exercises the `wasConnected &amp;&amp; !isConnected` branch, which is a nice touch.
+
+   B&#39;s tests are broader:
+   - `hydrateOnVisible`, checking that the observer was attached to the right element.
+   - `hydrateOnIdle`.
+   - The no-strategy path, where the node is detached before load resolves.
+   - A custom strategy whose container was never in the document. This verifies that the `!el.parentNode` / `wasConnected` logic handles the disconnected-from-start case correctly.
+   - A positive control confirming that hydration still happens when the node stays connected, guarding against over-eager bailing.
+
+   B lacks an explicit ancestor-detach case. However, its coverage of multiple strategies plus the regression-safety positive test is more valuable overall.
+
+3. Craft. B&#39;s comments explain the intent of the `wasConnected` capture, which is a non-obvious condition. A&#39;s terse version leaves the reader to infer why `wasConnected` matters.
+
+Core correctness is equal. B wins on test breadth (including the positive control), the issue-suggested hardening, and clarity.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">8m 47s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,623 passed · 6 skipped · 3,629 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">139<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15091" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.33</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://stackblitz.com/edit/vitejs-vite-ktsycrrc?file=repro.mjs" rel="noopener nofollow" target="_blank">https://stackblitz.com/edit/vitejs-vite-ktsycrrc?file=repro.mjs</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>SSR-render an async component that uses hydrate: hydrateOnVisible().</li><li>On the client, hydration is deferred and the strategy registers an IntersectionObserver on the component&#39;s SSR node.</li><li>The node gets detached from the document before the observer&#39;s callback executes (in production this is a route change / re-render while the intersection callback is already queued).</li><li>The observer callback runs and invokes hydrate() against the now-detached node.</li></ol>
+<h3>What is expected?</h3>
+<p>A node that is no longer connected to the document should simply not be hydrated (there&#39;s nothing to hydrate), no exception thrown.</p>
+<h3>What is actually happening?</h3>
+<p>hydrate() reaches hydrateNode, which computes the container type from the node&#39;s parent:</p>
+<pre><code>// packages/runtime-core/src/hydration.ts — inside hydrateNode, async-component branch
+nextNode = vnode.type.hydrate(
+  node, vnode, parentComponent, parentSuspense,
+  getContainerType(parentNode(node)),   // parentNode(node) === null for a detached node
+  slotScopeIds, optimized, rendererInternals, hydrateNode,
+)</code></pre>
+<pre><code>// packages/runtime-core/src/hydration.ts
+const getContainerType = (container) =&gt; {
+  if (container.nodeType !== 1) return undefined   // &lt;-- container is null -&gt; throws
+  ...
+}</code></pre>
+<p>For a detached node parentNode(node) is null, so getContainerType(null) throws TypeError: Cannot read properties of null (reading &#39;nodeType&#39;).</p>
+<p>The async-component hydration wrapper only guards against the patched case, never against disconnection:</p>
+<pre><code>// packages/runtime-core/src/apiAsyncComponent.ts — __asyncHydrate
+const performHydrate = () =&gt; {
+  if (patched) { /* warn + */ return }   // only guards `patched`
+  hydrate()                              // no isConnected check
+}</code></pre>
+<p>Because the strategy runs inside load().then(...), the throw surfaces as an unhandledrejection, so app-level try/catch around the component can&#39;t catch it.</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell">vue: 3.5.33
+@vue/server-renderer: 3.5.33
+Environment where it triggers: Android WebView (Chrome), production SSR + client hydration</code></pre>
+<h3>Any additional comments?</h3>
+<p>We see this almost exclusively on Android Chrome WebView (~43k occurrences / ~12.8k users over a rollout window) on a page that lazy-hydrates several below-the-fold sections via hydrateOnVisible. The IntersectionObserver callback is dispatched asynchronously; when the user navigates/re-renders in the WebView, the observed node is detached between the intersection being recorded and the callback running, exactly the sequence above. Desktop rarely hits the race.</p>
+<p>Skip hydration when the anchor node is no longer connected. the semantically correct place is the async performHydrate (or each built-in strategy&#39;s trigger), e.g. bail when no observed/anchor element isConnected:</p>
+<pre><code>const performHydrate = () =&gt; {
+  if (patched) { return }
+  if (el &amp;&amp; !el.isConnected) return   // detached before hydration → nothing to hydrate
+  hydrate()
+}</code></pre>
+<p>As defense-in-depth, getContainerType could also tolerate a <code>null</code> container <code>(if (!container || container.nodeType !== 1) return undefined)</code>, since it&#39;s called with parentNode(node) at several sites.</p>
+<p>We&#39;re currently shipping a userland wrapper around hydrateOnVisible that applies exactly the isConnected guard, which fully stops the crash.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+136</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/hydration.spec.ts</span><span class="h">index df0114065..2b22eefa3 100644</span><span class="h">@@ -3,6 +3,7 @@</span><span class="c">  */</span><span class="c"> </span><span class="c"> import {</span><span class="a">+  type HydrationStrategy,</span><span class="c">   type ObjectDirective,</span><span class="c">   Suspense,</span><span class="c">   Teleport,</span><span class="h">@@ -19,6 +20,8 @@ import {</span><span class="c">   defineAsyncComponent,</span><span class="c">   defineComponent,</span><span class="c">   h,</span><span class="a">+  hydrateOnIdle,</span><span class="a">+  hydrateOnVisible,</span><span class="c">   nextTick,</span><span class="c">   onMounted,</span><span class="c">   onServerPrefetch,</span><span class="h">@@ -1456,6 +1459,125 @@ describe(&#39;SSR hydration&#39;, () =&gt; {</span><span class="c">     )</span><span class="c">   })</span><span class="c"> </span><span class="a">+  // #15091</span><span class="a">+  describe(&#39;lazy hydration of a node detached before hydration&#39;, () =&gt; {</span><span class="a">+    const createLazyComp = (</span><span class="a">+      hydrate: HydrationStrategy | undefined,</span><span class="a">+      loader?: () =&gt; Promise&lt;any&gt;,</span><span class="a">+    ) =&gt; {</span><span class="a">+      const mounted = vi.fn()</span><span class="a">+      const Comp = defineComponent({</span><span class="a">+        setup() {</span><span class="a">+          onMounted(mounted)</span><span class="a">+          return () =&gt; h(&#39;button&#39;, &#39;lazy&#39;)</span><span class="a">+        },</span><span class="a">+      })</span><span class="a">+      const AsyncComp = defineAsyncComponent({</span><span class="a">+        loader: loader || (() =&gt; Promise.resolve(Comp)),</span><span class="a">+        hydrate,</span><span class="a">+      })</span><span class="a">+      return { AsyncComp, Comp, mounted }</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    const mountAttached = (AsyncComp: any) =&gt; {</span><span class="a">+      const container = document.createElement(&#39;div&#39;)</span><span class="a">+      container.innerHTML = &#39;&lt;div&gt;&lt;button&gt;lazy&lt;/button&gt;&lt;/div&gt;&#39;</span><span class="a">+      document.body.appendChild(container)</span><span class="a">+      createSSRApp({</span><span class="a">+        render: () =&gt; h(&#39;div&#39;, [h(AsyncComp)]),</span><span class="a">+      }).mount(container)</span><span class="a">+      return container</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    test(&#39;hydrateOnVisible&#39;, async () =&gt; {</span><span class="a">+      let callback: IntersectionObserverCallback | undefined</span><span class="a">+      const observe = vi.fn()</span><span class="a">+      class MockIntersectionObserver {</span><span class="a">+        constructor(cb: IntersectionObserverCallback) {</span><span class="a">+          callback = cb</span><span class="a">+        }</span><span class="a">+        observe = observe</span><span class="a">+        disconnect() {}</span><span class="a">+      }</span><span class="a">+      vi.stubGlobal(&#39;IntersectionObserver&#39;, MockIntersectionObserver)</span><span class="a">+      try {</span><span class="a">+        const { AsyncComp, mounted } = createLazyComp(hydrateOnVisible())</span><span class="a">+        const container = mountAttached(AsyncComp)</span><span class="a">+        await new Promise(r =&gt; setTimeout(r))</span><span class="a">+</span><span class="a">+        const button = container.querySelector(&#39;button&#39;)!</span><span class="a">+        expect(observe).toHaveBeenCalledWith(button)</span><span class="a">+</span><span class="a">+        // node is detached while the intersection callback is still queued</span><span class="a">+        button.remove()</span><span class="a">+        expect(() =&gt;</span><span class="a">+          callback!(</span><span class="a">+            [{ isIntersecting: true } as IntersectionObserverEntry],</span><span class="a">+            {} as IntersectionObserver,</span><span class="a">+          ),</span><span class="a">+        ).not.toThrow()</span><span class="a">+        await nextTick()</span><span class="a">+        expect(mounted).not.toHaveBeenCalled()</span><span class="a">+        container.remove()</span><span class="a">+      } finally {</span><span class="a">+        vi.unstubAllGlobals()</span><span class="a">+      }</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;hydrateOnIdle&#39;, async () =&gt; {</span><span class="a">+      const { AsyncComp, mounted } = createLazyComp(hydrateOnIdle())</span><span class="a">+      const container = mountAttached(AsyncComp)</span><span class="a">+      // detach before the idle callback fires</span><span class="a">+      container.querySelector(&#39;button&#39;)!.remove()</span><span class="a">+      await new Promise(r =&gt; setTimeout(r, 10))</span><span class="a">+      expect(mounted).not.toHaveBeenCalled()</span><span class="a">+      expect(container.innerHTML).toBe(&#39;&lt;div&gt;&lt;/div&gt;&#39;)</span><span class="a">+      container.remove()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;without hydration strategy (detached before load)&#39;, async () =&gt; {</span><span class="a">+      let resolve: (comp: any) =&gt; void</span><span class="a">+      const { AsyncComp, Comp, mounted } = createLazyComp(</span><span class="a">+        undefined,</span><span class="a">+        () =&gt; new Promise(r =&gt; (resolve = r)),</span><span class="a">+      )</span><span class="a">+      const container = mountAttached(AsyncComp)</span><span class="a">+      container.querySelector(&#39;button&#39;)!.remove()</span><span class="a">+      resolve!(Comp)</span><span class="a">+      await new Promise(r =&gt; setTimeout(r))</span><span class="a">+      expect(mounted).not.toHaveBeenCalled()</span><span class="a">+      expect(container.innerHTML).toBe(&#39;&lt;div&gt;&lt;/div&gt;&#39;)</span><span class="a">+      container.remove()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;custom strategy, container not in the document&#39;, async () =&gt; {</span><span class="a">+      let doHydrate: (() =&gt; void) | undefined</span><span class="a">+      const { AsyncComp, mounted } = createLazyComp(hydrate =&gt; {</span><span class="a">+        doHydrate = hydrate</span><span class="a">+      })</span><span class="a">+      const container = document.createElement(&#39;div&#39;)</span><span class="a">+      container.innerHTML = &#39;&lt;div&gt;&lt;button&gt;lazy&lt;/button&gt;&lt;/div&gt;&#39;</span><span class="a">+      createSSRApp({</span><span class="a">+        render: () =&gt; h(&#39;div&#39;, [h(AsyncComp)]),</span><span class="a">+      }).mount(container)</span><span class="a">+      await new Promise(r =&gt; setTimeout(r))</span><span class="a">+</span><span class="a">+      container.querySelector(&#39;button&#39;)!.remove()</span><span class="a">+      expect(() =&gt; doHydrate!()).not.toThrow()</span><span class="a">+      await nextTick()</span><span class="a">+      expect(mounted).not.toHaveBeenCalled()</span><span class="a">+      expect(container.innerHTML).toBe(&#39;&lt;div&gt;&lt;/div&gt;&#39;)</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;still hydrates when the node stays connected&#39;, async () =&gt; {</span><span class="a">+      const { AsyncComp, mounted } = createLazyComp(hydrateOnIdle())</span><span class="a">+      const container = mountAttached(AsyncComp)</span><span class="a">+      await new Promise(r =&gt; setTimeout(r, 10))</span><span class="a">+      expect(mounted).toHaveBeenCalledTimes(1)</span><span class="a">+      container.remove()</span><span class="a">+    })</span><span class="a">+  })</span><span class="a">+</span><span class="c">   // #3787</span><span class="c">   test(&#39;unmount async wrapper before load&#39;, async () =&gt; {</span><span class="c">     let resolve: any</span><span class="f">packages/runtime-core/src/apiAsyncComponent.ts</span><span class="h">index 66cb15a27..2eb1f36b1 100644</span><span class="h">@@ -124,6 +124,10 @@ export function defineAsyncComponent&lt;</span><span class="c"> </span><span class="c">     __asyncHydrate(el, instance, hydrate) {</span><span class="c">       let patched = false</span><span class="a">+      // record whether the SSR node is attached to the document at the time</span><span class="a">+      // hydration is scheduled, so that a node detached before the deferred</span><span class="a">+      // hydration fires can be detected (#15091)</span><span class="a">+      const wasConnected = el.isConnected</span><span class="c">       ;(instance.bu || (instance.bu = [])).push(() =&gt; (patched = true))</span><span class="c">       const performHydrate = () =&gt; {</span><span class="c">         // skip hydration if the component has been patched</span><span class="h">@@ -136,6 +140,12 @@ export function defineAsyncComponent&lt;</span><span class="c">           }</span><span class="c">           return</span><span class="c">         }</span><span class="a">+        // skip hydration if the node has been detached (from the document or</span><span class="a">+        // from its parent) before the (deferred) hydration was performed -</span><span class="a">+        // there is nothing left to hydrate.</span><span class="a">+        if ((wasConnected &amp;&amp; !el.isConnected) || !el.parentNode) {</span><span class="a">+          return</span><span class="a">+        }</span><span class="c">         hydrate()</span><span class="c">       }</span><span class="c">       const doHydrate = hydrateStrategy</span><span class="f">packages/runtime-core/src/hydration.ts</span><span class="h">index 405a5db93..a23c52486 100644</span><span class="h">@@ -73,9 +73,10 @@ const isMathMLContainer = (container: Element) =&gt;</span><span class="c">   container.namespaceURI!.includes(&#39;MathML&#39;)</span><span class="c"> </span><span class="c"> const getContainerType = (</span><span class="r">-  container: Element | ShadowRoot,</span><span class="a">+  container: Element | ShadowRoot | null,</span><span class="c"> ): &#39;svg&#39; | &#39;mathml&#39; | undefined =&gt; {</span><span class="r">-  if (container.nodeType !== DOMNodeTypes.ELEMENT) return undefined</span><span class="a">+  if (!container || container.nodeType !== DOMNodeTypes.ELEMENT)</span><span class="a">+    return undefined</span><span class="c">   if (isSVGContainer(container as Element)) return &#39;svg&#39;</span><span class="c">   if (isMathMLContainer(container as Element)) return &#39;mathml&#39;</span><span class="c">   return undefined</span><span class="h">@@ -347,7 +348,7 @@ export function createHydrationFunctions(</span><span class="c">             vnode,</span><span class="c">             parentComponent,</span><span class="c">             parentSuspense,</span><span class="r">-            getContainerType(parentNode(node)!),</span><span class="a">+            getContainerType(parentNode(node)),</span><span class="c">             slotScopeIds,</span><span class="c">             optimized,</span><span class="c">             rendererInternals,</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15092" rel="noopener" target="_blank">PR #15092</a></span><span class="pm"><span class="a">+56</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/hydration.spec.ts</span><span class="h">index df0114065..89fa5e829 100644</span><span class="h">@@ -19,6 +19,7 @@ import {</span><span class="c">   defineAsyncComponent,</span><span class="c">   defineComponent,</span><span class="c">   h,</span><span class="a">+  hydrateOnVisible,</span><span class="c">   nextTick,</span><span class="c">   onMounted,</span><span class="c">   onServerPrefetch,</span><span class="h">@@ -1191,6 +1192,59 @@ describe(&#39;SSR hydration&#39;, () =&gt; {</span><span class="c">     expect(spy).toHaveBeenCalled()</span><span class="c">   })</span><span class="c"> </span><span class="a">+  // #15091</span><span class="a">+  async function assertSkipLazyHydration(detached: &#39;root&#39; | &#39;ancestor&#39;) {</span><span class="a">+    let observer!: IntersectionObserver</span><span class="a">+    let observerCallback!: IntersectionObserverCallback</span><span class="a">+    const originalIntersectionObserver = globalThis.IntersectionObserver</span><span class="a">+    globalThis.IntersectionObserver = class {</span><span class="a">+      constructor(callback: IntersectionObserverCallback) {</span><span class="a">+        observer = this as any</span><span class="a">+        observerCallback = callback</span><span class="a">+      }</span><span class="a">+      disconnect() {}</span><span class="a">+      observe() {}</span><span class="a">+    } as any</span><span class="a">+</span><span class="a">+    try {</span><span class="a">+      const Comp = vi.fn(() =&gt; h(&#39;p&#39;, &#39;hello&#39;))</span><span class="a">+      const AsyncComp = defineAsyncComponent({</span><span class="a">+        loader: () =&gt; Promise.resolve(Comp),</span><span class="a">+        hydrate: hydrateOnVisible(),</span><span class="a">+      })</span><span class="a">+      const App = () =&gt; h(AsyncComp)</span><span class="a">+      const container = document.createElement(&#39;div&#39;)</span><span class="a">+</span><span class="a">+      container.innerHTML = await renderToString(h(App))</span><span class="a">+      document.body.appendChild(container)</span><span class="a">+      Comp.mockClear()</span><span class="a">+      createSSRApp(App).mount(container)</span><span class="a">+</span><span class="a">+      const el = container.firstElementChild!</span><span class="a">+      if (detached === &#39;root&#39;) {</span><span class="a">+        el.remove()</span><span class="a">+      } else {</span><span class="a">+        container.remove()</span><span class="a">+      }</span><span class="a">+      expect(el.isConnected).toBe(false)</span><span class="a">+</span><span class="a">+      expect(() =&gt;</span><span class="a">+        observerCallback(</span><span class="a">+          [{ isIntersecting: true, target: el } as IntersectionObserverEntry],</span><span class="a">+          observer,</span><span class="a">+        ),</span><span class="a">+      ).not.toThrow()</span><span class="a">+      expect(Comp).not.toHaveBeenCalled()</span><span class="a">+    } finally {</span><span class="a">+      globalThis.IntersectionObserver = originalIntersectionObserver</span><span class="a">+    }</span><span class="a">+  }</span><span class="a">+</span><span class="a">+  test.each([&#39;root&#39;, &#39;ancestor&#39;] as const)(</span><span class="a">+    &#39;skip lazy hydration when the SSR %s is detached&#39;,</span><span class="a">+    assertSkipLazyHydration,</span><span class="a">+  )</span><span class="a">+</span><span class="c">   test(&#39;update async wrapper before resolve&#39;, async () =&gt; {</span><span class="c">     const Comp = {</span><span class="c">       render() {</span><span class="f">packages/runtime-core/src/apiAsyncComponent.ts</span><span class="h">index 66cb15a27..95de65b8e 100644</span><span class="h">@@ -123,6 +123,7 @@ export function defineAsyncComponent&lt;</span><span class="c">     __asyncLoader: load,</span><span class="c"> </span><span class="c">     __asyncHydrate(el, instance, hydrate) {</span><span class="a">+      const wasConnected = el.isConnected</span><span class="c">       let patched = false</span><span class="c">       ;(instance.bu || (instance.bu = [])).push(() =&gt; (patched = true))</span><span class="c">       const performHydrate = () =&gt; {</span><span class="h">@@ -136,6 +137,7 @@ export function defineAsyncComponent&lt;</span><span class="c">           }</span><span class="c">           return</span><span class="c">         }</span><span class="a">+        if (!el.parentNode || (wasConnected &amp;&amp; !el.isConnected)) return</span><span class="c">         hydrate()</span><span class="c">       }</span><span class="c">       const doHydrate = hydrateStrategy</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261003-231210/15083/">Previous · #15083</a>
+  <a class="mid" href="/backtests/vue/run-20261003-231210/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261003-231210/15096/">Next · #15096</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
