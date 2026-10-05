@@ -11,6 +11,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-05",
+          "id": "run-20261005-183002",
+          "source_runs": [
+            "run-20261005-183002"
+          ],
+          "tickets": 30,
+          "better": 28,
+          "par": 0,
+          "worse": 2,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-03",
           "id": "run-20261003-150343",
           "source_runs": [

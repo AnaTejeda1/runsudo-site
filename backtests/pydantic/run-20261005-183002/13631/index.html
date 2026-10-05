@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13631 JSON schema discriminator mapping uses Python-style `True`/`False` keys for `bool` discriminators — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13631 in pydantic/pydantic, run 5 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261005-183002/13631/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261005-183002/">run-20261005-183002</a><span aria-hidden="true">/</span><span aria-current="page">#13631</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13631" rel="noopener" target="_blank">#13631</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13632" rel="noopener" target="_blank">PR #13632</a></span>
+  <span>Run 5 Oct 2026 · <span class="runid">run-20261005-183002</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">JSON schema discriminator mapping uses Python-style <code>True</code>/<code>False</code> keys for <code>bool</code> discriminators</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches map plain `bool` discriminator keys to &#39;true&#39;/&#39;false&#39;, which fixes the reported example. The difference is in branch structure. Patch A uses a separate `if isinstance(k, bool)` after the Enum normalization. A bool-valued Enum (e.g. `Flag.on = True`) is first unwrapped to `True` and then converted to &#39;true&#39;. Patch B uses `elif`, so that bool check never runs for Enum keys. A bool-valued Enum would still produce `str(True)` == &#39;True&#39;, the same OpenAPI mismatch the issue describes. Patch A therefore fixes the root cause (keys should match the JSON-serialized value) more completely, and it adds a test for exactly that Enum case. Patch A also maps `None` to &#39;null&#39;, following the same JSON-representation logic. That is a small, consistent extension backed by a test that checks validation still works, so it adds little risk. On tests, both would fail before and pass after for the basic bool case. Patch B&#39;s full-schema assertion is more brittle and covers only that one case. Patch A&#39;s tests are targeted and cover the Enum and None edge cases. On scope and craft, both are minimal and readable, but Patch B&#39;s `elif` is a real correctness gap rather than a style choice.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">8m 31s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,328 passed · 500 skipped · 12,828 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">60<small>vs 51 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13631" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>When a discriminated union uses a <code>bool</code> discriminator (<code>Literal[True]</code> / <code>Literal[False]</code>), the generated JSON schema&#39;s <code>discriminator.mapping</code> uses the Python string representations <code>&quot;True&quot;</code> and <code>&quot;False&quot;</code> as keys:</p>
+<pre><code class="lang-json">&quot;discriminator&quot;: {
+    &quot;mapping&quot;: {&quot;False&quot;: &quot;#/$defs/Disabled&quot;, &quot;True&quot;: &quot;#/$defs/Enabled&quot;},
+    &quot;propertyName&quot;: &quot;enabled&quot;
+}</code></pre>
+<p>Per the <a href="https://spec.openapis.org/oas/v3.1.0#discriminator-object" rel="noopener nofollow" target="_blank">OpenAPI discriminator specification</a>, mapping keys must match the serialized payload value of the discriminator property. For a boolean property, that value serializes to JSON <code>true</code>/<code>false</code>, so the keys should be <code>&quot;true&quot;</code> and <code>&quot;false&quot;</code>. Tooling that resolves the mapping against the payload (code generators, validators such as openapi-generator or Redocly) fails to match either variant.</p>
+<p>Expected:</p>
+<pre><code class="lang-json">&quot;mapping&quot;: {&quot;false&quot;: &quot;#/$defs/Disabled&quot;, &quot;true&quot;: &quot;#/$defs/Enabled&quot;}</code></pre>
+<p>Note that <code>Enum</code> discriminator keys are already normalized to their value (<code>k.value</code>) before stringification in <code>GenerateJsonSchema.tagged_union_schema</code>; <code>bool</code> keys just fall through to <code>str(k)</code>.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-python">from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class Enabled(BaseModel):
+    enabled: Literal[True]
+    config: str
+
+
+class Disabled(BaseModel):
+    enabled: Literal[False]
+
+
+class Model(BaseModel):
+    setting: Enabled | Disabled = Field(discriminator=&#39;enabled&#39;)
+
+
+print(Model.model_json_schema()[&#39;properties&#39;][&#39;setting&#39;][&#39;discriminator&#39;])
+# {&#39;propertyName&#39;: &#39;enabled&#39;, &#39;mapping&#39;: {&#39;True&#39;: &#39;#/$defs/Enabled&#39;, &#39;False&#39;: &#39;#/$defs/Disabled&#39;}}</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-text">             pydantic version: 2.14.0b1
+        pydantic-core version: 2.48.0
+          pydantic-core build: profile=debug pgo=false
+               python version: 3.11.15 (main, Apr 14 2026, 14:28:36) [Clang 22.1.3 ]
+                     platform: Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41
+             related packages: typing_extensions-4.15.0</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+60</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/json_schema.py</span><span class="h">index f6da6fc3..be19c400 100644</span><span class="h">@@ -1380,6 +1380,11 @@ class GenerateJsonSchema:</span><span class="c">         for k, v in schema[&#39;choices&#39;].items():</span><span class="c">             if isinstance(k, Enum):</span><span class="c">                 k = k.value</span><span class="a">+            if isinstance(k, bool):</span><span class="a">+                # Use the JSON representation so that keys match the serialized discriminator value</span><span class="a">+                k = &#39;true&#39; if k else &#39;false&#39;</span><span class="a">+            elif k is None:</span><span class="a">+                k = &#39;null&#39;</span><span class="c">             try:</span><span class="c">                 # Use str(k) since keys must be strings for json; while not technically correct,</span><span class="c">                 # it&#39;s the closest that can be represented in valid JSON</span><span class="f">tests/test_json_schema.py</span><span class="h">index 077116ff..498a1585 100644</span><span class="h">@@ -7280,3 +7280,58 @@ def test_nested_model_deduplication() -&gt; None:</span><span class="c">     assert &#39;Level1&#39; in definitions</span><span class="c">     assert &#39;Level1-Input&#39; not in definitions</span><span class="c">     assert &#39;Level1-Output&#39; not in definitions</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_discriminated_union_bool_discriminator_mapping_keys() -&gt; None:</span><span class="a">+    class Enabled(BaseModel):</span><span class="a">+        enabled: Literal[True]</span><span class="a">+        config: str</span><span class="a">+</span><span class="a">+    class Disabled(BaseModel):</span><span class="a">+        enabled: Literal[False]</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        setting: Enabled | Disabled = Field(discriminator=&#39;enabled&#39;)</span><span class="a">+</span><span class="a">+    assert Model.model_json_schema()[&#39;properties&#39;][&#39;setting&#39;][&#39;discriminator&#39;] == {</span><span class="a">+        &#39;propertyName&#39;: &#39;enabled&#39;,</span><span class="a">+        &#39;mapping&#39;: {&#39;true&#39;: &#39;#/$defs/Enabled&#39;, &#39;false&#39;: &#39;#/$defs/Disabled&#39;},</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_discriminated_union_bool_enum_discriminator_mapping_keys() -&gt; None:</span><span class="a">+    class Flag(Enum):</span><span class="a">+        on = True</span><span class="a">+        off = False</span><span class="a">+</span><span class="a">+    class On(BaseModel):</span><span class="a">+        flag: Literal[Flag.on]</span><span class="a">+</span><span class="a">+    class Off(BaseModel):</span><span class="a">+        flag: Literal[Flag.off]</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        value: On | Off = Field(discriminator=&#39;flag&#39;)</span><span class="a">+</span><span class="a">+    assert Model.model_json_schema()[&#39;properties&#39;][&#39;value&#39;][&#39;discriminator&#39;] == {</span><span class="a">+        &#39;propertyName&#39;: &#39;flag&#39;,</span><span class="a">+        &#39;mapping&#39;: {&#39;true&#39;: &#39;#/$defs/On&#39;, &#39;false&#39;: &#39;#/$defs/Off&#39;},</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_discriminated_union_none_discriminator_mapping_keys() -&gt; None:</span><span class="a">+    class Unset(BaseModel):</span><span class="a">+        kind: Literal[None]</span><span class="a">+</span><span class="a">+    class Named(BaseModel):</span><span class="a">+        kind: Literal[&#39;named&#39;]</span><span class="a">+        name: str</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        value: Unset | Named = Field(discriminator=&#39;kind&#39;)</span><span class="a">+</span><span class="a">+    assert Model.model_validate({&#39;value&#39;: {&#39;kind&#39;: None}}).value == Unset(kind=None)</span><span class="a">+    assert Model.model_json_schema()[&#39;properties&#39;][&#39;value&#39;][&#39;discriminator&#39;] == {</span><span class="a">+        &#39;propertyName&#39;: &#39;kind&#39;,</span><span class="a">+        &#39;mapping&#39;: {&#39;null&#39;: &#39;#/$defs/Unset&#39;, &#39;named&#39;: &#39;#/$defs/Named&#39;},</span><span class="a">+    }</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13632" rel="noopener" target="_blank">PR #13632</a></span><span class="pm"><span class="a">+51</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/json_schema.py</span><span class="h">index f6da6fc34..c61378a5f 100644</span><span class="h">@@ -1380,6 +1380,10 @@ class GenerateJsonSchema:</span><span class="c">         for k, v in schema[&#39;choices&#39;].items():</span><span class="c">             if isinstance(k, Enum):</span><span class="c">                 k = k.value</span><span class="a">+            elif isinstance(k, bool):</span><span class="a">+                # Use the JSON representation so that the discriminator mapping</span><span class="a">+                # can be matched against the serialized payload value</span><span class="a">+                k = &#39;true&#39; if k else &#39;false&#39;</span><span class="c">             try:</span><span class="c">                 # Use str(k) since keys must be strings for json; while not technically correct,</span><span class="c">                 # it&#39;s the closest that can be represented in valid JSON</span><span class="f">tests/test_json_schema.py</span><span class="h">index 077116ffa..2d67f01ae 100644</span><span class="h">@@ -3973,6 +3973,53 @@ def test_discriminated_annotated_union():</span><span class="c">     }</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_bool_discriminated_union() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13631&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Enabled(BaseModel):</span><span class="a">+        enabled: Literal[True]</span><span class="a">+        config: str</span><span class="a">+</span><span class="a">+    class Disabled(BaseModel):</span><span class="a">+        enabled: Literal[False]</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        setting: Enabled | Disabled = Field(discriminator=&#39;enabled&#39;)</span><span class="a">+</span><span class="a">+    assert Model.model_json_schema() == {</span><span class="a">+        &#39;$defs&#39;: {</span><span class="a">+            &#39;Disabled&#39;: {</span><span class="a">+                &#39;properties&#39;: {&#39;enabled&#39;: {&#39;const&#39;: False, &#39;title&#39;: &#39;Enabled&#39;, &#39;type&#39;: &#39;boolean&#39;}},</span><span class="a">+                &#39;required&#39;: [&#39;enabled&#39;],</span><span class="a">+                &#39;title&#39;: &#39;Disabled&#39;,</span><span class="a">+                &#39;type&#39;: &#39;object&#39;,</span><span class="a">+            },</span><span class="a">+            &#39;Enabled&#39;: {</span><span class="a">+                &#39;properties&#39;: {</span><span class="a">+                    &#39;config&#39;: {&#39;title&#39;: &#39;Config&#39;, &#39;type&#39;: &#39;string&#39;},</span><span class="a">+                    &#39;enabled&#39;: {&#39;const&#39;: True, &#39;title&#39;: &#39;Enabled&#39;, &#39;type&#39;: &#39;boolean&#39;},</span><span class="a">+                },</span><span class="a">+                &#39;required&#39;: [&#39;enabled&#39;, &#39;config&#39;],</span><span class="a">+                &#39;title&#39;: &#39;Enabled&#39;,</span><span class="a">+                &#39;type&#39;: &#39;object&#39;,</span><span class="a">+            },</span><span class="a">+        },</span><span class="a">+        &#39;properties&#39;: {</span><span class="a">+            &#39;setting&#39;: {</span><span class="a">+                &#39;discriminator&#39;: {</span><span class="a">+                    &#39;mapping&#39;: {&#39;false&#39;: &#39;#/$defs/Disabled&#39;, &#39;true&#39;: &#39;#/$defs/Enabled&#39;},</span><span class="a">+                    &#39;propertyName&#39;: &#39;enabled&#39;,</span><span class="a">+                },</span><span class="a">+                &#39;oneOf&#39;: [{&#39;$ref&#39;: &#39;#/$defs/Enabled&#39;}, {&#39;$ref&#39;: &#39;#/$defs/Disabled&#39;}],</span><span class="a">+                &#39;title&#39;: &#39;Setting&#39;,</span><span class="a">+            }</span><span class="a">+        },</span><span class="a">+        &#39;required&#39;: [&#39;setting&#39;],</span><span class="a">+        &#39;title&#39;: &#39;Model&#39;,</span><span class="a">+        &#39;type&#39;: &#39;object&#39;,</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_nested_discriminated_union():</span><span class="c">     class BlackCatWithHeight(BaseModel):</span><span class="c">         color: Literal[&#39;black&#39;]</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261005-183002/13621/">Previous · #13621</a>
+  <a class="mid" href="/backtests/pydantic/run-20261005-183002/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261005-183002/13660/">Next · #13660</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

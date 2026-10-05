@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13465 Generic __pydantic_extra__ typevar substitution lost in non-generic subclasses of parametrized models — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13465 in pydantic/pydantic, run 5 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261005-183002/13465/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261005-183002/">run-20261005-183002</a><span aria-hidden="true">/</span><span aria-current="page">#13465</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13465" rel="noopener" target="_blank">#13465</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13483" rel="noopener" target="_blank">PR #13483</a></span>
+  <span>Run 5 Oct 2026 · <span class="runid">run-20261005-183002</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Generic <strong>pydantic_extra</strong> typevar substitution lost in non-generic subclasses of parametrized models</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the reported case. For `class Sub(M[int])`, when `__pydantic_extra__` is only inherited, each reuses the parent&#39;s already-substituted `PydanticExtraInfo`, so `Sub` gets `dict[str, int]`, validates extras, and emits `additionalProperties: {&#39;type&#39;: &#39;integer&#39;}`.
+
+The patches differ at the edges.
+
+**Incomplete parent annotations.** Patch A reuses the parent&#39;s extra info even when it is incomplete, and only substitutes when `typevars_map` is non-empty. Take a parent with a forward reference that couldn&#39;t be resolved at its own definition time, such as `&#39;dict[str, Later]&#39;` defined in another module. A subclass created after `Later` exists would then inherit an incomplete info instead of re-evaluating the hint. On main today, the hint would be re-evaluated in the declaring class&#39;s namespace and resolve correctly. So Patch A risks a regression here, and it imports the #12000-style limitation into a path that currently works. Patch B explicitly falls back to `type_hints[&#39;__pydantic_extra__&#39;]` when the parent info is incomplete, avoiding this. It also adds a cross-module test for exactly that scenario.
+
+**Choosing the parent.** Patch A takes the first direct base whose `getattr(base, &#39;__pydantic_extra_info__&#39;)` is non-None. Patch B walks the MRO to find the class that actually declares the annotation, then takes the most-derived class at or before it that has its own `__pydantic_extra_info__`. This matches how annotation resolution works and is more robust under multiple inheritance and diamonds.
+
+**Tests.** Patch A adds one test covering the basic case. Patch B covers the basic case, a two-level non-generic subclass (`SubSub`), extra-info inherited from a second base, and the cross-module incomplete case. Patch B&#39;s tests are broader and target real edge cases.
+
+**Craft.** Patch B&#39;s helper adds some code but is well documented. It keeps the existing `replace_types` flow intact instead of branching on `typevars_map`.
+
+Overall, Patch B is more correct at the edges and better tested.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">9m 46s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,270 passed · 501 skipped · 12,771 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">93<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13465" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2 (<code>main</code> @ 428b0dba8)</li><li><input type="checkbox" disabled checked> I have searched GitHub for a duplicate issue and I&#39;m sure this is something new</li></ul>
+<h3>Description</h3>
+<p>Follow-up to #13369 / #13391 (<code>__pydantic_extra__</code> typevar substitution, currently main-only): the substitution works for direct parametrization (<code>M[int]</code>) but is lost in a plain (non-generic) subclass of a parametrized model (<code>class Sub(M[int])</code>). Extras on the subclass are silently <strong>unvalidated</strong> and the JSON schema loses the extras type.</p>
+<pre><code>M[int](x=&#39;nope&#39;)  -&gt; ValidationError (correct, fixed by #13391)
+Sub(x=&#39;nope&#39;)     -&gt; accepted; m.x == &#39;nope&#39;          # BUG
+Sub(x=&#39;5&#39;).x      -&gt; &#39;5&#39; (str)  vs  M[int](x=&#39;5&#39;).x == 5
+
+M[int].model_json_schema()[&#39;additionalProperties&#39;]  -&gt; {&#39;type&#39;: &#39;integer&#39;}
+Sub.model_json_schema()[&#39;additionalProperties&#39;]     -&gt; {}                  # BUG
+Sub.__pydantic_extra_info__                          -&gt; PydanticExtraInfo(annotation=dict[str, ~T], complete=True)</code></pre>
+<p>Root cause (from stepping through <code>collect_model_fields</code> in <code>pydantic/_internal/_fields.py</code>): for <code>Sub</code>, <code>typevars_map</code> is empty (its own <code>__pydantic_generic_metadata__</code> is empty) and the inherited hint for <code>__pydantic_extra__</code> is the parent&#39;s <em>raw</em> annotation <code>dict[str, T]</code> — so <code>_generics.replace_types(ann, typevars_map)</code> is a no-op and the raw <code>~T</code> survives, producing <code>extras_schema = {&#39;type&#39;: &#39;any&#39;}</code>. Regular fields don&#39;t have this problem because they&#39;re copied from the parent&#39;s already-substituted <code>model_fields</code>; the extra-info path never consults the parent&#39;s <code>__pydantic_extra_info__</code> (which on <code>M[int]</code> correctly holds <code>dict[str, int]</code>).</p>
+<p>Note the 2-level generic chain (<code>class Mid(M[T], Generic[T])</code>; <code>Mid[int]</code>) works on main — only the plain-subclass case is broken.</p>
+<p>I have a small fix working locally (reuse the parent&#39;s substituted <code>PydanticExtraInfo</code> annotation when <code>__pydantic_extra__</code> is only inherited, mirroring how fields inherit; brings extra-info to exact parity with fields, including the same known deferred-annotation limitation as #12000), with a regression test in the style of <code>test_extra_generic_class</code> — it passes the <code>test_main.py</code> / <code>test_generics.py</code> / <code>test_forward_ref.py</code> / <code>test_edge_cases.py</code> suites with no new failures. Per the contributing guidelines I&#39;d like to be assigned before opening the PR — happy to submit it right away.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-python">from typing import Generic, TypeVar
+from pydantic import BaseModel, ConfigDict
+
+T = TypeVar(&#39;T&#39;)
+
+class M(BaseModel, Generic[T]):
+    model_config = ConfigDict(extra=&#39;allow&#39;)
+    __pydantic_extra__: dict[str, T]
+    y: T
+
+class Sub(M[int]):
+    pass
+
+print(Sub(y=1, x=&#39;not_an_int&#39;).x)  # &#39;not_an_int&#39; — should raise ValidationError
+print(Sub.model_json_schema().get(&#39;additionalProperties&#39;))  # {} — should be {&#39;type&#39;: &#39;integer&#39;}</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-text">pydantic version: 2.14.0a1
+pydantic-core version: 2.47.0
+python version: 3.14.4
+platform: macOS-26.5-arm64
+commit: 428b0dba8 (main)</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+92</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_fields.py</span><span class="h">index 59c7f8d7..3ab5c1ce 100644</span><span class="h">@@ -423,7 +423,16 @@ def collect_model_fields(  # noqa: C901</span><span class="c"> </span><span class="c">     pydantic_extra_info: PydanticExtraInfo | None = None</span><span class="c">     if &#39;__pydantic_extra__&#39; in type_hints:</span><span class="r">-        ann, complete = type_hints[&#39;__pydantic_extra__&#39;]</span><span class="a">+        parent_extra_info = _get_inherited_extra_info(cls) if &#39;__pydantic_extra__&#39; not in cls_annotations else None</span><span class="a">+        if parent_extra_info is not None and parent_extra_info.complete:</span><span class="a">+            # Similar to fields, the annotation is inherited from one of the bases: we reuse the parent&#39;s</span><span class="a">+            # `PydanticExtraInfo` instance, as its annotation may have already been substituted (e.g. if</span><span class="a">+            # the parent is a parametrized generic model, such as in `class Sub(MyGenericModel[int]): ...`).</span><span class="a">+            # If the parent&#39;s annotation is incomplete, it wasn&#39;t substituted yet, so we evaluate the type</span><span class="a">+            # hint again instead (as it may be resolvable now, in the namespace of the declaring class).</span><span class="a">+            ann, complete = parent_extra_info.annotation, parent_extra_info.complete</span><span class="a">+        else:</span><span class="a">+            ann, complete = type_hints[&#39;__pydantic_extra__&#39;]</span><span class="c">         if complete:</span><span class="c">             # If not complete, `rebuild_model_fields()` takes care of it:</span><span class="c">             ann = _generics.replace_types(ann, typevars_map)</span><span class="h">@@ -435,6 +444,27 @@ def collect_model_fields(  # noqa: C901</span><span class="c">     return fields, pydantic_extra_info, class_vars</span><span class="c"> </span><span class="c"> </span><span class="a">+def _get_inherited_extra_info(cls: type[BaseModel]) -&gt; PydanticExtraInfo | None:</span><span class="a">+    &quot;&quot;&quot;Get the `PydanticExtraInfo` of the parent from which the `__pydantic_extra__` annotation is inherited.</span><span class="a">+</span><span class="a">+    The annotation is declared on the first class of the MRO that has it in its own annotations. However, the</span><span class="a">+    `PydanticExtraInfo` instance to reuse is the one of the first class in the MRO that is a subclass of this</span><span class="a">+    declaring class, as it may have its annotation substituted (e.g. a parametrized generic model).</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    mro = cls.__mro__[1:]</span><span class="a">+    for declaring_idx, base in enumerate(mro):</span><span class="a">+        if &#39;__pydantic_extra__&#39; in _typing_extra.safe_get_annotations(base):</span><span class="a">+            break</span><span class="a">+    else:</span><span class="a">+        return None</span><span class="a">+</span><span class="a">+    declaring_cls = mro[declaring_idx]</span><span class="a">+    for base in mro[: declaring_idx + 1]:</span><span class="a">+        if issubclass(base, declaring_cls) and (extra_info := base.__dict__.get(&#39;__pydantic_extra_info__&#39;)) is not None:</span><span class="a">+            return extra_info</span><span class="a">+    return None</span><span class="a">+</span><span class="a">+</span><span class="c"> def rebuild_model_fields(</span><span class="c">     cls: type[BaseModel],</span><span class="c">     *,</span><span class="f">tests/test_main.py</span><span class="h">index f924cec9..5ac9feed 100644</span><span class="h">@@ -3507,6 +3507,67 @@ def test_extra_generic_class() -&gt; None:</span><span class="c">     assert Mint(extra_value=&#39;1&#39;).model_extra == {&#39;extra_value&#39;: 1}</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_extra_generic_class_non_generic_subclass() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13465&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class Model(BaseModel, Generic[T], extra=&#39;allow&#39;):</span><span class="a">+        __pydantic_extra__: dict[str, T]</span><span class="a">+        y: T</span><span class="a">+</span><span class="a">+    class Sub(Model[int]):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    class SubSub(Sub):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    for cls in (Sub, SubSub):</span><span class="a">+        assert cls.model_json_schema()[&#39;additionalProperties&#39;] == {&#39;type&#39;: &#39;integer&#39;}</span><span class="a">+</span><span class="a">+        with pytest.raises(ValidationError):</span><span class="a">+            cls(y=1, x=&#39;not_an_int&#39;)</span><span class="a">+</span><span class="a">+        m = cls(y=1, x=&#39;5&#39;)</span><span class="a">+        assert m.x == 5</span><span class="a">+        assert m.model_extra == {&#39;x&#39;: 5}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_extra_inherited_from_second_base() -&gt; None:</span><span class="a">+    class A(BaseModel):</span><span class="a">+        a: int = 1</span><span class="a">+</span><span class="a">+    class B(BaseModel, extra=&#39;allow&#39;):</span><span class="a">+        __pydantic_extra__: dict[str, int]</span><span class="a">+</span><span class="a">+    class C(A, B):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    assert C.model_json_schema()[&#39;additionalProperties&#39;] == {&#39;type&#39;: &#39;integer&#39;}</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        C(x=&#39;not_an_int&#39;)</span><span class="a">+</span><span class="a">+    assert C(x=&#39;5&#39;).model_extra == {&#39;x&#39;: 5}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_extra_incomplete_parent_subclass_other_module(create_module) -&gt; None:</span><span class="a">+    @create_module</span><span class="a">+    def module_a():</span><span class="a">+        from pydantic import BaseModel</span><span class="a">+</span><span class="a">+        class Model(BaseModel, extra=&#39;allow&#39;):</span><span class="a">+            __pydantic_extra__: &#39;dict[str, Later]&#39;</span><span class="a">+</span><span class="a">+        class Later(BaseModel):</span><span class="a">+            v: int</span><span class="a">+</span><span class="a">+    class Sub(module_a.Model):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    assert Sub(x={&#39;v&#39;: &#39;1&#39;}).model_extra == {&#39;x&#39;: module_a.Later(v=1)}</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_super_getattr_extra():</span><span class="c">     class Model(BaseModel):</span><span class="c">         model_config = {&#39;extra&#39;: &#39;allow&#39;}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13483" rel="noopener" target="_blank">PR #13483</a></span><span class="pm"><span class="a">+48</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_fields.py</span><span class="h">index 59c7f8d79..af78e98db 100644</span><span class="h">@@ -423,14 +423,35 @@ def collect_model_fields(  # noqa: C901</span><span class="c"> </span><span class="c">     pydantic_extra_info: PydanticExtraInfo | None = None</span><span class="c">     if &#39;__pydantic_extra__&#39; in type_hints:</span><span class="r">-        ann, complete = type_hints[&#39;__pydantic_extra__&#39;]</span><span class="r">-        if complete:</span><span class="r">-            # If not complete, `rebuild_model_fields()` takes care of it:</span><span class="r">-            ann = _generics.replace_types(ann, typevars_map)</span><span class="r">-        pydantic_extra_info = PydanticExtraInfo(</span><span class="r">-            annotation=ann,</span><span class="r">-            complete=complete,</span><span class="r">-        )</span><span class="a">+        parent_extra_info: PydanticExtraInfo | None = None</span><span class="a">+        if &#39;__pydantic_extra__&#39; not in cls_annotations:</span><span class="a">+            # The annotation is only present on parent classes. As with fields, we make use of the parent&#39;s</span><span class="a">+            # extra info, where type variables are already substituted:</span><span class="a">+            for base in bases:</span><span class="a">+                parent_extra_info = getattr(base, &#39;__pydantic_extra_info__&#39;, None)</span><span class="a">+                if parent_extra_info is not None:</span><span class="a">+                    break</span><span class="a">+</span><span class="a">+        if parent_extra_info is not None:</span><span class="a">+            # As with fields, the only case where substituting the type variables is relevant (i.e. when</span><span class="a">+            # `typevars_map` is not empty) is when a generic class is parameterized:</span><span class="a">+            if typevars_map and parent_extra_info.complete:</span><span class="a">+                # If not complete, `rebuild_model_fields()` takes care of it:</span><span class="a">+                pydantic_extra_info = PydanticExtraInfo(</span><span class="a">+                    annotation=_generics.replace_types(parent_extra_info.annotation, typevars_map),</span><span class="a">+                    complete=True,</span><span class="a">+                )</span><span class="a">+            else:</span><span class="a">+                pydantic_extra_info = parent_extra_info</span><span class="a">+        else:</span><span class="a">+            ann, complete = type_hints[&#39;__pydantic_extra__&#39;]</span><span class="a">+            if complete:</span><span class="a">+                # If not complete, `rebuild_model_fields()` takes care of it:</span><span class="a">+                ann = _generics.replace_types(ann, typevars_map)</span><span class="a">+            pydantic_extra_info = PydanticExtraInfo(</span><span class="a">+                annotation=ann,</span><span class="a">+                complete=complete,</span><span class="a">+            )</span><span class="c"> </span><span class="c">     return fields, pydantic_extra_info, class_vars</span><span class="c"> </span><span class="f">tests/test_main.py</span><span class="h">index f924cec99..b6511f5c2 100644</span><span class="h">@@ -3507,6 +3507,25 @@ def test_extra_generic_class() -&gt; None:</span><span class="c">     assert Mint(extra_value=&#39;1&#39;).model_extra == {&#39;extra_value&#39;: 1}</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_extra_generic_class_subclass() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13465&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class Model(BaseModel, Generic[T], extra=&#39;allow&#39;):</span><span class="a">+        __pydantic_extra__: dict[str, T]</span><span class="a">+</span><span class="a">+    class Sub(Model[int]):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    assert Sub.model_json_schema()[&#39;additionalProperties&#39;] == {&#39;type&#39;: &#39;integer&#39;}</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        Sub(extra_value=&#39;not_an_int&#39;)</span><span class="a">+</span><span class="a">+    assert Sub(extra_value=&#39;1&#39;).model_extra == {&#39;extra_value&#39;: 1}</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_super_getattr_extra():</span><span class="c">     class Model(BaseModel):</span><span class="c">         model_config = {&#39;extra&#39;: &#39;allow&#39;}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261005-183002/13460/">Previous · #13460</a>
+  <a class="mid" href="/backtests/pydantic/run-20261005-183002/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261005-183002/13467/">Next · #13467</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
