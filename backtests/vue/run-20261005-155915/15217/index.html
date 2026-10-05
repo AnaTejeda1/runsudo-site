@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15217 The Playground&#39;s TS version is set to 7 by default. — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15217 in vuejs/core, run 5 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261005-155915/15217/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261005-155915/">run-20261005-155915</a><span aria-hidden="true">/</span><span aria-current="page">#15217</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15217" rel="noopener" target="_blank">#15217</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15219" rel="noopener" target="_blank">PR #15219</a></span>
+  <span>Run 5 Oct 2026 · <span class="runid">run-20261005-155915</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">The Playground&#39;s TS version is set to 7 by default.</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the core problem the same way: they pass an explicit `typescriptVersion` ref to `useStore`, so the playground no longer defaults to npm&#39;s `latest` tag, which now resolves to TS 7. Both are correct for the reported scenario.
+
+Correctness / maintainability. Patch A hardcodes `&#39;6.0.3&#39;`. That works today but drifts silently. Patch B derives the default from the repo&#39;s own `typescript/package.json`, so the playground always defaults to the version Vue is actually built and type-checked against. B also covers the issue&#39;s other ask, telling users that a version isn&#39;t supported: the version dropdown marks TypeScript majors newer than the supported one as &quot;(unsupported)&quot;. A minor risk in B is the reliance on importing `typescript/package.json`. Vite handles JSON imports fine, and TypeScript&#39;s package does not block that subpath, so the risk is low.
+
+Tests. Patch A adds none. Patch B adds a spec that checks the default is not `latest` and matches the repo TS version, and that newer majors are flagged unsupported. The first test would fail against the original code&#39;s implicit `latest` behavior only in spirit, since the module is new. Even so, the tests meaningfully pin the intended behavior. The `filterVersions` tests cover logic that was moved, not new behavior.
+
+Scope / craft. B extracts the existing version-filtering logic into `versions.ts`. That is a pure move with no behavior change, done to make it testable, and the change stays clean and well commented. It is more churn than A but low risk.
+
+Overall, B fixes the root issue more robustly, addresses the request to inform users, and adds tests, so it is the better patch.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 27s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,678 passed · 6 skipped · 3,684 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">141<small>vs 3 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15217" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>commit(d2c458b)</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/" rel="noopener nofollow" target="_blank">https://play.vuejs.org/</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>open Playground: <a href="https://play.vuejs.org/" rel="noopener nofollow" target="_blank">https://play.vuejs.org/</a></li><li>TS version has been set latest and it&#39;s over 7. </li></ol>
+<h3>What is expected?</h3>
+<p>It&#39;s not friendly for someone new to Vue and they don&#39;t know that Vue doesn&#39;t support TS7 at this time.<br>I think this is temporary issue, but until Vue supports TS7, It is helpful to tell that.</p>
+<p>Or rather, the TS version should default to TS6, not the latest.</p>
+<h3>What is actually happening?</h3>
+<p>Broken type support if TS version is not changed.</p>
+<p>&lt;img width=&quot;470&quot; height=&quot;265&quot; alt=&quot;Image&quot; src=&quot;https://github.com/user-attachments/assets/a5f13371-1180-4c6f-8714-06f32f7c11c8&quot; /&gt;</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell"></code></pre>
+<h3>Any additional comments?</h3>
+<p>_No response_</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+114</span> <span class="r">−27</span></span></div><pre class="diff"><span class="f">packages-private/sfc-playground/__tests__/versions.spec.ts</span><span class="h">new file mode 100644</span><span class="h">index 000000000..b93bc074b</span><span class="h">@@ -0,0 +1,50 @@</span><span class="a">+import { version as repoTypeScriptVersion } from &#39;typescript/package.json&#39;</span><span class="a">+import {</span><span class="a">+  DEFAULT_TYPESCRIPT_VERSION,</span><span class="a">+  filterVersions,</span><span class="a">+  isTypeScriptVersionSupported,</span><span class="a">+} from &#39;../src/versions&#39;</span><span class="a">+</span><span class="a">+describe(&#39;sfc-playground versions&#39;, () =&gt; {</span><span class="a">+  test(&#39;defaults TypeScript to the version Vue is built against, not latest&#39;, () =&gt; {</span><span class="a">+    expect(DEFAULT_TYPESCRIPT_VERSION).not.toBe(&#39;latest&#39;)</span><span class="a">+    expect(DEFAULT_TYPESCRIPT_VERSION).toBe(repoTypeScriptVersion)</span><span class="a">+    expect(isTypeScriptVersionSupported(DEFAULT_TYPESCRIPT_VERSION)).toBe(true)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  test(&#39;flags TypeScript majors newer than the supported one&#39;, () =&gt; {</span><span class="a">+    const major = parseInt(DEFAULT_TYPESCRIPT_VERSION, 10)</span><span class="a">+    expect(isTypeScriptVersionSupported(`${major + 1}.0.0`)).toBe(false)</span><span class="a">+    expect(isTypeScriptVersionSupported(`${major + 1}.0.0-beta`)).toBe(false)</span><span class="a">+    expect(isTypeScriptVersionSupported(`${major}.0.0`)).toBe(true)</span><span class="a">+    expect(isTypeScriptVersionSupported(&#39;5.9.3&#39;)).toBe(true)</span><span class="a">+    expect(isTypeScriptVersionSupported(&#39;4.9.5&#39;)).toBe(true)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  test(&#39;filters dev and insiders TypeScript builds&#39;, () =&gt; {</span><span class="a">+    expect(</span><span class="a">+      filterVersions(&#39;typescript&#39;, [</span><span class="a">+        &#39;7.0.0&#39;,</span><span class="a">+        &#39;6.1.0-dev.20260101&#39;,</span><span class="a">+        &#39;6.0.3&#39;,</span><span class="a">+        &#39;5.0.0-insiders.20230101&#39;,</span><span class="a">+        &#39;5.9.3&#39;,</span><span class="a">+      ]),</span><span class="a">+    ).toEqual([&#39;7.0.0&#39;, &#39;6.0.3&#39;, &#39;5.9.3&#39;])</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  test(&#39;limits Vue pre-releases and total versions&#39;, () =&gt; {</span><span class="a">+    const versions = [</span><span class="a">+      ...Array.from({ length: 12 }, (_, i) =&gt; `3.6.0-beta.${12 - i}`),</span><span class="a">+      &#39;3.5.1&#39;,</span><span class="a">+      &#39;3.5.0&#39;,</span><span class="a">+      &#39;3.5.0-rc.1&#39;,</span><span class="a">+      ...Array.from({ length: 40 }, (_, i) =&gt; `3.4.${40 - i}`),</span><span class="a">+    ]</span><span class="a">+    const filtered = filterVersions(&#39;vue&#39;, versions)</span><span class="a">+    expect(filtered.length).toBe(30)</span><span class="a">+    expect(filtered.filter(v =&gt; v.includes(&#39;-&#39;)).length).toBe(10)</span><span class="a">+    expect(filtered).not.toContain(&#39;3.5.0-rc.1&#39;)</span><span class="a">+    expect(filtered.slice(10, 12)).toEqual([&#39;3.5.1&#39;, &#39;3.5.0&#39;])</span><span class="a">+  })</span><span class="a">+})</span><span class="f">packages-private/sfc-playground/src/App.vue</span><span class="h">index 7020211f4..24a90f9f4 100644</span><span class="h">@@ -2,6 +2,7 @@</span><span class="c"> import Header from &#39;./Header.vue&#39;</span><span class="c"> import { Repl, useStore, SFCOptions, useVueImportMap } from &#39;@vue/repl&#39;</span><span class="c"> import Monaco from &#39;@vue/repl/monaco-editor&#39;</span><span class="a">+import { DEFAULT_TYPESCRIPT_VERSION } from &#39;./versions&#39;</span><span class="c"> import { ref, watchEffect, onMounted, computed, watch } from &#39;vue&#39;</span><span class="c"> </span><span class="c"> const replRef = ref&lt;InstanceType&lt;typeof Repl&gt;&gt;()</span><span class="h">@@ -70,6 +71,8 @@ const store = useStore(</span><span class="c">     builtinImportMap: importMap,</span><span class="c">     vueVersion,</span><span class="c">     sfcOptions,</span><span class="a">+    // npm&#39;s `latest` TypeScript may be a major Vue doesn&#39;t support yet (TS 7)</span><span class="a">+    typescriptVersion: ref(DEFAULT_TYPESCRIPT_VERSION),</span><span class="c">   },</span><span class="c">   hash,</span><span class="c"> )</span><span class="f">packages-private/sfc-playground/src/VersionSelect.vue</span><span class="h">index 57efdb5f6..02c007158 100644</span><span class="h">@@ -1,6 +1,7 @@</span><span class="c"> &lt;script setup lang=&quot;ts&quot;&gt;</span><span class="c"> import { onMounted, ref } from &#39;vue&#39;</span><span class="c"> import Copy from &#39;./icons/Copy.vue&#39;</span><span class="a">+import { filterVersions, isTypeScriptVersionSupported } from &#39;./versions&#39;</span><span class="c"> </span><span class="c"> const expanded = ref(false)</span><span class="c"> const versions = ref&lt;string[]&gt;()</span><span class="h">@@ -24,32 +25,7 @@ async function fetchVersions(): Promise&lt;string[]&gt; {</span><span class="c">   )</span><span class="c">   const { versions } = (await res.json()) as { versions: string[] }</span><span class="c"> </span><span class="r">-  if (props.pkg === &#39;vue&#39;) {</span><span class="r">-    // If the latest Vue version is a pre-release, include up to 10 of the</span><span class="r">-    // current pre-releases so stable releases still have room in the list.</span><span class="r">-    // Once a stable release is reached, skip all older pre-releases.</span><span class="r">-    let isInPreRelease = versions[0].includes(&#39;-&#39;)</span><span class="r">-    let preReleaseCount = 0</span><span class="r">-    const filteredVersions: string[] = []</span><span class="r">-    for (const v of versions) {</span><span class="r">-      if (v.includes(&#39;-&#39;)) {</span><span class="r">-        if (isInPreRelease &amp;&amp; preReleaseCount &lt; 10) {</span><span class="r">-          filteredVersions.push(v)</span><span class="r">-          preReleaseCount++</span><span class="r">-        }</span><span class="r">-      } else {</span><span class="r">-        filteredVersions.push(v)</span><span class="r">-        isInPreRelease = false</span><span class="r">-      }</span><span class="r">-      if (filteredVersions.length &gt;= 30) {</span><span class="r">-        break</span><span class="r">-      }</span><span class="r">-    }</span><span class="r">-    return filteredVersions</span><span class="r">-  } else if (props.pkg === &#39;typescript&#39;) {</span><span class="r">-    return versions.filter(v =&gt; !v.includes(&#39;dev&#39;) &amp;&amp; !v.includes(&#39;insiders&#39;))</span><span class="r">-  }</span><span class="r">-  return versions</span><span class="a">+  return filterVersions(props.pkg, versions)</span><span class="c"> }</span><span class="c"> </span><span class="c"> function setVersion(v: string) {</span><span class="h">@@ -93,7 +69,15 @@ onMounted(() =&gt; {</span><span class="c">           active: ver === version || (version === &#39;latest&#39; &amp;&amp; index === 0),</span><span class="c">         }&quot;</span><span class="c">       &gt;</span><span class="r">-        &lt;a @click=&quot;setVersion(ver)&quot;&gt;v{{ ver }}&lt;/a&gt;</span><span class="a">+        &lt;a @click=&quot;setVersion(ver)&quot;&gt;</span><span class="a">+          v{{ ver }}</span><span class="a">+          &lt;span</span><span class="a">+            v-if=&quot;pkg === &#39;typescript&#39; &amp;&amp; !isTypeScriptVersionSupported(ver)&quot;</span><span class="a">+            class=&quot;version-unsupported&quot;</span><span class="a">+            title=&quot;This TypeScript version is not yet supported by Vue&quot;</span><span class="a">+            &gt;(unsupported)&lt;/span</span><span class="a">+          &gt;</span><span class="a">+        &lt;/a&gt;</span><span class="c">         &lt;button</span><span class="c">           title=&quot;Copy Version&quot;</span><span class="c">           class=&quot;version-copy&quot;</span><span class="h">@@ -147,6 +131,10 @@ onMounted(() =&gt; {</span><span class="c">   justify-content: space-between;</span><span class="c"> }</span><span class="c"> </span><span class="a">+.versions .version-unsupported {</span><span class="a">+  color: #aaa;</span><span class="a">+}</span><span class="a">+</span><span class="c"> .versions .versions-item .version-copy {</span><span class="c">   display: none;</span><span class="c"> }</span><span class="f">packages-private/sfc-playground/src/versions.ts</span><span class="h">new file mode 100644</span><span class="h">index 000000000..2f0aa3055</span><span class="h">@@ -0,0 +1,46 @@</span><span class="a">+// The TypeScript version this repo is developed and type-checked against.</span><span class="a">+// Newer major versions (e.g. TS 7) are not yet supported by Vue&#39;s language</span><span class="a">+// tools, so the playground must not default to npm&#39;s `latest` tag.</span><span class="a">+import { version as repoTypeScriptVersion } from &#39;typescript/package.json&#39;</span><span class="a">+</span><span class="a">+export const DEFAULT_TYPESCRIPT_VERSION: string = repoTypeScriptVersion</span><span class="a">+</span><span class="a">+const parseMajor = (v: string): number =&gt; parseInt(v, 10)</span><span class="a">+</span><span class="a">+const SUPPORTED_TYPESCRIPT_MAJOR = parseMajor(DEFAULT_TYPESCRIPT_VERSION)</span><span class="a">+</span><span class="a">+// Non-numeric specifiers (e.g. dist-tags) can&#39;t be judged and are treated as</span><span class="a">+// supported.</span><span class="a">+export function isTypeScriptVersionSupported(version: string): boolean {</span><span class="a">+  const major = parseMajor(version)</span><span class="a">+  return Number.isNaN(major) || major &lt;= SUPPORTED_TYPESCRIPT_MAJOR</span><span class="a">+}</span><span class="a">+</span><span class="a">+export function filterVersions(pkg: string, versions: string[]): string[] {</span><span class="a">+  if (pkg === &#39;vue&#39;) {</span><span class="a">+    // If the latest Vue version is a pre-release, include up to 10 of the</span><span class="a">+    // current pre-releases so stable releases still have room in the list.</span><span class="a">+    // Once a stable release is reached, skip all older pre-releases.</span><span class="a">+    let isInPreRelease = versions[0].includes(&#39;-&#39;)</span><span class="a">+    let preReleaseCount = 0</span><span class="a">+    const filteredVersions: string[] = []</span><span class="a">+    for (const v of versions) {</span><span class="a">+      if (v.includes(&#39;-&#39;)) {</span><span class="a">+        if (isInPreRelease &amp;&amp; preReleaseCount &lt; 10) {</span><span class="a">+          filteredVersions.push(v)</span><span class="a">+          preReleaseCount++</span><span class="a">+        }</span><span class="a">+      } else {</span><span class="a">+        filteredVersions.push(v)</span><span class="a">+        isInPreRelease = false</span><span class="a">+      }</span><span class="a">+      if (filteredVersions.length &gt;= 30) {</span><span class="a">+        break</span><span class="a">+      }</span><span class="a">+    }</span><span class="a">+    return filteredVersions</span><span class="a">+  } else if (pkg === &#39;typescript&#39;) {</span><span class="a">+    return versions.filter(v =&gt; !v.includes(&#39;dev&#39;) &amp;&amp; !v.includes(&#39;insiders&#39;))</span><span class="a">+  }</span><span class="a">+  return versions</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15219" rel="noopener" target="_blank">PR #15219</a></span><span class="pm"><span class="a">+3</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">packages-private/sfc-playground/src/App.vue</span><span class="h">index 7020211f4..5a87a1d1d 100644</span><span class="h">@@ -14,6 +14,8 @@ setVH()</span><span class="c"> </span><span class="c"> const useSSRMode = ref(false)</span><span class="c"> </span><span class="a">+const DEFAULT_TYPESCRIPT_VERSION = &#39;6.0.3&#39;</span><span class="a">+</span><span class="c"> const AUTO_SAVE_STORAGE_KEY = &#39;vue-sfc-playground-auto-save&#39;</span><span class="c"> const initAutoSave: boolean = JSON.parse(</span><span class="c">   localStorage.getItem(AUTO_SAVE_STORAGE_KEY) ?? &#39;true&#39;,</span><span class="h">@@ -69,6 +71,7 @@ const store = useStore(</span><span class="c">   {</span><span class="c">     builtinImportMap: importMap,</span><span class="c">     vueVersion,</span><span class="a">+    typescriptVersion: ref(DEFAULT_TYPESCRIPT_VERSION),</span><span class="c">     sfcOptions,</span><span class="c">   },</span><span class="c">   hash,</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261005-155915/15153/">Previous · #15153</a>
+  <a class="mid" href="/backtests/vue/run-20261005-155915/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261005-155915/15288/">Next · #15288</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

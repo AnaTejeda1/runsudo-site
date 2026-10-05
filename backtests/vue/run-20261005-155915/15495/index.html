@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15495 [compiler-sfc] Top-level await inside switch case generates invalid code (missing semicolon before rewrite) — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15495 in vuejs/core, run 5 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261005-155915/15495/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261005-155915/">run-20261005-155915</a><span aria-hidden="true">/</span><span aria-current="page">#15495</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15495" rel="noopener" target="_blank">#15495</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15498" rel="noopener" target="_blank">PR #15498</a></span>
+  <span>Run 5 Oct 2026 · <span class="runid">run-20261005-155915</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">[compiler-sfc] Top-level await inside switch case generates invalid code (missing semicolon before rewrite)</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The production change is functionally identical in both patches. Each pushes `SwitchCase.consequent` onto the scope stack on enter and pops it on leave. This fixes the root cause: `needsSemi` now sees the case&#39;s statement list, so awaits following other statements in a case get the leading `;`. The only code difference is cosmetic (braces around `scope.pop()` in B). The deciding factor is test coverage. Patch A tests the reported scenario: a switch nested in `if`, with an expression statement followed by an await. It also tests the &#39;consecutive awaits in one case&#39; variant the issue explicitly lists as affected. A additionally checks that the first statement of a case gets no semicolon, across multiple cases including `default`. That guards against over-inserting and against scope leaking between cases. Patch B tests only the single expression-then-await pattern, at top level and nested in `if`. It leaves the consecutive-awaits variant and the first-statement-of-case behavior unverified. Both patches&#39; tests would fail before the fix, but A&#39;s assertions are more precise and cover more of the issue&#39;s described variants.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 52s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,741 passed · 6 skipped · 3,747 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">106<small>vs 76 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15495" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>[compiler-sfc] Top-level await inside <code>switch</code> case generates invalid code (missing semicolon before rewrite)</p>
+<h3>Vue version</h3>
+<p>3.5.42 — also reproduced on <code>main</code> (5409708)</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#N4IgbgpgTgzglgewHYgFwgMwDoCsWAsATCADQgBmcANhDGqDFAMYD0AggA4dZgCuE9EE2QAXCEhFoQAHjEBbDlQCGYgHwAdJAAIt0gCZwwqqBA5QE0lgaObL8xSogaktmEyhwOIrTAgjeHM5wCghQ3sBaJuRaAL5a5OZyWgDkfBDJmprCSDDeSloAvJEQ5AAUIlD8AJRZyLlaAEaFxWUAjDUuSOS8SEwiiNoAjrwAHqVVWsCaOiwsxf5QOVo9eiVwSBB6WshaHLxQHAi+mjGZSEowAJ698T19A41KUOOT0-P72kQnZ3DRpUo8JRUaqvbQ+ADucBETAAFlpSg1AcCIBMpmCdEwLhAtK1UG8dDphmMOgSCUpwUooY9niTYt8kJY3B4vM5SCA4DA2PdIGgKvwYmRGKw5JSkFgRHRUKBsmIJFJgocwpMtO4II5OBxYvFEik0hkkArQt4NdqEElklh2FwePx9VkTOquKUNVUsHIED0RKVkgBiJRcZIdNkcrn9HmoPkQGICkAILwDSXAaNAA" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#N4IgbgpgTgzglgewHYgFwgMwDoCsWAsATCADQgBmcANhDGqDFAMYD0AggA4dZgCuE9EE2QAXCEhFoQAHjEBbDlQCGYgHwAdJAAIt0gCZwwqqBA5QE0lgaObL8xSogaktmEyhwOIrTAgjeHM5wCghQ3sBaJuRaAL5a5OZyWgDkfBDJmprCSDDeSloAvJEQ5AAUIlD8AJRZyLlaAEaFxWUAjDUuSOS8SEwiiNoAjrwAHqVVWsCaOiwsxf5QOVo9eiVwSBB6WshaHLxQHAi+mjGZSEowAJ698T19A41KUOOT0-P72kQnZ3DRpUo8JRUaqvbQ+ADucBETAAFlpSg1AcCIBMpmCdEwLhAtK1UG8dDphmMOgSCUpwUooY9niTYt8kJY3B4vM5SCA4DA2PdIGgKvwYmRGKw5JSkFgRHRUKBsmIJFJgocwpMtO4II5OBxYvFEik0hkkArQt4NdqEElklh2FwePx9VkTOquKUNVUsHIED0RKVkgBiJRcZIdNkcrn9HmoPkQGICkAILwDSXAaNAA</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>Open the playground link above (or compile the SFC below with <code>@vue/compiler-sfc</code>).</li><li>The component <code>setup()</code> throws <code>TypeError: object is not iterable (cannot read property Symbol(Symbol.iterator))</code>.</li></ol>
+<p>SFC:</p>
+<pre><code class="lang-vue">&lt;script setup&gt;
+const a = true
+const b = 1
+function qux() {}
+async function bar() { return 42 }
+if (a) {
+  switch (b) {
+    case 1:
+      qux()
+      await bar()
+  }
+}
+&lt;/script&gt;</code></pre>
+<h3>What is expected?</h3>
+<p>The compiled <code>setup()</code> should run fine: <code>qux()</code> and <code>await bar()</code> should be two independent statements.</p>
+<h3>What is actually happening?</h3>
+<p>The top-level <code>await</code> rewrite in <code>compileScript</code> emits the <code>withAsyncContext</code> wrapper expression <strong>without a leading semicolon</strong> when the <code>await</code> is inside a <code>switch</code> case that is not the first statement:</p>
+<pre><code class="lang-js">async setup(__props, { expose: __expose }) {
+  ...
+  if (a) {
+    switch (b) {
+      case 1:
+        qux()
+        (
+  ([__temp,__restore] = _withAsyncContext(() =&gt; bar())),
+  await __temp,
+  __restore()
+)
+    }
+  }
+}</code></pre>
+<p>Because the next line starts with <code>(</code>, ASI does not insert a semicolon, so the two lines are parsed as a single call expression <code>qux()(...)</code>. <code>bar()</code> is never awaited in the intended way and the runtime throws <code>TypeError: object is not iterable</code>.</p>
+<p>The same code inside a plain block (not a <code>switch</code>) is compiled correctly with a leading <code>;</code>:</p>
+<pre><code class="lang-js">if (a) {
+  qux()
+  ;(
+  ([__temp,__restore] = _withAsyncContext(() =&gt; bar())),
+  await __temp,
+  __restore()
+)
+}</code></pre>
+<h3>Additional comments</h3>
+<p>Root cause: in <code>packages/compiler-sfc/src/compileScript.ts</code>, the scope stack used to decide whether the rewrite needs a semicolon only pushes/pops on <code>BlockStatement</code>. A <code>switch</code> statement&#39;s <code>SwitchCase.consequent</code> statement list is not tracked, so <code>needsSemi</code> is misjudged as <code>false</code> for <code>await</code> expressions inside case branches (unless the await happens to be the very first statement of the case).</p>
+<p>Related variants also affected:</p>
+<ul><li>Two consecutive top-level awaits inside one case produce <code>(...)(...)</code> back-to-back (second one also parsed as a call of the first result).</li><li>Any <code>await</code> that follows an expression statement inside a case branch.</li></ul>
+<p>No prior issue found for this.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+105</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap</span><span class="h">index 795f0ae88..dfb867046 100644</span><span class="h">@@ -206,6 +206,72 @@ return { n, get x() { return x } }</span><span class="c"> })&quot;</span><span class="c"> `;</span><span class="c"> </span><span class="a">+exports[`SFC compile &lt;script setup&gt; &gt; async/await detection &gt; await after expression statement in switch case 1`] = `</span><span class="a">+&quot;import { withAsyncContext as _withAsyncContext } from &#39;vue&#39;</span><span class="a">+</span><span class="a">+export default {</span><span class="a">+  async setup(__props, { expose: __expose }) {</span><span class="a">+  __expose();</span><span class="a">+</span><span class="a">+let __temp, __restore</span><span class="a">+if (a) {</span><span class="a">+  switch (b) {</span><span class="a">+    case 1:</span><span class="a">+      qux()</span><span class="a">+      ;(</span><span class="a">+  ([__temp,__restore] = _withAsyncContext(() =&gt; bar())),</span><span class="a">+  await __temp,</span><span class="a">+  __restore()</span><span class="a">+)</span><span class="a">+  }</span><span class="a">+}</span><span class="a">+return {  }</span><span class="a">+}</span><span class="a">+</span><span class="a">+}&quot;</span><span class="a">+`;</span><span class="a">+</span><span class="a">+exports[`SFC compile &lt;script setup&gt; &gt; async/await detection &gt; consecutive awaits in switch case 1`] = `</span><span class="a">+&quot;import { withAsyncContext as _withAsyncContext } from &#39;vue&#39;</span><span class="a">+</span><span class="a">+export default {</span><span class="a">+  async setup(__props, { expose: __expose }) {</span><span class="a">+  __expose();</span><span class="a">+</span><span class="a">+let __temp, __restore</span><span class="a">+switch (b) {</span><span class="a">+  case 1:</span><span class="a">+    (</span><span class="a">+  ([__temp,__restore] = _withAsyncContext(() =&gt; foo())),</span><span class="a">+  await __temp,</span><span class="a">+  __restore()</span><span class="a">+)</span><span class="a">+    ;(</span><span class="a">+  ([__temp,__restore] = _withAsyncContext(() =&gt; bar())),</span><span class="a">+  await __temp,</span><span class="a">+  __restore()</span><span class="a">+)</span><span class="a">+    break</span><span class="a">+  case 2:</span><span class="a">+    (</span><span class="a">+  ([__temp,__restore] = _withAsyncContext(() =&gt; baz())),</span><span class="a">+  await __temp,</span><span class="a">+  __restore()</span><span class="a">+)</span><span class="a">+  default:</span><span class="a">+    qux()</span><span class="a">+    ;(</span><span class="a">+  ([__temp,__restore] = _withAsyncContext(() =&gt; qux())),</span><span class="a">+  await __temp,</span><span class="a">+  __restore()</span><span class="a">+)</span><span class="a">+}</span><span class="a">+return {  }</span><span class="a">+}</span><span class="a">+</span><span class="a">+}&quot;</span><span class="a">+`;</span><span class="a">+</span><span class="c"> exports[`SFC compile &lt;script setup&gt; &gt; async/await detection &gt; expression statement 1`] = `</span><span class="c"> &quot;import { withAsyncContext as _withAsyncContext } from &#39;vue&#39;</span><span class="c"> </span><span class="f">packages/compiler-sfc/__tests__/compileScript.spec.ts</span><span class="h">index a1cc885cd..6c6e2a170 100644</span><span class="h">@@ -960,6 +960,41 @@ describe(&#39;SFC compile &lt;script setup&gt;&#39;, () =&gt; {</span><span class="c">       assertAwaitDetection(`if (ok) { await foo } else { await bar }`)</span><span class="c">     })</span><span class="c"> </span><span class="a">+    // should prepend semicolon inside switch case consequent</span><span class="a">+    test(&#39;await after expression statement in switch case&#39;, () =&gt; {</span><span class="a">+      const code = assertAwaitDetection(`if (a) {</span><span class="a">+  switch (b) {</span><span class="a">+    case 1:</span><span class="a">+      qux()</span><span class="a">+      await bar()</span><span class="a">+  }</span><span class="a">+}`)</span><span class="a">+      expect(code).toMatch(`qux()\n      ;(`)</span><span class="a">+      expect(code).not.toMatch(`qux()\n      (`)</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;consecutive awaits in switch case&#39;, () =&gt; {</span><span class="a">+      const code = assertAwaitDetection(`switch (b) {</span><span class="a">+  case 1:</span><span class="a">+    await foo()</span><span class="a">+    await bar()</span><span class="a">+    break</span><span class="a">+  case 2:</span><span class="a">+    await baz()</span><span class="a">+  default:</span><span class="a">+    qux()</span><span class="a">+    await qux()</span><span class="a">+}`)</span><span class="a">+      // first statement of a case follows `:` and needs no semicolon</span><span class="a">+      expect(code).toMatch(`case 1:\n    (`)</span><span class="a">+      expect(code).toMatch(`case 2:\n    (`)</span><span class="a">+      // subsequent statements in the same case need one</span><span class="a">+      expect(code).toMatch(</span><span class="a">+        `\n)\n    ;(\n  ([__temp,__restore] = _withAsyncContext(() =&gt; bar()))`,</span><span class="a">+      )</span><span class="a">+      expect(code).toMatch(`qux()\n    ;(`)</span><span class="a">+    })</span><span class="a">+</span><span class="c">     test(&#39;multiple `if` nested statements&#39;, () =&gt; {</span><span class="c">       assertAwaitDetection(`if (ok) {</span><span class="c">         let a = &#39;foo&#39;</span><span class="f">packages/compiler-sfc/src/compileScript.ts</span><span class="h">index 901196235..9337d5cd1 100644</span><span class="h">@@ -646,6 +646,8 @@ export function compileScript(</span><span class="c">           }</span><span class="c">           if (child.type === &#39;BlockStatement&#39;) {</span><span class="c">             scope.push(child.body)</span><span class="a">+          } else if (child.type === &#39;SwitchCase&#39;) {</span><span class="a">+            scope.push(child.consequent)</span><span class="c">           }</span><span class="c">           if (child.type === &#39;AwaitExpression&#39;) {</span><span class="c">             hasAwait = true</span><span class="h">@@ -670,7 +672,8 @@ export function compileScript(</span><span class="c">           }</span><span class="c">         },</span><span class="c">         leave(node: Node) {</span><span class="r">-          if (node.type === &#39;BlockStatement&#39;) scope.pop()</span><span class="a">+          if (node.type === &#39;BlockStatement&#39; || node.type === &#39;SwitchCase&#39;)</span><span class="a">+            scope.pop()</span><span class="c">         },</span><span class="c">       })</span><span class="c">     }</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15498" rel="noopener" target="_blank">PR #15498</a></span><span class="pm"><span class="a">+75</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap</span><span class="h">index 795f0ae88..c718e7690 100644</span><span class="h">@@ -206,6 +206,54 @@ return { n, get x() { return x } }</span><span class="c"> })&quot;</span><span class="c"> `;</span><span class="c"> </span><span class="a">+exports[`SFC compile &lt;script setup&gt; &gt; async/await detection &gt; await in switch case 1`] = `</span><span class="a">+&quot;import { withAsyncContext as _withAsyncContext } from &#39;vue&#39;</span><span class="a">+</span><span class="a">+export default {</span><span class="a">+  async setup(__props, { expose: __expose }) {</span><span class="a">+  __expose();</span><span class="a">+</span><span class="a">+let __temp, __restore</span><span class="a">+switch (a) {</span><span class="a">+        case 1:</span><span class="a">+          foo()</span><span class="a">+          ;(</span><span class="a">+  ([__temp,__restore] = _withAsyncContext(() =&gt; bar())),</span><span class="a">+  await __temp,</span><span class="a">+  __restore()</span><span class="a">+)</span><span class="a">+      }</span><span class="a">+return {  }</span><span class="a">+}</span><span class="a">+</span><span class="a">+}&quot;</span><span class="a">+`;</span><span class="a">+</span><span class="a">+exports[`SFC compile &lt;script setup&gt; &gt; async/await detection &gt; await in switch case nested in a block 1`] = `</span><span class="a">+&quot;import { withAsyncContext as _withAsyncContext } from &#39;vue&#39;</span><span class="a">+</span><span class="a">+export default {</span><span class="a">+  async setup(__props, { expose: __expose }) {</span><span class="a">+  __expose();</span><span class="a">+</span><span class="a">+let __temp, __restore</span><span class="a">+if (a) {</span><span class="a">+        switch (b) {</span><span class="a">+          case 1:</span><span class="a">+            qux()</span><span class="a">+            ;(</span><span class="a">+  ([__temp,__restore] = _withAsyncContext(() =&gt; bar())),</span><span class="a">+  await __temp,</span><span class="a">+  __restore()</span><span class="a">+)</span><span class="a">+        }</span><span class="a">+      }</span><span class="a">+return {  }</span><span class="a">+}</span><span class="a">+</span><span class="a">+}&quot;</span><span class="a">+`;</span><span class="a">+</span><span class="c"> exports[`SFC compile &lt;script setup&gt; &gt; async/await detection &gt; expression statement 1`] = `</span><span class="c"> &quot;import { withAsyncContext as _withAsyncContext } from &#39;vue&#39;</span><span class="c"> </span><span class="f">packages/compiler-sfc/__tests__/compileScript.spec.ts</span><span class="h">index a1cc885cd..caaae92b4 100644</span><span class="h">@@ -960,6 +960,28 @@ describe(&#39;SFC compile &lt;script setup&gt;&#39;, () =&gt; {</span><span class="c">       assertAwaitDetection(`if (ok) { await foo } else { await bar }`)</span><span class="c">     })</span><span class="c"> </span><span class="a">+    // #15495</span><span class="a">+    test(&#39;await in switch case&#39;, () =&gt; {</span><span class="a">+      const code = assertAwaitDetection(`switch (a) {</span><span class="a">+        case 1:</span><span class="a">+          foo()</span><span class="a">+          await bar()</span><span class="a">+      }`)</span><span class="a">+      expect(code).toMatch(/foo\(\)\s*;\(/)</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    // #15495</span><span class="a">+    test(&#39;await in switch case nested in a block&#39;, () =&gt; {</span><span class="a">+      const code = assertAwaitDetection(`if (a) {</span><span class="a">+        switch (b) {</span><span class="a">+          case 1:</span><span class="a">+            qux()</span><span class="a">+            await bar()</span><span class="a">+        }</span><span class="a">+      }`)</span><span class="a">+      expect(code).toMatch(/qux\(\)\s*;\(/)</span><span class="a">+    })</span><span class="a">+</span><span class="c">     test(&#39;multiple `if` nested statements&#39;, () =&gt; {</span><span class="c">       assertAwaitDetection(`if (ok) {</span><span class="c">         let a = &#39;foo&#39;</span><span class="f">packages/compiler-sfc/src/compileScript.ts</span><span class="h">index 901196235..3c070a0e0 100644</span><span class="h">@@ -646,6 +646,8 @@ export function compileScript(</span><span class="c">           }</span><span class="c">           if (child.type === &#39;BlockStatement&#39;) {</span><span class="c">             scope.push(child.body)</span><span class="a">+          } else if (child.type === &#39;SwitchCase&#39;) {</span><span class="a">+            scope.push(child.consequent)</span><span class="c">           }</span><span class="c">           if (child.type === &#39;AwaitExpression&#39;) {</span><span class="c">             hasAwait = true</span><span class="h">@@ -670,7 +672,9 @@ export function compileScript(</span><span class="c">           }</span><span class="c">         },</span><span class="c">         leave(node: Node) {</span><span class="r">-          if (node.type === &#39;BlockStatement&#39;) scope.pop()</span><span class="a">+          if (node.type === &#39;BlockStatement&#39; || node.type === &#39;SwitchCase&#39;) {</span><span class="a">+            scope.pop()</span><span class="a">+          }</span><span class="c">         },</span><span class="c">       })</span><span class="c">     }</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261005-155915/15478/">Previous · #15478</a>
+  <a class="mid" href="/backtests/vue/run-20261005-155915/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261005-155915/15496/">Next · #15496</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

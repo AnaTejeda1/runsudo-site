@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15288 KeepAlive caches a never-mounted vnode when a switch lands while an ancestor Suspense is pending — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15288 in vuejs/core, run 5 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261005-155915/15288/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261005-155915/">run-20261005-155915</a><span aria-hidden="true">/</span><span aria-current="page">#15288</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15288" rel="noopener" target="_blank">#15288</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15291" rel="noopener" target="_blank">PR #15291</a></span>
+  <span>Run 5 Oct 2026 · <span class="runid">run-20261005-155915</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">KeepAlive caches a never-mounted vnode when a switch lands while an ancestor Suspense is pending</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches add the guard the issue proposes. In the Suspense branch of KeepAlive&#39;s cacheSubtree, they skip `cache.set` when the inner child has no `component`. That removes the poisoned cache entry behind the `suspenseId`/`unmountComponent(null)` crashes. So on the reported crash, the two are equivalent.
+
+The difference is what happens to the branch that actually stayed mounted. The queued effect reads `instance.subTree` and `pendingCacheKey` when it runs, not when it was queued. Once the pending ancestor resolves, the effects from both the initial mount and the update see the new, never-patched subtree under the new key. The mounted page (PageA) therefore never enters the cache. KeepAlive&#39;s render still marked its vnode COMPONENT_SHOULD_KEEP_ALIVE, though.
+
+With Patch A alone, navigating away from PageA deactivates it instead of unmounting it. Nothing in the cache tracks it, so it is never unmounted, even when the KeepAlive is destroyed. That is a leaked component instance and a lingering hidden DOM subtree.
+
+Patch B handles this. When the inner child was never patched, it resets the shape flag on the Suspense&#39;s `activeBranch`, unless that component is already cached. The page then unmounts normally when switched away from or torn down.
+
+B&#39;s tests cover more ground:
+- Repeated switches after resolution.
+- Full teardown via `render(null)`.
+- A dedicated test asserting `onUnmounted` fires for PageA on a switch to a third page and on teardown. This test would fail under Patch A&#39;s fix.
+
+Patch A&#39;s single test checks only the visible output of the reported scenario.
+
+B&#39;s extra logic is a bit heavier (a linear scan of the cache values), but it is commented, tightly scoped to the failure path, and fixes a real consequence of the same root cause. B is the more complete and correct fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">11m 33s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,680 passed · 6 skipped · 3,686 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">146<small>vs 76 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15288" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.41 (also reproduces on 3.5.40 and 3.6.0-rc.3)</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNqNVs1u4zYQfpWBL6RQ2c42uz0YtoFsemhRtLtIc1vtgZHGFhtqSJCUEiMQ0IfoE/ZJCpKyJTsbbC8SNDOc75tf6mV2Y8yia3G2mq1daaXx4NC3ZluQbIy2Hl6gwp0kvNWN0YTkc6hzcLVQSj/d4S4HGx6aftcteaxy2KO/ba1F8r+S84JKzOHP1hkkhzn8hmhulOwQethZ3QDrWmQFFVRqch4qVOIAG+CNy2CzBcIn+Gx1Ix1ybqPIob+XDerWc5tD47JsPK70HjaBEv/yNTsK0Vpt3Wu5qKqIFL0qvV90QrW4MK2reROdLpeRsANfI9x9+nQP62MoWzBIlaQ97LSF66urxsG/f/8DkuCP9tmDr6UD6UAYM1fYoYrehDtQmXIMy+jVeanU3LZEwVd9qKzwUhPoXVRLkl4KBUbscXEkfqe1/xkNbC6Lw18KAiDR4ArYYMXyIJsA8wyiGYB4EnJIOb++usqS1KJvLQGPaak5q2THcmBW62BrwKKoDiwa93lB/ST9jXjEz2KPIa2BRXAR7L5JMxHNByrf4nfO8N2R4NsUkSq0WMVsrYDBDxFiONZHqCndQPUGNifanEUJy6YGH18ZfGQTHyaFO04Ejz5OLh7xcK5mgh176z7W37alby2mtkkhuFXUw7TdeChABltYn2ZoG74mFgZt5BOsIq/ymPFT57REaL/XONEo9c1FRaaJPxaj5uN4U6tUPpYvVl60yq/Oj6RjQ9m+TKVBPjRull8qToHn8AKNeF7BB+jP4L4H+ibjizNQ8zhxcSME9SMeVuGRJNBn0F/yuxB8HT/7i2F5vSJ5thDG3Gry+OwXpaad3C/i3vpFUKViyTjatADTPptuK7R20aBzofZja5LoYDNMFlfiAVUeOyKHx+gn5m0MEzZRG4RjoBt4jOtjMoc/pTkUVZWcZgX1AfR0B/ABcgQ5XzTZKCLRcfZuEd5yLzyCgPkWHuCplgrjAoxrZ9Lk0qWVeVy/LE9TmgN7YNkl2PurkSz7cfHKm0WnVYdVXN3j3VSKssYq4hN2aOdNigw60hWyywCuJwE8hADEwOomhzTuZ+bvX8cb4Gvp00VjtHSasEo0AMnbw1thRocf/g9+yEClKbIPbbhepht/G2q39tgYJTzGaVkPa2KZvmqb3sbi9uUl3pR/aUmcFQWxDPp+vQyqow10c7nbFLOhTRXS3tfFDJw/KNwUs1IrbVdQWtk4TcUs+Dyzhb4f9mCSc5etChqt3gaHbo7KYcIPPCWVqq3QnUKfbUmfOXfrZfjdWS8nGZj1/wEDZfRV" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNqNVs1u4zYQfpWBL6RQ2c42uz0YtoFsemhRtLtIc1vtgZHGFhtqSJCUEiMQ0IfoE/ZJCpKyJTsbbC8SNDOc75tf6mV2Y8yia3G2mq1daaXx4NC3ZluQbIy2Hl6gwp0kvNWN0YTkc6hzcLVQSj/d4S4HGx6aftcteaxy2KO/ba1F8r+S84JKzOHP1hkkhzn8hmhulOwQethZ3QDrWmQFFVRqch4qVOIAG+CNy2CzBcIn+Gx1Ix1ybqPIob+XDerWc5tD47JsPK70HjaBEv/yNTsK0Vpt3Wu5qKqIFL0qvV90QrW4MK2reROdLpeRsANfI9x9+nQP62MoWzBIlaQ97LSF66urxsG/f/8DkuCP9tmDr6UD6UAYM1fYoYrehDtQmXIMy+jVeanU3LZEwVd9qKzwUhPoXVRLkl4KBUbscXEkfqe1/xkNbC6Lw18KAiDR4ArYYMXyIJsA8wyiGYB4EnJIOb++usqS1KJvLQGPaak5q2THcmBW62BrwKKoDiwa93lB/ST9jXjEz2KPIa2BRXAR7L5JMxHNByrf4nfO8N2R4NsUkSq0WMVsrYDBDxFiONZHqCndQPUGNifanEUJy6YGH18ZfGQTHyaFO04Ejz5OLh7xcK5mgh176z7W37alby2mtkkhuFXUw7TdeChABltYn2ZoG74mFgZt5BOsIq/ymPFT57REaL/XONEo9c1FRaaJPxaj5uN4U6tUPpYvVl60yq/Oj6RjQ9m+TKVBPjRull8qToHn8AKNeF7BB+jP4L4H+ibjizNQ8zhxcSME9SMeVuGRJNBn0F/yuxB8HT/7i2F5vSJ5thDG3Gry+OwXpaad3C/i3vpFUKViyTjatADTPptuK7R20aBzofZja5LoYDNMFlfiAVUeOyKHx+gn5m0MEzZRG4RjoBt4jOtjMoc/pTkUVZWcZgX1AfR0B/ABcgQ5XzTZKCLRcfZuEd5yLzyCgPkWHuCplgrjAoxrZ9Lk0qWVeVy/LE9TmgN7YNkl2PurkSz7cfHKm0WnVYdVXN3j3VSKssYq4hN2aOdNigw60hWyywCuJwE8hADEwOomhzTuZ+bvX8cb4Gvp00VjtHSasEo0AMnbw1thRocf/g9+yEClKbIPbbhepht/G2q39tgYJTzGaVkPa2KZvmqb3sbi9uUl3pR/aUmcFQWxDPp+vQyqow10c7nbFLOhTRXS3tfFDJw/KNwUs1IrbVdQWtk4TcUs+Dyzhb4f9mCSc5etChqt3gaHbo7KYcIPPCWVqq3QnUKfbUmfOXfrZfjdWS8nGZj1/wEDZfRV</a></p>
+<h3>Steps to reproduce</h3>
+<p>The reproduction drives itself from <code>onMounted</code> — just open it and read the log. The tree is the one Nuxt renders for a page with <code>&lt;NuxtPage keepalive&gt;</code>:</p>
+<pre><code>&lt;Suspense&gt;            &lt;!-- root boundary, still pending --&gt;
+  &lt;RootDep /&gt;         &lt;!-- async setup, resolves after 300ms --&gt;
+  &lt;KeepAlive&gt;
+    &lt;Suspense&gt;        &lt;!-- per-page boundary --&gt;
+      &lt;component :is=&quot;page&quot; :key=&quot;key&quot; /&gt;
+    &lt;/Suspense&gt;
+  &lt;/KeepAlive&gt;
+&lt;/Suspense&gt;</code></pre>
+<ol><li>While <code>RootDep</code> is still pending (so <code>parentSuspense.deps &gt; 0</code>), switch the inner page from <code>PageA</code> to <code>PageB</code>.</li><li>Let the root boundary resolve.</li><li>Switch back to <code>PageA</code>, then to <code>PageB</code> again.</li></ol>
+<h3>What is expected?</h3>
+<p>The inner page follows the switches, and no errors are raised.</p>
+<h3>What is actually happening?</h3>
+<p>The rendered page is stuck on <code>PageA</code> forever — every later switch is a no-op — and the renderer throws:</p>
+<pre><code>Cannot read properties of null (reading &#39;suspenseId&#39;)   // patchSuspense
+Cannot read properties of null (reading &#39;m&#39;)            // unmountComponent</code></pre>
+<p>In a production build the second one is the more familiar<br><code>Uncaught (in promise) TypeError: Cannot destructure property &#39;bum&#39; of &#39;instance&#39; as it is null.</code></p>
+<p>Removing the <code>&lt;KeepAlive&gt;</code> and changing nothing else makes both errors go away and navigation work.</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell">  System:
+    OS: Linux 7.0 Ubuntu 26.04 LTS
+    CPU: (4) x64 Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz
+    Memory: 5.86 GB / 11.67 GB
+  Binaries:
+    Node: 24.19.0
+    npm: 11.19.0
+  npmPackages:
+    vue: 3.5.41
+  Browsers:
+    Chromium (Playwright 1.5x, headless)</code></pre>
+<h3>Any additional comments?</h3>
+<p><strong>The chain</strong>, as far as I could trace it:</p>
+<ol><li>The route change re-renders <code>KeepAlive</code>, so the inner <code>&lt;Suspense&gt;</code> is patched with <code>n1 != null</code>. Because an <strong>ancestor</strong> boundary is still pending, <code>SuspenseImpl.process</code> takes its early return:</li></ol>
+<pre><code class="lang-js">   if (parentSuspense &amp;&amp; parentSuspense.deps &gt; 0 &amp;&amp; !n1.suspense.isInFallback) {
+     n2.suspense = n1.suspense
+     n2.suspense.vnode = n2
+     n2.el = n1.el
+     return
+   }</code></pre>
+<p>The incoming page vnode is therefore never patched: <code>vnode.component === null</code>, <code>vnode.el === null</code>.</p>
+<ol><li><code>KeepAlive</code>&#39;s <code>onUpdated</code> → <code>cacheSubtree</code> still caches it, unconditionally:</li></ol>
+<pre><code class="lang-js">   if (isSuspense(instance.subTree.type)) {
+     queuePostRenderEffect(() =&gt; {
+       cache.set(pendingCacheKey, getInnerChild(instance.subTree))
+     }, instance.subTree.suspense)
+   }</code></pre>
+<ol><li>The next render for that key hits the poisoned entry: <code>KeepAlive</code> copies <code>cachedVNode.component</code> (<code>null</code>) onto the new vnode and sets <code>COMPONENT_KEPT_ALIVE</code>, so <code>patchSuspense</code> reads <code>newBranch.component.suspenseId</code> on <code>null</code>, and the teardown that follows calls <code>unmountComponent(null)</code>.</li></ol>
+<p><strong>Suggested fix</strong> — the same shape as the two guards already at that site, i.e. do not cache a vnode that never finished mounting:</p>
+<pre><code class="lang-js">const innerChild = getInnerChild(instance.subTree)
+if (innerChild.component) {
+  cache.set(pendingCacheKey, innerChild)
+}</code></pre>
+<p>With that guard the page is simply not cached that one time, and the reproduction runs clean.</p>
+<p>This looks like a third path into the defect class fixed by #10912 (<code>avoid caching vnode that not been mounted</code>, for #10899) and #11479 (for #6028) — both guard <code>KeepAlive</code>&#39;s <strong>own</strong> subtree, while here it is an <strong>ancestor</strong> <code>Suspense</code> that is pending.</p>
+<p>Real-world context: this is how it surfaced for us — a Nuxt 4 app rendering <code>&lt;NuxtPage :keepalive=&quot;{ max: 5 }&quot; /&gt;</code>, where a link clicked before hydration finished intermittently left the user on a blank page with <code>Cannot destructure property &#39;bum&#39; of &#39;e&#39; as it is null</code> in the console. The window widens with slower hydration, so it shows up under load / on slow clients.</p>
+<p>&lt;sub&gt;Investigation and reproduction prepared with Claude Code, on behalf of drunomics.&lt;/sub&gt;</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+145</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/components/Suspense.spec.ts</span><span class="h">index d40f85b86..68335cdeb 100644</span><span class="h">@@ -2111,6 +2111,132 @@ describe(&#39;Suspense&#39;, () =&gt; {</span><span class="c">     expect(serializeInner(root)).toBe(`&lt;div&gt;async2&lt;/div&gt;`)</span><span class="c">   })</span><span class="c"> </span><span class="a">+  test(&#39;KeepAlive + Suspense switch while ancestor Suspense is pending&#39;, async () =&gt; {</span><span class="a">+    const RootDep = defineAsyncComponent({</span><span class="a">+      render() {</span><span class="a">+        return h(&#39;div&#39;, &#39;root&#39;)</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+    const PageA = { render: () =&gt; h(&#39;div&#39;, &#39;pageA&#39;) }</span><span class="a">+    const PageB = { render: () =&gt; h(&#39;div&#39;, &#39;pageB&#39;) }</span><span class="a">+    const pages = [PageA, PageB]</span><span class="a">+    const viewRef = ref(0)</span><span class="a">+    const root = nodeOps.createElement(&#39;div&#39;)</span><span class="a">+    const App = {</span><span class="a">+      render() {</span><span class="a">+        return h(Suspense, null, {</span><span class="a">+          default: h(Fragment, null, [</span><span class="a">+            h(RootDep),</span><span class="a">+            h(KeepAlive, null, {</span><span class="a">+              default: () =&gt;</span><span class="a">+                h(Suspense, null, {</span><span class="a">+                  default: h(pages[viewRef.value], { key: viewRef.value }),</span><span class="a">+                }),</span><span class="a">+            }),</span><span class="a">+          ]),</span><span class="a">+          fallback: h(&#39;div&#39;, &#39;loading&#39;),</span><span class="a">+        })</span><span class="a">+      },</span><span class="a">+    }</span><span class="a">+    render(h(App), root)</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;loading&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    // switch the inner page while the ancestor Suspense is still pending</span><span class="a">+    viewRef.value = 1</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;loading&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    await Promise.all(deps)</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;root&lt;/div&gt;&lt;div&gt;pageA&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    viewRef.value = 0</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;root&lt;/div&gt;&lt;div&gt;pageA&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    viewRef.value = 1</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;root&lt;/div&gt;&lt;div&gt;pageB&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    viewRef.value = 0</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;root&lt;/div&gt;&lt;div&gt;pageA&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    viewRef.value = 1</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;root&lt;/div&gt;&lt;div&gt;pageB&lt;/div&gt;`)</span><span class="a">+</span><span class="a">+    // tearing down the cache must not hit a never-mounted vnode</span><span class="a">+    render(null, root)</span><span class="a">+    expect(serializeInner(root)).toBe(``)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  test(&#39;KeepAlive + Suspense switch while ancestor Suspense is pending should not leak the mounted page&#39;, async () =&gt; {</span><span class="a">+    const RootDep = defineAsyncComponent({</span><span class="a">+      render() {</span><span class="a">+        return h(&#39;div&#39;, &#39;root&#39;)</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+    const unmounted: string[] = []</span><span class="a">+    const createPage = (name: string) =&gt; ({</span><span class="a">+      setup() {</span><span class="a">+        onUnmounted(() =&gt; unmounted.push(name))</span><span class="a">+        return () =&gt; h(&#39;div&#39;, name)</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+    const pages = [</span><span class="a">+      createPage(&#39;pageA&#39;),</span><span class="a">+      createPage(&#39;pageB&#39;),</span><span class="a">+      createPage(&#39;pageC&#39;),</span><span class="a">+    ]</span><span class="a">+    const viewRef = ref(0)</span><span class="a">+    const App = {</span><span class="a">+      render() {</span><span class="a">+        return h(Suspense, null, {</span><span class="a">+          default: h(Fragment, null, [</span><span class="a">+            h(RootDep),</span><span class="a">+            h(KeepAlive, null, {</span><span class="a">+              default: () =&gt;</span><span class="a">+                h(Suspense, null, {</span><span class="a">+                  default: h(pages[viewRef.value], { key: viewRef.value }),</span><span class="a">+                }),</span><span class="a">+            }),</span><span class="a">+          ]),</span><span class="a">+          fallback: h(&#39;div&#39;, &#39;loading&#39;),</span><span class="a">+        })</span><span class="a">+      },</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    const mountAndSwitchWhilePending = async () =&gt; {</span><span class="a">+      const root = nodeOps.createElement(&#39;div&#39;)</span><span class="a">+      render(h(App), root)</span><span class="a">+      viewRef.value = 1</span><span class="a">+      await nextTick()</span><span class="a">+      await Promise.all(deps)</span><span class="a">+      await nextTick()</span><span class="a">+      expect(serializeInner(root)).toBe(`&lt;div&gt;root&lt;/div&gt;&lt;div&gt;pageA&lt;/div&gt;`)</span><span class="a">+      return root</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    // switching to a third page must unmount the page that stayed mounted</span><span class="a">+    let root = await mountAndSwitchWhilePending()</span><span class="a">+    viewRef.value = 2</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(`&lt;div&gt;root&lt;/div&gt;&lt;div&gt;pageC&lt;/div&gt;`)</span><span class="a">+    expect(unmounted).toEqual([&#39;pageA&#39;])</span><span class="a">+    render(null, root)</span><span class="a">+    expect(unmounted).toEqual([&#39;pageA&#39;, &#39;pageC&#39;])</span><span class="a">+</span><span class="a">+    // tearing down right after resolving must unmount it too</span><span class="a">+    unmounted.length = 0</span><span class="a">+    deps.length = 0</span><span class="a">+    viewRef.value = 0</span><span class="a">+    root = await mountAndSwitchWhilePending()</span><span class="a">+    render(null, root)</span><span class="a">+    expect(serializeInner(root)).toBe(``)</span><span class="a">+    expect(unmounted).toEqual([&#39;pageA&#39;])</span><span class="a">+  })</span><span class="a">+</span><span class="c">   test(&#39;KeepAlive + Suspense + comment slot&#39;, async () =&gt; {</span><span class="c">     const toggle = ref(false)</span><span class="c">     const Async = defineAsyncComponent({</span><span class="f">packages/runtime-core/src/components/KeepAlive.ts</span><span class="h">index 55eaf8624..f11fb9c4f 100644</span><span class="h">@@ -248,7 +248,25 @@ const KeepAliveImpl: ComponentOptions = {</span><span class="c">         // avoid caching vnode that not been mounted</span><span class="c">         if (isSuspense(instance.subTree.type)) {</span><span class="c">           queuePostRenderEffect(() =&gt; {</span><span class="r">-            cache.set(pendingCacheKey!, getInnerChild(instance.subTree))</span><span class="a">+            const innerChild = getInnerChild(instance.subTree)</span><span class="a">+            // the inner child may never have been patched if an ancestor</span><span class="a">+            // Suspense was pending when this update happened</span><span class="a">+            if (innerChild.component) {</span><span class="a">+              cache.set(pendingCacheKey!, innerChild)</span><span class="a">+            } else {</span><span class="a">+              // the branch that stayed mounted is not tracked by the cache,</span><span class="a">+              // so it must not be kept alive or it would never be unmounted</span><span class="a">+              const { activeBranch } = instance.subTree.suspense!</span><span class="a">+              if (</span><span class="a">+                activeBranch &amp;&amp;</span><span class="a">+                activeBranch.component &amp;&amp;</span><span class="a">+                !Array.from(cache.values()).some(</span><span class="a">+                  cached =&gt; cached.component === activeBranch.component,</span><span class="a">+                )</span><span class="a">+              ) {</span><span class="a">+                resetShapeFlag(activeBranch)</span><span class="a">+              }</span><span class="a">+            }</span><span class="c">           }, instance.subTree.suspense)</span><span class="c">         } else {</span><span class="c">           cache.set(pendingCacheKey, getInnerChild(instance.subTree))</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15291" rel="noopener" target="_blank">PR #15291</a></span><span class="pm"><span class="a">+75</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/components/Suspense.spec.ts</span><span class="h">index d40f85b86..6b6373fab 100644</span><span class="h">@@ -2111,6 +2111,77 @@ describe(&#39;Suspense&#39;, () =&gt; {</span><span class="c">     expect(serializeInner(root)).toBe(`&lt;div&gt;async2&lt;/div&gt;`)</span><span class="c">   })</span><span class="c"> </span><span class="a">+  // #15288</span><span class="a">+  test(&#39;KeepAlive + Suspense switch while ancestor is pending&#39;, async () =&gt; {</span><span class="a">+    let resolveRootDep!: (comp: ComponentOptions) =&gt; void</span><span class="a">+    const rootDep = new Promise&lt;ComponentOptions&gt;(resolve =&gt; {</span><span class="a">+      resolveRootDep = resolve</span><span class="a">+    })</span><span class="a">+    const RootDep = defineAsyncComp(() =&gt; rootDep)</span><span class="a">+    const makePage = (name: string) =&gt;</span><span class="a">+      defineAsyncComponent({</span><span class="a">+        render: () =&gt; h(&#39;div&#39;, `page ${name}`),</span><span class="a">+      })</span><span class="a">+    const PageA = makePage(&#39;A&#39;)</span><span class="a">+    const PageB = makePage(&#39;B&#39;)</span><span class="a">+    const page = shallowRef(PageA)</span><span class="a">+    const key = ref(&#39;a&#39;)</span><span class="a">+    const root = nodeOps.createElement(&#39;div&#39;)</span><span class="a">+    const App = {</span><span class="a">+      render() {</span><span class="a">+        return h(Suspense, null, {</span><span class="a">+          default: h(&#39;div&#39;, [</span><span class="a">+            h(RootDep),</span><span class="a">+            h(KeepAlive, null, {</span><span class="a">+              default: () =&gt;</span><span class="a">+                h(Suspense, null, {</span><span class="a">+                  default: h(page.value, { key: key.value }),</span><span class="a">+                }),</span><span class="a">+            }),</span><span class="a">+          ]),</span><span class="a">+          fallback: h(&#39;div&#39;, &#39;loading&#39;),</span><span class="a">+        })</span><span class="a">+      },</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    render(h(App), root)</span><span class="a">+    expect(serializeInner(root)).toBe(&#39;&lt;div&gt;loading&lt;/div&gt;&#39;)</span><span class="a">+</span><span class="a">+    await Promise.all(deps)</span><span class="a">+    await nextTick()</span><span class="a">+</span><span class="a">+    page.value = PageB</span><span class="a">+    key.value = &#39;b&#39;</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(&#39;&lt;div&gt;loading&lt;/div&gt;&#39;)</span><span class="a">+</span><span class="a">+    resolveRootDep({</span><span class="a">+      render: () =&gt; h(&#39;div&#39;, &#39;root&#39;),</span><span class="a">+    })</span><span class="a">+    await rootDep</span><span class="a">+    await new Promise(r =&gt; setTimeout(r))</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(</span><span class="a">+      &#39;&lt;div&gt;&lt;div&gt;root&lt;/div&gt;&lt;div&gt;page A&lt;/div&gt;&lt;/div&gt;&#39;,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    page.value = PageA</span><span class="a">+    key.value = &#39;a&#39;</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(</span><span class="a">+      &#39;&lt;div&gt;&lt;div&gt;root&lt;/div&gt;&lt;div&gt;page A&lt;/div&gt;&lt;/div&gt;&#39;,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    page.value = PageB</span><span class="a">+    key.value = &#39;b&#39;</span><span class="a">+    await nextTick()</span><span class="a">+    await Promise.all(deps)</span><span class="a">+    await nextTick()</span><span class="a">+    expect(serializeInner(root)).toBe(</span><span class="a">+      &#39;&lt;div&gt;&lt;div&gt;root&lt;/div&gt;&lt;div&gt;page B&lt;/div&gt;&lt;/div&gt;&#39;,</span><span class="a">+    )</span><span class="a">+  })</span><span class="a">+</span><span class="c">   test(&#39;KeepAlive + Suspense + comment slot&#39;, async () =&gt; {</span><span class="c">     const toggle = ref(false)</span><span class="c">     const Async = defineAsyncComponent({</span><span class="f">packages/runtime-core/src/components/KeepAlive.ts</span><span class="h">index 55eaf8624..b09152f72 100644</span><span class="h">@@ -248,7 +248,10 @@ const KeepAliveImpl: ComponentOptions = {</span><span class="c">         // avoid caching vnode that not been mounted</span><span class="c">         if (isSuspense(instance.subTree.type)) {</span><span class="c">           queuePostRenderEffect(() =&gt; {</span><span class="r">-            cache.set(pendingCacheKey!, getInnerChild(instance.subTree))</span><span class="a">+            const vnode = getInnerChild(instance.subTree)</span><span class="a">+            if (vnode.component) {</span><span class="a">+              cache.set(pendingCacheKey!, vnode)</span><span class="a">+            }</span><span class="c">           }, instance.subTree.suspense)</span><span class="c">         } else {</span><span class="c">           cache.set(pendingCacheKey, getInnerChild(instance.subTree))</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261005-155915/15217/">Previous · #15217</a>
+  <a class="mid" href="/backtests/vue/run-20261005-155915/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261005-155915/15320/">Next · #15320</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

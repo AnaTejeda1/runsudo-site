@@ -200,6 +200,20 @@
       "runs": [
         {
           "date": "2026-10-05",
+          "id": "run-20261005-155915",
+          "source_runs": [
+            "run-20261005-155915"
+          ],
+          "tickets": 30,
+          "better": 25,
+          "par": 0,
+          "worse": 5,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1",
+          "footnote": ""
+        },
+        {
+          "date": "2026-10-05",
           "id": "run-20261005-124535",
           "source_runs": [
             "run-20261005-124535"
