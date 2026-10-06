@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jhy/jsoup · 6 Oct 2026 — sudo backtests</title>
+<meta name="description" content="22 of 30 tickets judged better than the merged fix on jhy/jsoup, run 6 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/jsoup/run-20261006-181938/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><span aria-current="page">jsoup</span></p>
+<h1>jhy/jsoup</h1>
+<p class="lead">Java HTML parser: DOM, CSS selectors and HTML cleaning.</p>
+<div class="card summary">
+  <p class="k">Latest run · 6 Oct 2026 · <span class="runid">run-20261006-181938</span></p>
+  <p class="big">73%<small>judged better than the merged fix</small></p>
+  <p class="sub">22 of 30 tickets. sudo-solver 0.5.1; first Java repo; 9 tickets re-run after a GitHub API rate limit.</p>
+  <div class="bar" role="img" aria-label="22 better, 0 par, 8 worse, 0 error"><span class="b-better" style="width:73.33333333333333%"></span><span class="b-worse" style="width:26.666666666666668%"></span></div>
+  <div class="counts"><span class="better"><i></i>22 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>8 worse</span><span class="error"><i></i>0 error</span></div>
+</div>
+<section>
+  <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
+  <div class="runs">
+<details class="run" id="run-20261006-181938" open>
+  <summary>
+    <span class="date">6 Oct 2026<span class="runid">run-20261006-181938</span></span>
+    <span class="bars"><div class="bar thin" role="img" aria-label="22 better, 0 par, 8 worse, 0 error"><span class="b-better" style="width:73.33333333333333%"></span><span class="b-worse" style="width:26.666666666666668%"></span></div><span class="counts"><span class="better">22 better</span><span class="par">0 par</span><span class="worse">8 worse</span><span class="error">0 error</span></span></span>
+    <span class="notes">sudo-solver 0.5.1; first Java repo; 9 tickets re-run after a GitHub API rate limit</span>
+    <span class="meta">30 tickets · <a href="/backtests/jsoup/run-20261006-181938/">permalink</a></span>
+  </summary>
+  <div class="runbody">
+<div class="filters" role="group" aria-label="Filter tickets by verdict"><button type="button" data-filter="all" aria-pressed="true">All 30</button><button type="button" class="better" data-filter="better" aria-pressed="false">Better 22</button><button type="button" class="par" data-filter="par" aria-pressed="false">Par 0</button><button type="button" class="worse" data-filter="worse" aria-pressed="false">Worse 8</button></div>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Issue</th><th>Title</th><th>Verdict</th><th class="num">Lines ours / merged</th><th>Test suite</th></tr></thead>
+    <tbody>
+<tr class="link" data-verdict="better"><td class="id">#953</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/953/">Add method Elements.before(Node node)</a></td><td><span class="pill better">Better</span></td><td class="num">131 / 90</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2486</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2486/">XML parser does not support DOCTYPE with &lt;!ENTITY&gt; declarations</a></td><td><span class="pill better">Better</span></td><td class="num">181 / 198</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2501</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2501/">Align parser scope classification with HTML spec</a></td><td><span class="pill better">Better</span></td><td class="num">79 / 21</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2503</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2503/">Mixed-case RCDATA end tags can promote text to markup</a></td><td><span class="pill worse">Worse</span></td><td class="num">64 / 58</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2504</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2504/">W3CDom serializes plain XML with the reserved XML namespace</a></td><td><span class="pill better">Better</span></td><td class="num">82 / 59</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2516</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2516/">Review HttpClient&#39;s thread use under heavy request load</a></td><td><span class="pill worse">Worse</span></td><td class="num">252 / 312</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2532</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2532/">Element.html(Appendable) violates the contract of Node.html(Appendable)</a></td><td><span class="pill better">Better</span></td><td class="num">74 / 119</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2542</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2542/">Parse CDATA as a bogus comment in HTML content</a></td><td><span class="pill worse">Worse</span></td><td class="num">183 / 301</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2543</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2543/">Correct offsite link detection in Cleaner</a></td><td><span class="pill better">Better</span></td><td class="num">85 / 27</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2548</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2548/">Normalize re2j exceptions</a></td><td><span class="pill worse">Worse</span></td><td class="num">99 / 23</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2552</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2552/">Element.appendChild allows self-parenting and creates a cyclic DOM tree</a></td><td><span class="pill better">Better</span></td><td class="num">106 / 136</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2560</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2560/">W3CDom throws NPE for element names with invalid XML starts</a></td><td><span class="pill better">Better</span></td><td class="num">61 / 28</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2562</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2562/">Pop foreign elements before processing HTML breakout tags</a></td><td><span class="pill better">Better</span></td><td class="num">124 / 45</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2571</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2571/">XML doctype system IDs can serialize as invalid XML</a></td><td><span class="pill better">Better</span></td><td class="num">52 / 19</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2572</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2572/"><code>W3CDom</code> drops some XML node types</a></td><td><span class="pill better">Better</span></td><td class="num">181 / 115</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2573</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2573/">XML serialization drops attributes whose names start with a digit or hyphen</a></td><td><span class="pill worse">Worse</span></td><td class="num">77 / 154</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2588</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2588/">Decode named entities before - and _ in attributes</a></td><td><span class="pill worse">Worse</span></td><td class="num">20 / 51</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2593</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2593/">jsoup bodyStream() silently truncates responses at Integer.MAX_VALUE despite maxBodySize(0)</a></td><td><span class="pill better">Better</span></td><td class="num">117 / 436</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2594</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2594/">Name normalization can trim control characters and apply Unicode case folding</a></td><td><span class="pill worse">Worse</span></td><td class="num">363 / 454</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#2601</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2601/">Fix the adoption agency algo</a></td><td><span class="pill worse">Worse</span></td><td class="num">324 / 377</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2605</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2605/">Parser reuse interrupts StreamParser</a></td><td><span class="pill better">Better</span></td><td class="num">100 / 99</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2611</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2611/">Update select parsing to the current HTML Standard</a></td><td><span class="pill better">Better</span></td><td class="num">355 / 234</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2614</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2614/">Template contents can parse incorrectly at EOF and around forms</a></td><td><span class="pill better">Better</span></td><td class="num">141 / 93</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2619</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2619/">Should not print a void element&#39;s children</a></td><td><span class="pill better">Better</span></td><td class="num">87 / 66</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2621</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2621/">Align void elements list to spec</a></td><td><span class="pill better">Better</span></td><td class="num">49 / 18</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2627</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2627/">Script text closes early after a nested script marker</a></td><td><span class="pill better">Better</span></td><td class="num">64 / 35</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2628</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2628/">Node.before(Node) / after(Node) throw NPE and detach the node when given the node itself</a></td><td><span class="pill better">Better</span></td><td class="num">38 / 29</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2631</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2631/">Malformed <code>&lt;/</code> end tag should consume the <code>/</code></a></td><td><span class="pill better">Better</span></td><td class="num">25 / 17</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2633</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2633/">Source position tracking changes parsing of repeated formatting tags</a></td><td><span class="pill better">Better</span></td><td class="num">70 / 97</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#2634</td><td class="title"><a href="/backtests/jsoup/run-20261006-181938/2634/">Align <code>&lt;body&gt;</code> and <code>&lt;frameset&gt;</code> fragment parsing to the spec</a></td><td><span class="pill better">Better</span></td><td class="num">42 / 20</td><td class="tests">No new failures</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+</details>
+  </div>
+</section>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.runbody').forEach(function(panel){
+    var f=panel.querySelector('.filters');if(!f)return;
+    var rows=panel.querySelectorAll('tr[data-verdict]');
+    f.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-filter]');if(!b)return;
+      var v=b.getAttribute('data-filter');
+      f.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+      rows.forEach(function(r){r.hidden=v!=='all'&&r.getAttribute('data-verdict')!==v});
+    });
+  });
+})();
+</script>
+</body>
+</html>

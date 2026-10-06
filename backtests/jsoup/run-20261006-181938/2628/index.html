@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#2628 Node.before(Node) / after(Node) throw NPE and detach the node when given the node itself — jhy/jsoup backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #2628 in jhy/jsoup, run 6 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/jsoup/run-20261006-181938/2628/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/">jsoup</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/run-20261006-181938/">run-20261006-181938</a><span aria-hidden="true">/</span><span aria-current="page">#2628</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/jhy/jsoup/issues/2628" rel="noopener" target="_blank">#2628</a></span>
+  <span>Merged fix <a href="https://github.com/jhy/jsoup/commit/12390349fab508968ca1a7309f3149d7e9f09029" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 6 Oct 2026 · <span class="runid">run-20261006-181938</span></span>
+  <span>jhy/jsoup</span>
+</div>
+<h1 class="ticket-title">Node.before(Node) / after(Node) throw NPE and detach the node when given the node itself</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The two code changes are identical. Both add `if (node == this) return this;` in `Node.before(Node)` and `Node.after(Node)`, after the null validations and before the sibling-removal step. That is the root cause: when `node == this`, the `node.parentNode == parentNode` check is always true, so the node removes itself and `parentNode` becomes null. Returning early restores the 1.15.4 no-op behavior the issue describes, and returning `this` matches the method&#39;s existing return contract. Correctness and scope are therefore equal. Patch A&#39;s CHANGES.md entry is neutral. Patch B&#39;s inline comment is a small clarity gain but not significant.
+
+The difference is in the tests. Both patches add before-self and after-self tests on an Element that would throw an NPE before the fix and pass after it. Both check the return value, the parent, and the child count. Patch A checks the position with `ul.child(1)` and the order with text. Patch B checks `siblingIndex()` and the exact serialized HTML, which is a slightly stronger structural check. Patch B also adds a test on a TextNode. Element overrides `before` and `after` and delegates to `Node`, so this test exercises the base `Node.before/after` directly on a non-Element node type and covers both methods. That broadens coverage of the fixed code path in a meaningful way.
+
+One small risk: Patch B relies on `TextUtil` being imported in NodeTest. It is already used in jsoup&#39;s test suite, so this is likely fine.
+
+With identical fixes, Patch B&#39;s more thorough tests give it the edge.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">8m 10s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,392 passed · 0 skipped · 2,392 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">38<small>vs 29 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/jhy/jsoup/issues/2628" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Version</h3>
+<p>jsoup 1.23.2</p>
+<h3>Test</h3>
+<pre><code class="lang-java">@Test
+public void test_before_self() {
+    Document doc = Jsoup.parse(&quot;&lt;ul&gt;&lt;li id=a&gt;A&lt;/li&gt;&lt;li id=b&gt;B&lt;/li&gt;&lt;li id=c&gt;C&lt;/li&gt;&lt;/ul&gt;&quot;);
+    Element ul = doc.expectFirst(&quot;ul&quot;);
+    Element b = doc.expectFirst(&quot;#b&quot;);
+
+    try {
+        b.before(b);
+    } catch (ValidationException expected) {
+        // Rejecting a self-insert may also be reasonable.
+    }
+
+    assertSame(ul, b.parent());
+    assertEquals(3, ul.childrenSize());
+}</code></pre>
+<h3>Description</h3>
+<p>Calling <code>before(Node)</code> or <code>after(Node)</code> with the node itself throws a NullPointerException, and the node has already been removed from the document when the exception is thrown:</p>
+<pre><code>java.lang.NullPointerException: Cannot invoke &quot;org.jsoup.nodes.Element.addChildren(int, org.jsoup.nodes.Node[])&quot; because &quot;this.parentNode&quot; is null
+ at org.jsoup.nodes.Node.before(Node.java:410)
+ at org.jsoup.nodes.Element.before(Element.java:1032)</code></pre>
+<p>After this, <code>b.parent()</code> is null and the list only contains A and C.</p>
+<p>This looks like a regression from 62de0a18, first released in 1.16.1. The test above passes on 1.15.4, where <code>b.before(b)</code> and <code>b.after(b)</code> leave the document unchanged.</p>
+<p>Since that commit, when <code>node == this</code>, the check <code>node.parentNode == parentNode</code> is always true, so <code>node.remove()</code> removes this node and clears <code>this.parentNode</code> before <code>parentNode.addChildren(...)</code> runs. The <code>validateChild</code> check from #2558 runs inside <code>addChildren</code>, so it isn&#39;t reached.</p>
+<p>This can happen when the node being moved and the reference node come from separate lookups and turn out to be the same element.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+38</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">src/main/java/org/jsoup/nodes/Node.java</span><span class="h">index afef11c2..d0279846 100644</span><span class="h">@@ -403,6 +403,7 @@ public abstract class Node implements Cloneable {</span><span class="c">     public Node before(Node node) {</span><span class="c">         Validate.notNull(node);</span><span class="c">         Validate.notNull(parentNode);</span><span class="a">+        if (node == this) return this; // inserting a node next to itself is a no-op</span><span class="c"> </span><span class="c">         // if the incoming node is a sibling of this, remove it first so siblingIndex is correct on add</span><span class="c">         if (node.parentNode == parentNode) node.remove();</span><span class="h">@@ -431,6 +432,7 @@ public abstract class Node implements Cloneable {</span><span class="c">     public Node after(Node node) {</span><span class="c">         Validate.notNull(node);</span><span class="c">         Validate.notNull(parentNode);</span><span class="a">+        if (node == this) return this; // inserting a node next to itself is a no-op</span><span class="c"> </span><span class="c">         // if the incoming node is a sibling of this, remove it first so siblingIndex is correct on add</span><span class="c">         if (node.parentNode == parentNode) node.remove();</span><span class="f">src/test/java/org/jsoup/nodes/NodeTest.java</span><span class="h">index d8d8c327..90761359 100644</span><span class="h">@@ -350,6 +350,42 @@ public class NodeTest {</span><span class="c">         assertEquals(&quot;Three One Two&quot;, div.text());</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void beforeSelfIsNoop() {</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;ul&gt;&lt;li id=a&gt;A&lt;/li&gt;&lt;li id=b&gt;B&lt;/li&gt;&lt;li id=c&gt;C&lt;/li&gt;&lt;/ul&gt;&quot;);</span><span class="a">+        Element ul = doc.expectFirst(&quot;ul&quot;);</span><span class="a">+        Element b = doc.expectFirst(&quot;#b&quot;);</span><span class="a">+</span><span class="a">+        assertSame(b, b.before(b));</span><span class="a">+        assertSame(ul, b.parent());</span><span class="a">+        assertEquals(3, ul.childrenSize());</span><span class="a">+        assertEquals(1, b.siblingIndex());</span><span class="a">+        assertEquals(&quot;&lt;li id=\&quot;a\&quot;&gt;A&lt;/li&gt;&lt;li id=\&quot;b\&quot;&gt;B&lt;/li&gt;&lt;li id=\&quot;c\&quot;&gt;C&lt;/li&gt;&quot;, TextUtil.stripNewlines(ul.html()));</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test void afterSelfIsNoop() {</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;ul&gt;&lt;li id=a&gt;A&lt;/li&gt;&lt;li id=b&gt;B&lt;/li&gt;&lt;li id=c&gt;C&lt;/li&gt;&lt;/ul&gt;&quot;);</span><span class="a">+        Element ul = doc.expectFirst(&quot;ul&quot;);</span><span class="a">+        Element b = doc.expectFirst(&quot;#b&quot;);</span><span class="a">+</span><span class="a">+        assertSame(b, b.after(b));</span><span class="a">+        assertSame(ul, b.parent());</span><span class="a">+        assertEquals(3, ul.childrenSize());</span><span class="a">+        assertEquals(1, b.siblingIndex());</span><span class="a">+        assertEquals(&quot;&lt;li id=\&quot;a\&quot;&gt;A&lt;/li&gt;&lt;li id=\&quot;b\&quot;&gt;B&lt;/li&gt;&lt;li id=\&quot;c\&quot;&gt;C&lt;/li&gt;&quot;, TextUtil.stripNewlines(ul.html()));</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test void beforeAndAfterSelfOnNonElementNode() {</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;p&gt;One&lt;b&gt;Two&lt;/b&gt;&lt;/p&gt;&quot;);</span><span class="a">+        Element p = doc.expectFirst(&quot;p&quot;);</span><span class="a">+        Node text = p.childNode(0);</span><span class="a">+</span><span class="a">+        assertSame(text, text.before(text));</span><span class="a">+        assertSame(text, text.after(text));</span><span class="a">+        assertSame(p, text.parent());</span><span class="a">+        assertEquals(0, text.siblingIndex());</span><span class="a">+        assertEquals(&quot;One&lt;b&gt;Two&lt;/b&gt;&quot;, p.html());</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test public void unwrap() {</span><span class="c">         Document doc = Jsoup.parse(&quot;&lt;div&gt;One &lt;span&gt;Two &lt;b&gt;Three&lt;/b&gt;&lt;/span&gt; Four&lt;/div&gt;&quot;);</span><span class="c">         Element span = doc.select(&quot;span&quot;).first();</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/jhy/jsoup/commit/12390349fab508968ca1a7309f3149d7e9f09029" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+29</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">CHANGES.md</span><span class="h">index 3e612d83..5c3c9104 100644</span><span class="h">@@ -28,6 +28,7 @@</span><span class="c"> * Fixed a `ConcurrentModificationException` when emptying and reading separate childless elements concurrently. [#2620](https://github.com/jhy/jsoup/pull/2620)</span><span class="c"> * Removed the old `command`, `device`, and `menuitem` tags, as they are no longer in the HTML spec. [#2621](https://github.com/jhy/jsoup/issues/2621)</span><span class="c"> * Double-escaped script tags in body were being closed too early. [#2627](https://github.com/jhy/jsoup/issues/2627)</span><span class="a">+* `Node.before(Node)` and `Node.after(Node)` now leave the document unchanged when given the node itself, instead of throwing a `NullPointerException`. [#2628](https://github.com/jhy/jsoup/issues/2628)</span><span class="c"> </span><span class="c"> ## 1.23.2 (2026-Aug-26)</span><span class="c"> </span><span class="f">src/main/java/org/jsoup/nodes/Node.java</span><span class="h">index afef11c2..608dfcac 100644</span><span class="h">@@ -403,6 +403,7 @@ public abstract class Node implements Cloneable {</span><span class="c">     public Node before(Node node) {</span><span class="c">         Validate.notNull(node);</span><span class="c">         Validate.notNull(parentNode);</span><span class="a">+        if (node == this) return this;</span><span class="c"> </span><span class="c">         // if the incoming node is a sibling of this, remove it first so siblingIndex is correct on add</span><span class="c">         if (node.parentNode == parentNode) node.remove();</span><span class="h">@@ -431,6 +432,7 @@ public abstract class Node implements Cloneable {</span><span class="c">     public Node after(Node node) {</span><span class="c">         Validate.notNull(node);</span><span class="c">         Validate.notNull(parentNode);</span><span class="a">+        if (node == this) return this;</span><span class="c"> </span><span class="c">         // if the incoming node is a sibling of this, remove it first so siblingIndex is correct on add</span><span class="c">         if (node.parentNode == parentNode) node.remove();</span><span class="f">src/test/java/org/jsoup/nodes/NodeTest.java</span><span class="h">index d8d8c327..b6267c96 100644</span><span class="h">@@ -319,6 +319,19 @@ public class NodeTest {</span><span class="c">         assertEquals(&quot;Three One Two&quot;, div.text());</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void beforeSelfIsNoOp() {</span><span class="a">+        // https://github.com/jhy/jsoup/issues/2628</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;ul&gt;&lt;li id=a&gt;A&lt;/li&gt;&lt;li id=b&gt;B&lt;/li&gt;&lt;li id=c&gt;C&lt;/li&gt;&lt;/ul&gt;&quot;);</span><span class="a">+        Element ul = doc.expectFirst(&quot;ul&quot;);</span><span class="a">+        Element b = doc.expectFirst(&quot;#b&quot;);</span><span class="a">+</span><span class="a">+        assertSame(b, b.before(b));</span><span class="a">+        assertSame(ul, b.parent());</span><span class="a">+        assertEquals(3, ul.childrenSize());</span><span class="a">+        assertSame(b, ul.child(1));</span><span class="a">+        assertEquals(&quot;A B C&quot;, ul.text());</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test public void after() {</span><span class="c">         Document doc = Jsoup.parse(&quot;&lt;p&gt;One &lt;b&gt;two&lt;/b&gt; three&lt;/p&gt;&quot;);</span><span class="c">         Element newNode = new Element(Tag.valueOf(&quot;em&quot;), &quot;&quot;);</span><span class="h">@@ -350,6 +363,19 @@ public class NodeTest {</span><span class="c">         assertEquals(&quot;Three One Two&quot;, div.text());</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void afterSelfIsNoOp() {</span><span class="a">+        // https://github.com/jhy/jsoup/issues/2628</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;ul&gt;&lt;li id=a&gt;A&lt;/li&gt;&lt;li id=b&gt;B&lt;/li&gt;&lt;li id=c&gt;C&lt;/li&gt;&lt;/ul&gt;&quot;);</span><span class="a">+        Element ul = doc.expectFirst(&quot;ul&quot;);</span><span class="a">+        Element b = doc.expectFirst(&quot;#b&quot;);</span><span class="a">+</span><span class="a">+        assertSame(b, b.after(b));</span><span class="a">+        assertSame(ul, b.parent());</span><span class="a">+        assertEquals(3, ul.childrenSize());</span><span class="a">+        assertSame(b, ul.child(1));</span><span class="a">+        assertEquals(&quot;A B C&quot;, ul.text());</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test public void unwrap() {</span><span class="c">         Document doc = Jsoup.parse(&quot;&lt;div&gt;One &lt;span&gt;Two &lt;b&gt;Three&lt;/b&gt;&lt;/span&gt; Four&lt;/div&gt;&quot;);</span><span class="c">         Element span = doc.select(&quot;span&quot;).first();</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/jsoup/run-20261006-181938/2627/">Previous · #2627</a>
+  <a class="mid" href="/backtests/jsoup/run-20261006-181938/">All tickets in this run</a>
+  <a href="/backtests/jsoup/run-20261006-181938/2631/">Next · #2631</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

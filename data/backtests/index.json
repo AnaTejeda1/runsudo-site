@@ -299,6 +299,32 @@
           "footnote": "The two errors are tickets lost before the agent ran: their base commits pinned a pnpm release that refuses to install, and setting up a working environment for them timed out. Every judged ticket passed verification and audited clean."
         }
       ]
+    },
+    {
+      "slug": "jsoup",
+      "name": "jhy/jsoup",
+      "description": "Java HTML parser: DOM, CSS selectors and HTML cleaning.",
+      "languages": [
+        "Java"
+      ],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-10-06",
+          "id": "run-20261006-181938",
+          "source_runs": [
+            "run-20261006-163442",
+            "run-20261006-181938"
+          ],
+          "tickets": 30,
+          "better": 22,
+          "par": 0,
+          "worse": 8,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1; first Java repo; 9 tickets re-run after a GitHub API rate limit",
+          "footnote": ""
+        }
+      ]
     }
   ],
   "events": []

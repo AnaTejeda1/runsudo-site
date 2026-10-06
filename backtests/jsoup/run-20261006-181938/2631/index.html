@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#2631 Malformed `&lt;/` end tag should consume the `/` — jhy/jsoup backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #2631 in jhy/jsoup, run 6 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/jsoup/run-20261006-181938/2631/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/">jsoup</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/run-20261006-181938/">run-20261006-181938</a><span aria-hidden="true">/</span><span aria-current="page">#2631</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/jhy/jsoup/issues/2631" rel="noopener" target="_blank">#2631</a></span>
+  <span>Merged fix <a href="https://github.com/jhy/jsoup/commit/81718491972c21a911c5964b2cae06fdc201dfb3" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 6 Oct 2026 · <span class="runid">run-20261006-181938</span></span>
+  <span>jhy/jsoup</span>
+</div>
+<h1 class="ticket-title">Malformed <code>&lt;/</code> end tag should consume the <code>/</code></h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same production change: they remove the `commentPending.append(&#39;/&#39;)` line in the EndTagOpen fallback branch, so the bogus comment no longer includes the consumed `/`. That is the root cause, and it gives `&lt;/ COMMENT &gt;` → `&lt;!-- COMMENT --&gt;` as the spec requires. On correctness the two are identical, and both update the existing test that expected `&lt;!--/tag--&gt;`.
+
+The difference is in the new tests.
+- **Patch A** covers more ground. It checks the exact issue case in context (`&lt;div&gt;One&lt;/ COMMENT &gt;Two&lt;/div&gt;`, asserting both the serialized HTML and `Comment.getData()`), at top level, and with a different invalid start char (`&lt;/?foo&gt;` → `&lt;!--?foo--&gt;`). It also adds an XML-parser test, confirming the shared tokeniser behaves the same in XML mode.
+- **Patch B** adds a table-driven test with `&lt;/#` (the EOF path), `&lt;/ COMMENT &gt;` and `&lt;/ COM--MENT &gt;`. These are useful, but only check top-level comment data in the HTML parser.
+
+All of these tests would fail before the change and pass after it. Patch A replaces the removed comment with an explanatory one about spec behaviour, which is slightly clearer. Patch B&#39;s CHANGES.md entry is neutral under the scope criterion. Because the fixes are identical, the decision rests on test coverage, where A is modestly ahead (in-context HTML plus XML).</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 21s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,398 passed · 0 skipped · 2,398 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">25<small>vs 17 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/jhy/jsoup/issues/2631" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>Per the spec, <code>&lt;/ COMMENT &gt;</code> should parse to <code>&lt;!--  COMMENT  --&gt;</code>, not <code>&lt;!-- / COMMENT  --&gt;</code> as jsoup currently does.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+22</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">src/main/java/org/jsoup/parser/TokeniserState.java</span><span class="h">index 669871b3..39cfd96d 100644</span><span class="h">@@ -139,8 +139,7 @@ enum TokeniserState {</span><span class="c">                 t.advanceTransition(Data);</span><span class="c">             } else {</span><span class="c">                 t.error(this);</span><span class="r">-                t.createBogusCommentPending();</span><span class="r">-                t.commentPending.append(&#39;/&#39;); // push the / back on that got us here</span><span class="a">+                t.createBogusCommentPending(); // per spec, the comment data starts empty; the consumed &lt;/ is not included</span><span class="c">                 t.transition(BogusComment);</span><span class="c">             }</span><span class="c">         }</span><span class="f">src/test/java/org/jsoup/parser/HtmlParserTest.java</span><span class="h">index 7887ab87..ccbc9e54 100644</span><span class="h">@@ -2156,10 +2156,25 @@ public class HtmlParserTest {</span><span class="c">             Document doc = Jsoup.parse(&quot;&lt;&quot; + tag + &quot;&gt;Text&lt;/&quot; + tag + &quot;&gt;&quot;);</span><span class="c">             Elements els = doc.getElementsByTag(tag);</span><span class="c">             assertEquals(0, els.size());</span><span class="r">-            assertEquals(&quot;&amp;lt;&quot; + tag + &quot;&amp;gt;Text&lt;!--/&quot; + tag + &quot;--&gt;&quot;, doc.body().html());</span><span class="a">+            assertEquals(&quot;&amp;lt;&quot; + tag + &quot;&amp;gt;Text&lt;!--&quot; + tag + &quot;--&gt;&quot;, doc.body().html());</span><span class="c">         }</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void malformedEndTagConsumesSlash() {</span><span class="a">+        // per spec, &lt;/ followed by an invalid tag name char is a bogus comment, without the /</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;div&gt;One&lt;/ COMMENT &gt;Two&lt;/div&gt;&quot;);</span><span class="a">+        assertEquals(&quot;&lt;div&gt;One&lt;!-- COMMENT --&gt;Two&lt;/div&gt;&quot;, TextUtil.stripNewlines(doc.body().html()));</span><span class="a">+        Comment comment = (Comment) doc.selectFirst(&quot;div&quot;).childNode(1);</span><span class="a">+        assertEquals(&quot; COMMENT &quot;, comment.getData());</span><span class="a">+</span><span class="a">+        Document doc2 = Jsoup.parse(&quot;&lt;/ COMMENT &gt;&quot;);</span><span class="a">+        Comment comment2 = (Comment) doc2.childNode(0);</span><span class="a">+        assertEquals(&quot; COMMENT &quot;, comment2.getData());</span><span class="a">+</span><span class="a">+        Document doc3 = Jsoup.parse(&quot;&lt;p&gt;A&lt;/?foo&gt;B&lt;/p&gt;&quot;);</span><span class="a">+        assertEquals(&quot;&lt;p&gt;A&lt;!--?foo--&gt;B&lt;/p&gt;&quot;, doc3.body().html());</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test void htmlOutputCorrectsInvalidAttributeNames() {</span><span class="c">         String html = &quot;&lt;body style=\&quot;color: red\&quot; \&quot; name\&quot;&gt;&lt;div =\&quot;\&quot;&gt;&lt;/div&gt;&lt;/body&gt;&quot;;</span><span class="c">         Document doc = Jsoup.parse(html);</span><span class="f">src/test/java/org/jsoup/parser/XmlTreeBuilderTest.java</span><span class="h">index 2c574bc1..5de1c53a 100644</span><span class="h">@@ -89,6 +89,11 @@ public class XmlTreeBuilderTest {</span><span class="c">         assertEquals(&quot;#comment&quot;, doc.childNode(2).nodeName());</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void malformedEndTagConsumesSlash() {</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;doc&gt;One&lt;/ COMMENT &gt;Two&lt;/doc&gt;&quot;, &quot;&quot;, Parser.xmlParser());</span><span class="a">+        assertEquals(&quot;&lt;doc&gt;One&lt;!-- COMMENT --&gt;Two&lt;/doc&gt;&quot;, TextUtil.stripNewlines(doc.html()));</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test public void xmlFragment() {</span><span class="c">         String xml = &quot;&lt;one src=&#39;/foo/&#39; /&gt;Two&lt;three&gt;&lt;four /&gt;&lt;/three&gt;&quot;;</span><span class="c">         List&lt;Node&gt; nodes = Parser.parseXmlFragment(xml, &quot;http://example.com/&quot;);</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/jhy/jsoup/commit/81718491972c21a911c5964b2cae06fdc201dfb3" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+15</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">CHANGES.md</span><span class="h">index a65a514e..6cd69959 100644</span><span class="h">@@ -31,6 +31,7 @@</span><span class="c"> * Double-escaped script tags in body were being closed too early. [#2627](https://github.com/jhy/jsoup/issues/2627)</span><span class="c"> * `Node.before(Node)` and `Node.after(Node)` now leave the document unchanged when given the node itself, instead of throwing a `NullPointerException`. [#2628](https://github.com/jhy/jsoup/issues/2628)</span><span class="c"> * Fixed HTML parse of `&lt;dialog&gt;`, `&lt;main&gt;`, and `&lt;search&gt;` so their start and end tags close open paragraphs correctly. [#2629](https://github.com/jhy/jsoup/issues/2629)</span><span class="a">+* Updated the parse of malformed end tags such as `&lt;/ COMMENT &gt;` to match the spec (`&lt;!-- COMMENT --&gt;`). [#2631](https://github.com/jhy/jsoup/issues/2631)</span><span class="c"> </span><span class="c"> ## 1.23.2 (2026-Aug-26)</span><span class="c"> </span><span class="f">src/main/java/org/jsoup/parser/TokeniserState.java</span><span class="h">index 669871b3..9f65fba1 100644</span><span class="h">@@ -140,7 +140,6 @@ enum TokeniserState {</span><span class="c">             } else {</span><span class="c">                 t.error(this);</span><span class="c">                 t.createBogusCommentPending();</span><span class="r">-                t.commentPending.append(&#39;/&#39;); // push the / back on that got us here</span><span class="c">                 t.transition(BogusComment);</span><span class="c">             }</span><span class="c">         }</span><span class="f">src/test/java/org/jsoup/parser/HtmlParserTest.java</span><span class="h">index 7887ab87..eb33dc1f 100644</span><span class="h">@@ -2156,7 +2156,7 @@ public class HtmlParserTest {</span><span class="c">             Document doc = Jsoup.parse(&quot;&lt;&quot; + tag + &quot;&gt;Text&lt;/&quot; + tag + &quot;&gt;&quot;);</span><span class="c">             Elements els = doc.getElementsByTag(tag);</span><span class="c">             assertEquals(0, els.size());</span><span class="r">-            assertEquals(&quot;&amp;lt;&quot; + tag + &quot;&amp;gt;Text&lt;!--/&quot; + tag + &quot;--&gt;&quot;, doc.body().html());</span><span class="a">+            assertEquals(&quot;&amp;lt;&quot; + tag + &quot;&amp;gt;Text&lt;!--&quot; + tag + &quot;--&gt;&quot;, doc.body().html());</span><span class="c">         }</span><span class="c">     }</span><span class="c"> </span><span class="f">src/test/java/org/jsoup/parser/TokeniserStateTest.java</span><span class="h">index fdf6b004..ca824553 100644</span><span class="h">@@ -83,6 +83,19 @@ public class TokeniserStateTest {</span><span class="c">         assertEquals(&quot;fake&quot;, els.text());</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test</span><span class="a">+    public void malformedEndTagCommentsExcludeSolidus() {</span><span class="a">+        String[][] cases = {</span><span class="a">+            {&quot;&lt;/#&quot;, &quot;#&quot;},</span><span class="a">+            {&quot;&lt;/ COMMENT &gt;&quot;, &quot; COMMENT &quot;},</span><span class="a">+            {&quot;&lt;/ COM--MENT &gt;&quot;, &quot; COM--MENT &quot;}</span><span class="a">+        };</span><span class="a">+        for (String[] testCase : cases) {</span><span class="a">+            Document doc = Jsoup.parse(testCase[0]);</span><span class="a">+            assertEquals(testCase[1], ((Comment) doc.childNode(0)).getData(), testCase[0]);</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test</span><span class="c">     public void testRcdataLessthanSign() {</span><span class="c">         String body;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/jsoup/run-20261006-181938/2628/">Previous · #2628</a>
+  <a class="mid" href="/backtests/jsoup/run-20261006-181938/">All tickets in this run</a>
+  <a href="/backtests/jsoup/run-20261006-181938/2633/">Next · #2633</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

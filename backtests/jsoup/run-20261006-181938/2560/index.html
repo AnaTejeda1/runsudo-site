@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#2560 W3CDom throws NPE for element names with invalid XML starts — jhy/jsoup backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #2560 in jhy/jsoup, run 6 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/jsoup/run-20261006-181938/2560/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/">jsoup</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/run-20261006-181938/">run-20261006-181938</a><span aria-hidden="true">/</span><span aria-current="page">#2560</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/jhy/jsoup/issues/2560" rel="noopener" target="_blank">#2560</a></span>
+  <span>Merged fix <a href="https://github.com/jhy/jsoup/commit/5ee2e11a8f5b6f3c32b7edef246d5623223aa53e" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 6 Oct 2026 · <span class="runid">run-20261006-181938</span></span>
+  <span>jhy/jsoup</span>
+</div>
+<h1 class="ticket-title">W3CDom throws NPE for element names with invalid XML starts</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Patch B is the better fix: both resolve the reported NPE, but A widens the change into attribute handling without testing it, while B keeps the fix confined to tag names.
+
+**Correctness.**
+- Both patches stop the NPE by normalizing `1abc` to `_1abc` when the name cannot start an XML name.
+- Patch A puts the fallback inside the shared `w3cSafeName` and deletes the `if (key == null) return;` guard in `setAttribute`. Attributes that were previously skipped as unrepresentable are now emitted with a `_` prefix, or as a bare `_` as the last resort.
+- That contradicts the existing changelog note that unrepresentable attributes are skipped. It also allows several attributes to collapse to the same `_` key, or to collide with declaration handling.
+- None of this attribute-path change is tested.
+- Patch B fixes the root helper `Normalizer.xmlSafeTagName`, which is the shared tag-name normalizer, and applies it before QName normalization for element names only. Attribute behavior is unchanged.
+- B also fixes the same root cause in `Element.safeTagName`, where XML-syntax serialization previously emitted `&lt;null&gt;`. That is a closely related symptom of the same null return, and it carries little risk.
+
+**Tests.**
+- Patch A tests `1abc` and `-abc` with a nested child and checks parentage.
+- Patch B tests a renamed root (`1abc`), a prefixed name with an invalid local part (`p:2x` → `p:_2x`), and text content and serialized output.
+- B also covers a programmatically created element (`9lives`) in an HTML document, matching both scenarios in the issue (created and renamed elements).
+- B adds an `ElementTest` showing XML serialization is fixed while HTML syntax is unchanged.
+- B&#39;s tests are broader and exercise the prefix case.
+
+**Scope and craft.**
+- Patch A&#39;s CHANGES entry is a plus, but its silent change to attribute semantics adds risk.
+- Patch B&#39;s changes are cohesive: fix the helper, make it non-null, and update its callers.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 39s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,154 passed · 0 skipped · 2,154 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">61<small>vs 28 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/jhy/jsoup/issues/2560" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p><code>W3CDom</code> conversion throws a <code>NullPointerException</code> when a programmatically created or renamed element has a name that cannot start an XML name, such as <code>1abc</code>.</p>
+<pre><code class="lang-java">Document doc = Jsoup.parse(&quot;&lt;root/&gt;&quot;, &quot;&quot;, Parser.xmlParser());
+doc.firstElementChild().tagName(&quot;1abc&quot;);
+
+new W3CDom().fromJsoup(doc);</code></pre>
+<p><code>Attribute.getValidKey()</code> returns <code>null</code>, which is then dereferenced by <code>W3CDom</code>.</p>
+<p>The name should instead be normalized to a valid XML name, such as <code>_1abc</code>.</p>
+<p>Raw <code>&lt;1abc/&gt;</code> input is already treated as text by the parser, so this applies specifically to DOM construction and mutation.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+55</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">src/main/java/org/jsoup/helper/W3CDom.java</span><span class="h">index 3f7f2490..01ae7cee 100644</span><span class="h">@@ -2,6 +2,7 @@ package org.jsoup.helper;</span><span class="c"> </span><span class="c"> import org.jsoup.internal.NamespaceBindings;</span><span class="c"> import org.jsoup.internal.StringUtil;</span><span class="a">+import org.jsoup.internal.Normalizer;</span><span class="c"> import org.jsoup.nodes.Attribute;</span><span class="c"> import org.jsoup.nodes.Attributes;</span><span class="c"> import org.jsoup.parser.Parser;</span><span class="h">@@ -373,7 +374,9 @@ public class W3CDom {</span><span class="c">                 outputNamespaces.pushScope();</span><span class="c">                 sourceNamespaces.applyDeclarations(sourceEl.attributes());</span><span class="c">                 @Nullable String namespace = namespaceAware ? w3cNamespace(sourceEl) : null;</span><span class="r">-                String tagName = w3cSafeName(sourceEl.tagName(), Syntax.xml);</span><span class="a">+                // normalize to a valid XML name first (e.g. 1abc to _1abc), so the QName normalization can&#39;t yield null</span><span class="a">+                String tagName = w3cSafeName(Normalizer.xmlSafeTagName(sourceEl.tagName()), Syntax.xml);</span><span class="a">+                if (tagName == null) tagName = &quot;_&quot;; // not expected, as the input is already a valid XML name</span><span class="c">                 try {</span><span class="c">                     // use an empty namespace if none is present but the tag name has a prefix</span><span class="c">                     String imputedNamespace = namespace == null &amp;&amp; tagName.contains(&quot;:&quot;) ? &quot;&quot; : namespace;</span><span class="f">src/main/java/org/jsoup/internal/Normalizer.java</span><span class="h">index 9fe85df3..76f67844 100644</span><span class="h">@@ -31,8 +31,15 @@ public final class Normalizer {</span><span class="c">         return isStringLiteral ? lowerCase(input) : normalize(input);</span><span class="c">     }</span><span class="c"> </span><span class="r">-    /** Minimal helper to get an otherwise OK HTML name like &quot;foo&amp;lt;bar&quot; to &quot;foo_bar&quot;. */</span><span class="r">-    @Nullable public static String xmlSafeTagName(final String tagname) {</span><span class="r">-        return Attribute.getValidKey(tagname, Document.OutputSettings.Syntax.xml); // Reuses the Attribute key normal, which is same for xml tag names</span><span class="a">+    /**</span><span class="a">+     Minimal helper to get an otherwise OK HTML name like &quot;foo&amp;lt;bar&quot; to &quot;foo_bar&quot;, or a name that cannot start an XML</span><span class="a">+     name like &quot;1abc&quot; to &quot;_1abc&quot;.</span><span class="a">+     */</span><span class="a">+    public static String xmlSafeTagName(final String tagname) {</span><span class="a">+        // Reuses the Attribute key normal, which is same for xml tag names</span><span class="a">+        @Nullable String safe = Attribute.getValidKey(tagname, Document.OutputSettings.Syntax.xml);</span><span class="a">+        if (safe == null) // invalid start char (or empty); prefix so it can start an XML name</span><span class="a">+            safe = Attribute.getValidKey(&quot;_&quot; + tagname, Document.OutputSettings.Syntax.xml);</span><span class="a">+        return safe != null ? safe : &quot;_&quot;;</span><span class="c">     }</span><span class="c"> }</span><span class="f">src/main/java/org/jsoup/nodes/Element.java</span><span class="h">index efc34a67..d015eb1c 100644</span><span class="h">@@ -2023,8 +2023,8 @@ public class Element extends Node implements Iterable&lt;Element&gt; {</span><span class="c">         // if empty, we have already closed in htmlHead</span><span class="c">     }</span><span class="c"> </span><span class="r">-    /* If XML syntax, normalizes &lt; to _ in tag name. */</span><span class="r">-    @Nullable private String safeTagName(Document.OutputSettings.Syntax syntax) {</span><span class="a">+    /* If XML syntax, normalizes the tag name to a valid XML name (e.g. &lt; to _, or 1abc to _1abc). */</span><span class="a">+    private String safeTagName(Document.OutputSettings.Syntax syntax) {</span><span class="c">         return syntax == xml ? Normalizer.xmlSafeTagName(tagName()) : tagName();</span><span class="c">     }</span><span class="c"> </span><span class="f">src/test/java/org/jsoup/helper/W3CDomTest.java</span><span class="h">index 14ca00f9..4fd6c582 100644</span><span class="h">@@ -242,6 +242,33 @@ public class W3CDomTest {</span><span class="c">         assertEquals(&quot;&lt;?xml version=\&quot;1.0\&quot; encoding=\&quot;UTF-8\&quot;?&gt;&lt;html xmlns=\&quot;http://www.w3.org/1999/xhtml\&quot;&gt;&lt;head/&gt;&lt;body&gt;&amp;lt;インセンティブで高収入！&amp;gt;Text &lt;p&gt;More&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;&quot;, xml);</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void normalizesProgrammaticTagNameWithInvalidXmlStart() {</span><span class="a">+        // a renamed element may have a name that cannot start an XML name; it should be prefixed, not NPE</span><span class="a">+        org.jsoup.nodes.Document jdoc = Jsoup.parse(&quot;&lt;root&gt;&lt;child&gt;Text&lt;/child&gt;&lt;/root&gt;&quot;, &quot;&quot;, Parser.xmlParser());</span><span class="a">+        jdoc.expectFirst(&quot;root&quot;).tagName(&quot;1abc&quot;);</span><span class="a">+        jdoc.expectFirst(&quot;child&quot;).tagName(&quot;p:2x&quot;);</span><span class="a">+</span><span class="a">+        Document w3Doc = new W3CDom().fromJsoup(jdoc);</span><span class="a">+        org.w3c.dom.Element root = w3Doc.getDocumentElement();</span><span class="a">+        assertEquals(&quot;_1abc&quot;, root.getTagName());</span><span class="a">+        org.w3c.dom.Element child = (org.w3c.dom.Element) root.getFirstChild();</span><span class="a">+        assertEquals(&quot;p:_2x&quot;, child.getTagName());</span><span class="a">+        assertEquals(&quot;Text&quot;, child.getTextContent());</span><span class="a">+        String xml = W3CDom.asString(w3Doc, W3CDom.OutputXml());</span><span class="a">+        assertTrue(xml.contains(&quot;&lt;_1abc&gt;&quot;), xml);</span><span class="a">+        assertTrue(xml.contains(&quot;&gt;Text&lt;/p:_2x&gt;&lt;/_1abc&gt;&quot;), xml);</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test void normalizesCreatedElementWithInvalidXmlStart() {</span><span class="a">+        org.jsoup.nodes.Document jdoc = Jsoup.parseBodyFragment(&quot;&lt;div&gt;&lt;/div&gt;&quot;);</span><span class="a">+        jdoc.expectFirst(&quot;div&quot;).appendChild(new Element(&quot;9lives&quot;).text(&quot;cat&quot;));</span><span class="a">+</span><span class="a">+        Document w3Doc = new W3CDom().fromJsoup(jdoc);</span><span class="a">+        NodeList els = w3Doc.getElementsByTagNameNS(&quot;*&quot;, &quot;_9lives&quot;);</span><span class="a">+        assertEquals(1, els.getLength());</span><span class="a">+        assertEquals(&quot;cat&quot;, els.item(0).getTextContent());</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test void handlesHtmlElsWithLt() {</span><span class="c">         // In HTML, elements can be named &quot;foo&lt;bar&quot; (&lt;foo&lt;bar&gt;). Test that we can convert to W3C, that we can HTML parse our HTML serial, XML parse our XML serial, and W3C XML parse the XML serial and the W3C serial</span><span class="c">         // And similarly attributes may have &quot;&lt;&quot; in their name</span><span class="f">src/test/java/org/jsoup/nodes/ElementTest.java</span><span class="h">index 229fe210..6a476997 100644</span><span class="h">@@ -3359,6 +3359,18 @@ public class ElementTest {</span><span class="c">         assertEquals(&quot;&lt;p_&gt;One&lt;/p_&gt;&quot;, xml);</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void xmlSyntaxNormalizesTagNameWithInvalidXmlStart() {</span><span class="a">+        // previously serialized as &lt;null&gt;; the name should be prefixed to a valid XML name</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;root&gt;&lt;a&gt;One&lt;/a&gt;&lt;/root&gt;&lt;empty&gt;&lt;/empty&gt;&quot;, &quot;&quot;, Parser.xmlParser());</span><span class="a">+        doc.outputSettings().prettyPrint(false);</span><span class="a">+        doc.expectFirst(&quot;root&quot;).tagName(&quot;1abc&quot;);</span><span class="a">+        doc.expectFirst(&quot;empty&quot;).tagName(&quot;2e&quot;);</span><span class="a">+        assertEquals(&quot;&lt;_1abc&gt;&lt;a&gt;One&lt;/a&gt;&lt;/_1abc&gt;&lt;_2e&gt;&lt;/_2e&gt;&quot;, doc.html());</span><span class="a">+</span><span class="a">+        doc.outputSettings().syntax(Document.OutputSettings.Syntax.html);</span><span class="a">+        assertEquals(&quot;&lt;1abc&gt;&lt;a&gt;One&lt;/a&gt;&lt;/1abc&gt;&lt;2e&gt;&lt;/2e&gt;&quot;, doc.html()); // html syntax unchanged</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test</span><span class="c">     public void invalidCharactersDiscardedInXml() {</span><span class="c">         // https://github.com/jhy/jsoup/issues/1743</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/jhy/jsoup/commit/5ee2e11a8f5b6f3c32b7edef246d5623223aa53e" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+24</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">CHANGES.md</span><span class="h">index 74d5272c..dfe7b1f9 100644</span><span class="h">@@ -15,6 +15,7 @@</span><span class="c">   * Namespace declarations now apply regardless of attribute order, and an empty declaration shadows an inherited binding only within its scope.</span><span class="c">   * With namespace awareness disabled, inherited and undeclared prefixes now receive the declarations needed for XML serialization.</span><span class="c">   * Valid HTML names that are not XML QNames, such as `a:b:c`, are normalized. Attributes that still cannot be represented are skipped, and unrepresentable elements no longer change the surrounding tree.</span><span class="a">+* Fixed `W3CDom` conversion of programmatically created or renamed elements whose names can be represented in a jsoup HTML DOM but are not valid XML names, such as `1abc`. These names are now normalized (e.g. `_1abc`) instead of causing a `NullPointerException`. [#2560](https://github.com/jhy/jsoup/issues/2560)</span><span class="c"> * Fixed the JDK `HttpClient` implementation to accept responses without a `Content-Type` header, matching the `HttpURLConnection` implementation. [#2549](https://github.com/jhy/jsoup/pull/2549)</span><span class="c"> * Fixed HTTP response content-type matching to handle media types case-insensitively and recognize structured `+xml` suffixes, including vendor-specific media types. [#2550](https://github.com/jhy/jsoup/pull/2550)</span><span class="c"> * Corrected multipart form encoding to percent-escape CR and LF in field names and filenames, matching the HTML form submission specification. Multipart file content-types containing CR or LF are now rejected with a `ValidationException`. [#2555](https://github.com/jhy/jsoup/pull/2555)</span><span class="f">src/main/java/org/jsoup/helper/W3CDom.java</span><span class="h">index 3f7f2490..bebc53de 100644</span><span class="h">@@ -473,7 +473,6 @@ public class W3CDom {</span><span class="c">         /** Copies an attribute with its resolved namespace and W3C-safe name. */</span><span class="c">         private void setAttribute(Element wEl, Attribute attribute, Syntax syntax) throws DOMException {</span><span class="c">             String key = w3cSafeName(attribute.getKey(), syntax);</span><span class="r">-            if (key == null) return;</span><span class="c"> </span><span class="c">             @Nullable String declarationPrefix = NamespaceBindings.declarationPrefix(key);</span><span class="c">             if (declarationPrefix != null) {</span><span class="h">@@ -507,10 +506,13 @@ public class W3CDom {</span><span class="c">             ensureOutputBinding(wEl, prefix, namespace);</span><span class="c">         }</span><span class="c"> </span><span class="r">-        /** Normalizes a name to a W3C-compatible QName, converting {@code a:b:c} to {@code a:b_c}. */</span><span class="r">-        private @Nullable String w3cSafeName(String name, Syntax syntax) {</span><span class="a">+        /** Normalizes a name to a W3C-compatible QName, converting {@code 1:a:b} to {@code _1:a_b}. */</span><span class="a">+        private String w3cSafeName(String name, Syntax syntax) {</span><span class="c">             @Nullable String normalized = Attribute.getValidKey(name, syntax);</span><span class="r">-            if (normalized == null) return null;</span><span class="a">+            if (normalized == null) {</span><span class="a">+                normalized = Attribute.getValidKey(&quot;_&quot; + name, syntax);</span><span class="a">+                if (normalized == null) return &quot;_&quot;;</span><span class="a">+            }</span><span class="c">             if (normalized.indexOf(&#39;:&#39;) == -1) return normalized;</span><span class="c"> </span><span class="c">             Matcher parts = QNameParts.matcher(normalized);</span><span class="f">src/test/java/org/jsoup/helper/W3CDomTest.java</span><span class="h">index 14ca00f9..ae65b25a 100644</span><span class="h">@@ -698,6 +698,23 @@ public class W3CDomTest {</span><span class="c">         assertSame(main, p.getParentNode());</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void normalizesElementNamesWithInvalidXmlStarts() {</span><span class="a">+        // DOM mutation can create names the parser rejects; conversion must still produce valid XML names</span><span class="a">+        org.jsoup.nodes.Document jdoc = Jsoup.parse(&quot;&lt;root&gt;&lt;first&gt;&lt;child/&gt;&lt;/first&gt;&lt;second/&gt;&lt;/root&gt;&quot;, &quot;&quot;, Parser.xmlParser());</span><span class="a">+        jdoc.expectFirst(&quot;first&quot;).tagName(&quot;1abc&quot;);</span><span class="a">+        jdoc.expectFirst(&quot;second&quot;).tagName(&quot;-abc&quot;);</span><span class="a">+</span><span class="a">+        org.w3c.dom.Document w3CDoc = new W3CDom().fromJsoup(jdoc);</span><span class="a">+        org.w3c.dom.Element root = w3CDoc.getDocumentElement();</span><span class="a">+        org.w3c.dom.Element first = (org.w3c.dom.Element) w3CDoc.getElementsByTagName(&quot;_1abc&quot;).item(0);</span><span class="a">+        org.w3c.dom.Element child = (org.w3c.dom.Element) w3CDoc.getElementsByTagName(&quot;child&quot;).item(0);</span><span class="a">+        org.w3c.dom.Element second = (org.w3c.dom.Element) w3CDoc.getElementsByTagName(&quot;_-abc&quot;).item(0);</span><span class="a">+</span><span class="a">+        assertSame(root, first.getParentNode());</span><span class="a">+        assertSame(first, child.getParentNode());</span><span class="a">+        assertSame(root, second.getParentNode());</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test void preservesValidQNameCharacters() {</span><span class="c">         // Unicode letters are valid starts; other valid characters are retained by prepending a safe start</span><span class="c">         String html = &quot;&lt;html xmlns:a=&#39;urn:a&#39;&gt;&lt;body&gt;&lt;div a:é=&#39;unicode&#39; a:_b=&#39;underscore&#39; a:9b=&#39;digit&#39;&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;&quot;;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/jsoup/run-20261006-181938/2552/">Previous · #2552</a>
+  <a class="mid" href="/backtests/jsoup/run-20261006-181938/">All tickets in this run</a>
+  <a href="/backtests/jsoup/run-20261006-181938/2562/">Next · #2562</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

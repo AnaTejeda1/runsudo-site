@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#2588 Decode named entities before - and _ in attributes — jhy/jsoup backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #2588 in jhy/jsoup, run 6 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/jsoup/run-20261006-181938/2588/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/">jsoup</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/run-20261006-181938/">run-20261006-181938</a><span aria-hidden="true">/</span><span aria-current="page">#2588</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/jhy/jsoup/issues/2588" rel="noopener" target="_blank">#2588</a></span>
+  <span>Merged fix <a href="https://github.com/jhy/jsoup/pull/2596" rel="noopener" target="_blank">PR #2596</a></span>
+  <span>Run 6 Oct 2026 · <span class="runid">run-20261006-181938</span></span>
+  <span>jhy/jsoup</span>
+</div>
+<h1 class="ticket-title">Decode named entities before - and _ in attributes</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The production change is identical in both patches. Each removes &#39;-&#39; and &#39;_&#39; from the in-attribute rewind condition in Tokeniser, so semicolonless named references followed by those characters now decode. References followed by &#39;=&#39; or an ASCII alphanumeric are still left alone, which matches the HTML spec&#39;s attribute rule. Correctness is therefore equal: the issue&#39;s cases (&#39;&amp;timestamp=&#39;, &#39;&amp;param=&#39;) still stay literal in attributes, and &#39;&amp;copy-&#39; / &#39;&amp;times-&#39; now decode. Both patches add tests that would fail before the change and pass after it.
+
+Patch B covers several distinct entities (&amp;times, &amp;para, &amp;copy, &amp;amp, &amp;lt, &amp;gt, &amp;not) across single-quoted, double-quoted and unquoted values. It also covers the issue&#39;s query-string case and the static Parser.unescapeEntities path.
+
+Patch A&#39;s tests are more systematic:
+- Each scenario runs over all quoting styles.
+- They separate the three behaviours (punctuation decodes; &#39;=&#39; does not; alphanumerics in upper case, lower case and digits do not) and contrast semicolon-terminated forms in each case.
+- They pin the attribute-versus-text difference for the issue&#39;s exact URL, both through parsing and through Parser.unescapeEntities in both modes.
+- Patch A also adds a CHANGES.md entry, following the project&#39;s convention.
+
+Scope and craft are otherwise comparable, with clear comments in both. Patch A edges ahead on more thorough, well-structured tests and the changelog entry.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 13s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,227 passed · 0 skipped · 2,227 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">20<small>vs 51 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/jhy/jsoup/issues/2588" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>Since Jsoup version 1.18.1, when parsing input parameters, it performs fuzzy matching on the string following &#39;&amp;&#39; against HTML entities and automatically converts them to HTML entities. For example, when a parameter contains &#39;&amp;timestamp=&#39;, it fuzzy-matches to &#39;&amp;times&#39; and automatically converts it to &#39;×&#39; (multiplication sign). When a parameter contains &#39;&amp;param&#39;, it fuzzy-matches to &#39;&amp;para&#39; and converts it to the paragraph symbol (¶). This causes input validation to fail. Before version 1.18.1, Jsoup would automatically convert &#39;&amp;&#39; to &#39;&amp;&#39;, which was fine. However, after the upgrade, it performs fuzzy matching that incorrectly matches HTML entities that should not be matched. I believe this is a bug.</p>
+<p>Jsoup 自从1.18.1之后会把入参的&amp;后面的字符串进行模糊匹配html并自动转换为html的实体，例如传参涉及&amp;timestamp=会模糊匹配到&amp;times自动转成*，传参涉及&amp;param会模糊匹配到&amp;para自动转成段落符号;导致入参失败，1.18.1之前是会将&amp;自动转成&amp;amp;这是没问题的，但是升级之后会导致模糊匹配到不应该匹配的html实体格式，我理解这是个bug</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+18</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">src/main/java/org/jsoup/parser/Tokeniser.java</span><span class="h">index 4765429f..08d58fc3 100644</span><span class="h">@@ -198,8 +198,8 @@ final class Tokeniser {</span><span class="c">                 reader.matchConsume(prefix);</span><span class="c">                 nameRef = prefix;</span><span class="c">             }</span><span class="r">-            if (inAttribute &amp;&amp; (reader.matchesAsciiAlpha() || reader.matchesDigit() || reader.matchesAny(&#39;=&#39;, &#39;-&#39;, &#39;_&#39;))) {</span><span class="r">-                // don&#39;t want that to match</span><span class="a">+            if (inAttribute &amp;&amp; (reader.matchesAsciiAlpha() || reader.matchesDigit() || reader.matches(&#39;=&#39;))) {</span><span class="a">+                // in an attribute, a reference without ; followed by = or alphanumeric is not decoded (per spec). Others like - or _ are decoded</span><span class="c">                 reader.rewindToMark();</span><span class="c">                 return null;</span><span class="c">             }</span><span class="f">src/test/java/org/jsoup/parser/AttributeParseTest.java</span><span class="h">index d328b9fb..d8b4c04f 100644</span><span class="h">@@ -73,6 +73,22 @@ public class AttributeParseTest {</span><span class="c">         assertEquals(&quot;&amp;wr_id=123&amp;mid-size=true&amp;ok=&amp;wr&quot;, els.first().attr(&quot;href&quot;));</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test public void decodesNamedEntitiesBeforeDashAndUnderscoreInAttributes() {</span><span class="a">+        // per spec, a legacy named ref without ; in an attribute is only left as-is if followed by = or alphanumeric</span><span class="a">+        String html = &quot;&lt;a id=1 href=&#39;?a&amp;times-b&amp;para_c&amp;copy-&amp;amp_x&#39;&gt;One&lt;/a&gt; &lt;a id=2 title=\&quot;&amp;lt-&amp;gt_\&quot;&gt;Two&lt;/a&gt; &lt;a id=3 class=&amp;not-x&gt;Three&lt;/a&gt;&quot;;</span><span class="a">+        Elements els = Jsoup.parse(html).select(&quot;a&quot;);</span><span class="a">+        assertEquals(&quot;?a\u00d7-b\u00b6_c\u00a9-&amp;_x&quot;, els.get(0).attr(&quot;href&quot;));</span><span class="a">+        assertEquals(&quot;&lt;-&gt;_&quot;, els.get(1).attr(&quot;title&quot;));</span><span class="a">+        assertEquals(&quot;\u00ac-x&quot;, els.get(2).attr(&quot;class&quot;));</span><span class="a">+</span><span class="a">+        // and still not decoded when followed by = or alphanumerics, or when not a full entity name</span><span class="a">+        String html2 = &quot;&lt;a href=&#39;?x=1&amp;timestamp=2&amp;param=3&amp;times=4&amp;para5&#39;&gt;Four&lt;/a&gt;&quot;;</span><span class="a">+        assertEquals(&quot;?x=1&amp;timestamp=2&amp;param=3&amp;times=4&amp;para5&quot;, Jsoup.parse(html2).selectFirst(&quot;a&quot;).attr(&quot;href&quot;));</span><span class="a">+</span><span class="a">+        // static unescape in attribute mode follows the same rules</span><span class="a">+        assertEquals(&quot;\u00d7-1&amp;times=2&quot;, Parser.unescapeEntities(&quot;&amp;times-1&amp;times=2&quot;, true));</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test public void parsesBooleanAttributes() {</span><span class="c">         String html = &quot;&lt;a normal=\&quot;123\&quot; boolean empty=\&quot;\&quot;&gt;&lt;/a&gt;&quot;;</span><span class="c">         Element el = Jsoup.parse(html).select(&quot;a&quot;).first();</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/jhy/jsoup/pull/2596" rel="noopener" target="_blank">PR #2596</a></span><span class="pm"><span class="a">+49</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">CHANGES.md</span><span class="h">index 5f5e8222..120d76db 100644</span><span class="h">@@ -4,6 +4,7 @@</span><span class="c"> </span><span class="c"> ### Bug Fixes</span><span class="c"> * Standardized parser normalization of tag and attribute names so that HTML comparisons use ASCII-only case folding, and accepted control characters are preserved, aligning name handling to the HTML and XML specs. [#2594](https://github.com/jhy/jsoup/issues/2594)</span><span class="a">+* Named character references without a semicolon before `-` or `_` now decode correctly in attribute values, matching HTML and browser behavior (e.g., `&amp;copy-` becomes `©-`). [#2588](https://github.com/jhy/jsoup/issues/2588)</span><span class="c"> </span><span class="c"> ## 1.23.2 (2026-Aug-26)</span><span class="c"> </span><span class="f">src/main/java/org/jsoup/parser/Tokeniser.java</span><span class="h">index 4765429f..39e7748d 100644</span><span class="h">@@ -198,8 +198,8 @@ final class Tokeniser {</span><span class="c">                 reader.matchConsume(prefix);</span><span class="c">                 nameRef = prefix;</span><span class="c">             }</span><span class="r">-            if (inAttribute &amp;&amp; (reader.matchesAsciiAlpha() || reader.matchesDigit() || reader.matchesAny(&#39;=&#39;, &#39;-&#39;, &#39;_&#39;))) {</span><span class="r">-                // don&#39;t want that to match</span><span class="a">+            if (inAttribute &amp;&amp; (reader.matchesAsciiAlpha() || reader.matchesDigit() || reader.matches(&#39;=&#39;))) {</span><span class="a">+                // in attributes, don&#39;t consume semicolonless references followed by ASCII alphanumeric or equals</span><span class="c">                 reader.rewindToMark();</span><span class="c">                 return null;</span><span class="c">             }</span><span class="f">src/test/java/org/jsoup/parser/HtmlParserTest.java</span><span class="h">index dbc69fc1..4db0c738 100644</span><span class="h">@@ -1311,6 +1311,39 @@ public class HtmlParserTest {</span><span class="c">         assertEquals(&quot;&amp;amp; \&quot; &amp;reg; &amp;amp;icy &amp;amp;hopf &amp;icy; &amp;hopf;&quot;, doc.body().html());</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test public void decodesAttributeEntitiesBeforePunctuation() {</span><span class="a">+        for (String quote : new String[]{&quot;\&quot;&quot;, &quot;&#39;&quot;, &quot;&quot;}) {</span><span class="a">+            String html = &quot;&lt;a title=&quot; + quote + &quot;&amp;copy-&amp;copy_&quot; + quote + &quot;&gt;One&lt;/a&gt;&quot;;</span><span class="a">+            assertEquals(&quot;©-©_&quot;, Jsoup.parse(html).expectFirst(&quot;a&quot;).attr(&quot;title&quot;), html);</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test public void preservesAttributeEntitiesBeforeEquals() {</span><span class="a">+        for (String quote : new String[]{&quot;\&quot;&quot;, &quot;&#39;&quot;}) {</span><span class="a">+            String html = &quot;&lt;a title=&quot; + quote + &quot;&amp;copy=&amp;copy;=&quot; + quote + &quot;&gt;One&lt;/a&gt;&quot;;</span><span class="a">+            assertEquals(&quot;&amp;copy=©=&quot;, Jsoup.parse(html).expectFirst(&quot;a&quot;).attr(&quot;title&quot;), html);</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test public void preservesAttributeEntitiesBeforeAlphanumeric() {</span><span class="a">+        for (String quote : new String[]{&quot;\&quot;&quot;, &quot;&#39;&quot;, &quot;&quot;}) {</span><span class="a">+            String value = &quot;&amp;copya&amp;copyZ&amp;copy1&amp;copy;A&amp;copy;1&quot;;</span><span class="a">+            String html = &quot;&lt;a title=&quot; + quote + value + quote + &quot;&gt;One&lt;/a&gt;&quot;;</span><span class="a">+            assertEquals(&quot;&amp;copya&amp;copyZ&amp;copy1©A©1&quot;, Jsoup.parse(html).expectFirst(&quot;a&quot;).attr(&quot;title&quot;), html);</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test public void queryParametersDecodeEntitiesInTextOnly() {</span><span class="a">+        // https://github.com/jhy/jsoup/issues/2588</span><span class="a">+        String value = &quot;?one=1&amp;timestamp=2&amp;param=3&quot;;</span><span class="a">+        for (String quote : new String[]{&quot;\&quot;&quot;, &quot;&#39;&quot;}) {</span><span class="a">+            String html = &quot;&lt;a href=&quot; + quote + value + quote + &quot;&gt;&quot; + value + &quot;&lt;/a&gt;&quot;;</span><span class="a">+            Element el = Jsoup.parse(html).expectFirst(&quot;a&quot;);</span><span class="a">+            assertEquals(value, el.attr(&quot;href&quot;), html);</span><span class="a">+            assertEquals(&quot;?one=1×tamp=2¶m=3&quot;, el.text(), html);</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test public void findsBasePrefixEntity() {</span><span class="c">         // https://github.com/jhy/jsoup/issues/2207</span><span class="c">         String html = &quot;a&amp;nbspc&amp;shyc I&#39;m &amp;notit; I tell you. I&#39;m &amp;notin; I tell you.&quot;;</span><span class="f">src/test/java/org/jsoup/parser/ParserTest.java</span><span class="h">index bfebf6be..3e51544a 100644</span><span class="h">@@ -22,6 +22,19 @@ public class ParserTest {</span><span class="c">         assertEquals(&quot;One &amp; Two&quot;, s);</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test public void unescapeEntitiesInAttributes() {</span><span class="a">+        String input = &quot;&amp;copy- &amp;copy_ &amp;copy= &amp;copya &amp;copyZ &amp;copy1 &amp;copy;= &amp;copy;A &amp;copy;1&quot;;</span><span class="a">+        assertEquals(&quot;©- ©_ &amp;copy= &amp;copya &amp;copyZ &amp;copy1 ©= ©A ©1&quot;, Parser.unescapeEntities(input, true));</span><span class="a">+        assertEquals(&quot;©- ©_ ©= ©a ©Z ©1 ©= ©A ©1&quot;, Parser.unescapeEntities(input, false));</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test public void unescapeQueryParametersInTextOnly() {</span><span class="a">+        // https://github.com/jhy/jsoup/issues/2588</span><span class="a">+        String input = &quot;?one=1&amp;timestamp=2&amp;param=3&quot;;</span><span class="a">+        assertEquals(input, Parser.unescapeEntities(input, true));</span><span class="a">+        assertEquals(&quot;?one=1×tamp=2¶m=3&quot;, Parser.unescapeEntities(input, false));</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test</span><span class="c">     public void unescapeEntitiesHandlesLargeInput() {</span><span class="c">         StringBuilder longBody = new StringBuilder(500000);</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/jsoup/run-20261006-181938/2573/">Previous · #2573</a>
+  <a class="mid" href="/backtests/jsoup/run-20261006-181938/">All tickets in this run</a>
+  <a href="/backtests/jsoup/run-20261006-181938/2593/">Next · #2593</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

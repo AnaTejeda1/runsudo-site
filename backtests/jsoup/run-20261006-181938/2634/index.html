@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#2634 Align `&lt;body&gt;` and `&lt;frameset&gt;` fragment parsing to the spec — jhy/jsoup backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #2634 in jhy/jsoup, run 6 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/jsoup/run-20261006-181938/2634/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/">jsoup</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/run-20261006-181938/">run-20261006-181938</a><span aria-hidden="true">/</span><span aria-current="page">#2634</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/jhy/jsoup/issues/2634" rel="noopener" target="_blank">#2634</a></span>
+  <span>Merged fix <a href="https://github.com/jhy/jsoup/commit/f062a8abb0271bf3a98a698f9b74fb2ac8f0c1e3" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 6 Oct 2026 · <span class="runid">run-20261006-181938</span></span>
+  <span>jhy/jsoup</span>
+</div>
+<h1 class="ticket-title">Align <code>&lt;body&gt;</code> and <code>&lt;frameset&gt;</code> fragment parsing to the spec</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same production change in HtmlTreeBuilderState. Each replaces `(stack.size() &gt; 2 &amp;&amp; !stack.get(1).nameIs(&quot;body&quot;))` with `!stack.get(1).nameIs(&quot;body&quot;)` for both the `body` and `frameset` start-tag branches. This fixes the root cause: a 2-element stack such as [html, span] in a body fragment was not being ignored. Correctness is therefore equal.
+
+The difference is in the tests. Patch A adds one test, and it covers only `&lt;frameset&gt;` (body and div contexts, plus an html-context check). It never exercises the `&lt;body&gt;` start-tag branch it also changed.
+
+Patch B tests both branches:
+- `&lt;span&gt;&lt;frameset&gt;…` and `&lt;span&gt;&lt;body class=x&gt;…` in a body context, checking that later content still lands in the span and that body attributes are not merged.
+- The same cases through `Jsoup.parseBodyFragment`.
+- A template context.
+- Full-document regression checks showing that `&lt;body&gt;` attribute merging and the frameset-ok replacement of an implied body still work in normal parsing.
+
+These tests would fail before the fix and pass after it. They also guard against the obvious risk of over-ignoring in document parsing.
+
+Scope and craft are close. Patch A adds a CHANGES.md entry and drops the `// only in fragment case` comment; Patch B keeps the comment. Neither choice matters much. Patch B wins on more thorough, meaningful test coverage of both changed code paths.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">8m 4s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,426 passed · 0 skipped · 2,426 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">42<small>vs 20 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/jhy/jsoup/issues/2634" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>The <a href="https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody" rel="noopener nofollow" target="_blank">spec</a> says to ignore either start tag when the second open element is not <code>body</code>, but the current impl doesn&#39;t do that exactly. For example, parsing <code>&lt;span&gt;&lt;frameset&gt;</code> as a <code>body</code> fragment currently returns <code>&lt;frameset&gt;</code> instead of <code>&lt;span&gt;</code>.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+40</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">src/main/java/org/jsoup/parser/HtmlTreeBuilderState.java</span><span class="h">index fba3b0a3..7e039a40 100644</span><span class="h">@@ -344,7 +344,7 @@ enum HtmlTreeBuilderState {</span><span class="c">                 case &quot;body&quot;:</span><span class="c">                     tb.error(this);</span><span class="c">                     stack = tb.getStack();</span><span class="r">-                    if (stack.size() &lt; 2 || (stack.size() &gt; 2 &amp;&amp; !stack.get(1).nameIs(&quot;body&quot;)) || tb.onStack(&quot;template&quot;)) {</span><span class="a">+                    if (stack.size() &lt; 2 || !stack.get(1).nameIs(&quot;body&quot;) || tb.onStack(&quot;template&quot;)) {</span><span class="c">                         // only in fragment case</span><span class="c">                         return false; // ignore</span><span class="c">                     } else {</span><span class="h">@@ -357,7 +357,7 @@ enum HtmlTreeBuilderState {</span><span class="c">                 case &quot;frameset&quot;:</span><span class="c">                     tb.error(this);</span><span class="c">                     stack = tb.getStack();</span><span class="r">-                    if (stack.size() &lt; 2|| (stack.size() &gt; 2 &amp;&amp; !stack.get(1).nameIs(&quot;body&quot;))) {</span><span class="a">+                    if (stack.size() &lt; 2 || !stack.get(1).nameIs(&quot;body&quot;)) {</span><span class="c">                         // only in fragment case</span><span class="c">                         return false; // ignore</span><span class="c">                     } else if (!tb.framesetOk()) {</span><span class="f">src/test/java/org/jsoup/parser/HtmlParserTest.java</span><span class="h">index bb165e28..b9d881db 100644</span><span class="h">@@ -765,6 +765,44 @@ public class HtmlParserTest {</span><span class="c">         // no body, no table. No crash!</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void ignoresFramesetStartTagInBodyFragmentWhenSecondElementNotBody() {</span><span class="a">+        // spec: ignore &lt;frameset&gt; when the second element on the stack is not body (fragment case)</span><span class="a">+        Element body = new Element(&quot;body&quot;);</span><span class="a">+        List&lt;Node&gt; nodes = Parser.parseFragment(&quot;&lt;span&gt;&lt;frameset&gt;&lt;frame&gt;&lt;/frameset&gt;One&quot;, body, &quot;&quot;);</span><span class="a">+        assertEquals(1, nodes.size());</span><span class="a">+        assertEquals(&quot;&lt;span&gt;One&lt;/span&gt;&quot;, TextUtil.stripNewlines(((Element) nodes.get(0)).outerHtml()));</span><span class="a">+</span><span class="a">+        Document doc = Jsoup.parseBodyFragment(&quot;&lt;span&gt;&lt;frameset&gt;&quot;);</span><span class="a">+        assertEquals(&quot;&lt;span&gt;&lt;/span&gt;&quot;, doc.body().html());</span><span class="a">+</span><span class="a">+        // template context also routes start tags through InBody</span><span class="a">+        nodes = Parser.parseFragment(&quot;&lt;span&gt;&lt;frameset&gt;&lt;frame&gt;&lt;/frameset&gt;Two&quot;, new Element(&quot;template&quot;), &quot;&quot;);</span><span class="a">+        assertEquals(1, nodes.size());</span><span class="a">+        assertEquals(&quot;&lt;span&gt;Two&lt;/span&gt;&quot;, TextUtil.stripNewlines(((Element) nodes.get(0)).outerHtml()));</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test void ignoresBodyStartTagInBodyFragmentWhenSecondElementNotBody() {</span><span class="a">+        // spec: ignore &lt;body&gt; when the second element on the stack is not body (fragment case)</span><span class="a">+        Element body = new Element(&quot;body&quot;);</span><span class="a">+        List&lt;Node&gt; nodes = Parser.parseFragment(&quot;&lt;span&gt;&lt;body class=x&gt;One&quot;, body, &quot;&quot;);</span><span class="a">+        assertEquals(1, nodes.size());</span><span class="a">+        assertEquals(&quot;&lt;span&gt;One&lt;/span&gt;&quot;, ((Element) nodes.get(0)).outerHtml());</span><span class="a">+        assertFalse(body.hasAttr(&quot;class&quot;));</span><span class="a">+</span><span class="a">+        Document doc = Jsoup.parseBodyFragment(&quot;&lt;span&gt;&lt;body class=x&gt;Two&quot;);</span><span class="a">+        assertEquals(&quot;&lt;span&gt;Two&lt;/span&gt;&quot;, doc.body().html());</span><span class="a">+        assertFalse(doc.body().hasAttr(&quot;class&quot;));</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test void bodyAndFramesetStartTagsStillHandledInDocument() {</span><span class="a">+        Document doc = Jsoup.parse(&quot;&lt;body&gt;&lt;span&gt;&lt;body class=x&gt;One&quot;);</span><span class="a">+        assertEquals(&quot;x&quot;, doc.body().attr(&quot;class&quot;));</span><span class="a">+        assertEquals(&quot;&lt;span&gt;One&lt;/span&gt;&quot;, doc.body().html());</span><span class="a">+</span><span class="a">+        doc = Jsoup.parse(&quot;&lt;span&gt;&lt;frameset&gt;&lt;frame&gt;&lt;/frameset&gt;&quot;); // implied body, frameset-ok still set</span><span class="a">+        assertEquals(&quot;&lt;html&gt;&lt;head&gt;&lt;/head&gt;&lt;frameset&gt;&lt;frame&gt;&lt;/frameset&gt;&lt;/html&gt;&quot;, TextUtil.stripNewlines(doc.html()));</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test void placesCommentsAfterFrameset() {</span><span class="c">         String html = &quot;&lt;html&gt;&lt;head&gt;&lt;/head&gt;&lt;frameset&gt;&lt;frame&gt;&lt;/frameset&gt;&lt;!--after frameset--&gt;&lt;/html&gt;&lt;!--after html--&gt;&quot;;</span><span class="c">         Document doc = Jsoup.parse(html);</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/jhy/jsoup/commit/f062a8abb0271bf3a98a698f9b74fb2ac8f0c1e3" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+16</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">CHANGES.md</span><span class="h">index ee407436..1a94d87c 100644</span><span class="h">@@ -35,6 +35,7 @@</span><span class="c"> * Fixed HTML parse of `&lt;dialog&gt;`, `&lt;main&gt;`, and `&lt;search&gt;` so their start and end tags close open paragraphs correctly. [#2629](https://github.com/jhy/jsoup/issues/2629)</span><span class="c"> * Updated the parse of malformed end tags such as `&lt;/ COMMENT &gt;` to match the spec (`&lt;!-- COMMENT --&gt;`). [#2631](https://github.com/jhy/jsoup/issues/2631)</span><span class="c"> * Source position tracking no longer impacts the adoption algo when repeated HTML formatting tags are reconstructed after a paragraph closes. [#2633](https://github.com/jhy/jsoup/issues/2633)</span><span class="a">+* Fixed fragment parsing to ignore `&lt;body&gt;` and `&lt;frameset&gt;` start tags when the second open element is not `body`, matching the HTML spec. [#2634](https://github.com/jhy/jsoup/issues/2634)</span><span class="c"> </span><span class="c"> ## 1.23.2 (2026-Aug-26)</span><span class="c"> </span><span class="f">src/main/java/org/jsoup/parser/HtmlTreeBuilderState.java</span><span class="h">index fba3b0a3..ab337be1 100644</span><span class="h">@@ -344,8 +344,7 @@ enum HtmlTreeBuilderState {</span><span class="c">                 case &quot;body&quot;:</span><span class="c">                     tb.error(this);</span><span class="c">                     stack = tb.getStack();</span><span class="r">-                    if (stack.size() &lt; 2 || (stack.size() &gt; 2 &amp;&amp; !stack.get(1).nameIs(&quot;body&quot;)) || tb.onStack(&quot;template&quot;)) {</span><span class="r">-                        // only in fragment case</span><span class="a">+                    if (stack.size() &lt; 2 || !stack.get(1).nameIs(&quot;body&quot;) || tb.onStack(&quot;template&quot;)) {</span><span class="c">                         return false; // ignore</span><span class="c">                     } else {</span><span class="c">                         tb.framesetOk(false);</span><span class="h">@@ -357,8 +356,7 @@ enum HtmlTreeBuilderState {</span><span class="c">                 case &quot;frameset&quot;:</span><span class="c">                     tb.error(this);</span><span class="c">                     stack = tb.getStack();</span><span class="r">-                    if (stack.size() &lt; 2|| (stack.size() &gt; 2 &amp;&amp; !stack.get(1).nameIs(&quot;body&quot;))) {</span><span class="r">-                        // only in fragment case</span><span class="a">+                    if (stack.size() &lt; 2 || !stack.get(1).nameIs(&quot;body&quot;)) {</span><span class="c">                         return false; // ignore</span><span class="c">                     } else if (!tb.framesetOk()) {</span><span class="c">                         return false; // ignore frameset</span><span class="f">src/test/java/org/jsoup/parser/HtmlParserTest.java</span><span class="h">index bb165e28..dc0e3ab8 100644</span><span class="h">@@ -746,6 +746,19 @@ public class HtmlParserTest {</span><span class="c">         // no body auto vivification</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void ignoresFramesetAfterSpanInFragments() {</span><span class="a">+        for (String context : new String[]{&quot;body&quot;, &quot;div&quot;}) {</span><span class="a">+            List&lt;Node&gt; nodes = Parser.htmlParser().parseFragmentInput(&quot;&lt;span&gt;&lt;frameset&gt;&quot;, new Element(context), &quot;&quot;);</span><span class="a">+            assertEquals(1, nodes.size(), context);</span><span class="a">+            assertEquals(&quot;span&quot;, (nodes.get(0)).normalName(), context);</span><span class="a">+        }</span><span class="a">+</span><span class="a">+        List&lt;Node&gt; htmlNodes = Parser.htmlParser().parseFragmentInput(&quot;&lt;frameset&gt;&lt;span&gt;&quot;, new Element(&quot;html&quot;), &quot;&quot;);</span><span class="a">+        assertEquals(2, htmlNodes.size());</span><span class="a">+        assertEquals(&quot;head&quot;, (htmlNodes.get(0)).normalName());</span><span class="a">+        assertEquals(&quot;frameset&quot;, (htmlNodes.get(1)).normalName());</span><span class="a">+    }</span><span class="a">+</span><span class="c">     @Test void retainsWhitespaceFromMixedFramesetText() {</span><span class="c">         // in and after a frameset, the parser inserts ASCII whitespace and ignores the remaining characters</span><span class="c">         Document doc = Jsoup.parse(&quot;&lt;!doctype html&gt;&lt;frameset&gt; te st&lt;/frameset&gt; te st&quot;);</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/jsoup/run-20261006-181938/2633/">Previous · #2633</a>
+  <a class="mid" href="/backtests/jsoup/run-20261006-181938/">All tickets in this run</a>
+  <span class="disabled">Next</span>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

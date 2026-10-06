@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#2571 XML doctype system IDs can serialize as invalid XML — jhy/jsoup backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #2571 in jhy/jsoup, run 6 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/jsoup/run-20261006-181938/2571/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/">jsoup</a><span aria-hidden="true">/</span><a href="/backtests/jsoup/run-20261006-181938/">run-20261006-181938</a><span aria-hidden="true">/</span><span aria-current="page">#2571</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/jhy/jsoup/issues/2571" rel="noopener" target="_blank">#2571</a></span>
+  <span>Merged fix <a href="https://github.com/jhy/jsoup/commit/598a895abe717a18d9f8b2df27d8c19799e7ae64" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 6 Oct 2026 · <span class="runid">run-20261006-181938</span></span>
+  <span>jhy/jsoup</span>
+</div>
+<h1 class="ticket-title">XML doctype system IDs can serialize as invalid XML</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way: when the system identifier contains a double quote, they delimit it with single quotes and leave the value unchanged. This matches the fix the issue asks for, and neither patch alters the stored identifier. Patch A applies the change only to the system ID, which is exactly the scope of the issue, and adds a CHANGES.md entry. Patch B moves the logic into a small `appendQuoted` helper and also applies it to the public ID. That goes beyond the ask, but it is low-risk and consistent: XML public IDs cannot legally contain `&quot;`, so it only affects input from the HTML parser or programmatic construction, where it prevents the same malformed output. It is neutral rather than harmful. The deciding difference is the tests. Patch A has one test with two round-trip assertions, which is enough to fail before the fix and pass after it. Patch B&#39;s tests are more substantive. They reproduce the exact scenario from the issue, check that `systemId()` holds the unescaped value, and verify that reparsing the serialized output preserves the identifier. They also cover the HTML parser path, confirm that a single quote inside the ID still gets double quotes, and test mixed public and system IDs. Patch A&#39;s inline comment and changelog entry are good touches, but Patch B&#39;s helper is clearly documented and its broader, meaningful tests give more confidence the fix holds.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 57s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,161 passed · 0 skipped · 2,161 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">52<small>vs 19 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/jhy/jsoup/issues/2571" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>I bumped into this odd edge case while importing some old technical documentation.</p>
+<p>XML system literals in a doctype can use either single or double quotes as their delimiter.</p>
+<p>jsoup accepts the valid XML below, but <code>DocumentType</code> currently always serializes the system identifier using double quotes:</p>
+<pre><code class="lang-java">String xml = &quot;&lt;!DOCTYPE root SYSTEM &#39;a\&quot;b.dtd&#39;&gt;&lt;root /&gt;&quot;;
+Document doc = Jsoup.parse(xml, &quot;&quot;, Parser.xmlParser());
+
+System.out.println(doc.outerHtml());
+// &lt;!DOCTYPE root SYSTEM &quot;a&quot;b.dtd&quot;&gt;&lt;root /&gt;</code></pre>
+<p>Escaping the quote as <code>&amp;quot;</code> doesn&#39;t work because entity references are not interpreted inside a system literal; it would change the identifier’s value. Converting it to <code>%22</code> would also change the stored identifier, and the <a href="https://www.w3.org/TR/xml/#sec-external-ent" rel="noopener nofollow" target="_blank">XML external-identifier specification</a> says URI escaping should happen only when necessary and as late as possible during dereferencing.</p>
+<p>The fix will be to continue using double quotes normally, but use single quotes when the system identifier contains a double quote.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+50</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">src/main/java/org/jsoup/nodes/DocumentType.java</span><span class="h">index 19148049..0170df4e 100644</span><span class="h">@@ -99,15 +99,25 @@ public class DocumentType extends LeafNode {</span><span class="c">         if (has(PubSysKey))</span><span class="c">             accum.append(&quot; &quot;).append(attr(PubSysKey));</span><span class="c">         if (has(PublicId))</span><span class="r">-            accum.append(&quot; \&quot;&quot;).append(attr(PublicId)).append(&#39;&quot;&#39;);</span><span class="a">+            appendQuoted(accum, attr(PublicId));</span><span class="c">         if (has(SystemId))</span><span class="r">-            accum.append(&quot; \&quot;&quot;).append(attr(SystemId)).append(&#39;&quot;&#39;);</span><span class="a">+            appendQuoted(accum, attr(SystemId));</span><span class="c">         if (attributes().hasKey(InternalSubsetKey)) // only if via the xml parser; html parser will drop</span><span class="c">             accum.append(&quot; [&quot;).append(attr(InternalSubsetKey)).append(&#39;]&#39;);</span><span class="c">         accum.append(&#39;&gt;&#39;);</span><span class="c">     }</span><span class="c"> </span><span class="c"> </span><span class="a">+    /**</span><span class="a">+     Appends the identifier as a quoted literal. Entity references and escapes are not interpreted within doctype</span><span class="a">+     literals, so the value is emitted as-is; double quotes are used unless the value contains one, in which case single</span><span class="a">+     quotes are used.</span><span class="a">+     */</span><span class="a">+    private static void appendQuoted(QuietAppendable accum, String value) {</span><span class="a">+        char quote = value.indexOf(&#39;&quot;&#39;) &gt;= 0 ? &#39;\&#39;&#39; : &#39;&quot;&#39;;</span><span class="a">+        accum.append(&quot; &quot;).append(quote).append(value).append(quote);</span><span class="a">+    }</span><span class="a">+</span><span class="c">     private boolean has(final String attribute) {</span><span class="c">         return !StringUtil.isBlank(attr(attribute));</span><span class="c">     }</span><span class="f">src/test/java/org/jsoup/nodes/DocumentTypeTest.java</span><span class="h">index b4a5b8d4..e12953f1 100644</span><span class="h">@@ -5,6 +5,7 @@ import org.jsoup.parser.Parser;</span><span class="c"> import org.junit.jupiter.api.Test;</span><span class="c"> </span><span class="c"> import static org.junit.jupiter.api.Assertions.assertEquals;</span><span class="a">+import static org.junit.jupiter.api.Assertions.assertNotNull;</span><span class="c"> import static org.junit.jupiter.api.Assertions.assertThrows;</span><span class="c"> </span><span class="c"> /**</span><span class="h">@@ -72,6 +73,43 @@ public class DocumentTypeTest {</span><span class="c">         assertEquals(emptySubset, xmlOutput(emptySubset));</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void systemIdWithDoubleQuoteUsesSingleQuotes() {</span><span class="a">+        String xml = &quot;&lt;!DOCTYPE root SYSTEM &#39;a\&quot;b.dtd&#39;&gt;&lt;root /&gt;&quot;;</span><span class="a">+        Document doc = Jsoup.parse(xml, &quot;&quot;, Parser.xmlParser());</span><span class="a">+        DocumentType doctype = doc.documentType();</span><span class="a">+        assertNotNull(doctype);</span><span class="a">+        assertEquals(&quot;a\&quot;b.dtd&quot;, doctype.systemId());</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE root SYSTEM &#39;a\&quot;b.dtd&#39;&gt;&quot;, doctype.outerHtml());</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE root SYSTEM &#39;a\&quot;b.dtd&#39;&gt;&lt;root /&gt;&quot;, doc.outerHtml());</span><span class="a">+</span><span class="a">+        // reparsing the output keeps the same identifier</span><span class="a">+        Document reparsed = Jsoup.parse(doc.outerHtml(), &quot;&quot;, Parser.xmlParser());</span><span class="a">+        assertEquals(&quot;a\&quot;b.dtd&quot;, reparsed.documentType().systemId());</span><span class="a">+</span><span class="a">+        // without a double quote, keeps using double quotes (including when it contains a single quote)</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE root SYSTEM \&quot;a&#39;b.dtd\&quot;&gt;&quot;, xmlOutput(&quot;&lt;!DOCTYPE root SYSTEM \&quot;a&#39;b.dtd\&quot;&gt;&quot;));</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE root SYSTEM \&quot;ab.dtd\&quot;&gt;&quot;, xmlOutput(&quot;&lt;!DOCTYPE root SYSTEM &#39;ab.dtd&#39;&gt;&quot;));</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test void systemIdWithDoubleQuoteInHtml() {</span><span class="a">+        String html = &quot;&lt;!DOCTYPE html SYSTEM &#39;a\&quot;b.dtd&#39;&gt;&quot;;</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE html SYSTEM &#39;a\&quot;b.dtd&#39;&gt;&quot;, htmlOutput(html));</span><span class="a">+        DocumentType reparsed = (DocumentType) Jsoup.parse(htmlOutput(html)).childNode(0);</span><span class="a">+        assertEquals(&quot;a\&quot;b.dtd&quot;, reparsed.systemId());</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    @Test void publicAndSystemIdsQuotedIndependently() {</span><span class="a">+        DocumentType constructed = new DocumentType(&quot;root&quot;, &quot;-//pub\&quot;id//&quot;, &quot;sys\&quot;id.dtd&quot;);</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE root PUBLIC &#39;-//pub\&quot;id//&#39; &#39;sys\&quot;id.dtd&#39;&gt;&quot;, constructed.outerHtml());</span><span class="a">+</span><span class="a">+        String mixed = &quot;&lt;!DOCTYPE root PUBLIC \&quot;-//W3C//DTD//EN\&quot; &#39;a\&quot;b.dtd&#39;&gt;&quot;;</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE root PUBLIC \&quot;-//W3C//DTD//EN\&quot; &#39;a\&quot;b.dtd&#39;&gt;&quot;, xmlOutput(mixed));</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE root PUBLIC \&quot;-//W3C//DTD//EN\&quot; &#39;a\&quot;b.dtd&#39;&gt;&quot;, htmlOutput(mixed));</span><span class="a">+</span><span class="a">+        String publicQuote = &quot;&lt;!DOCTYPE html PUBLIC &#39;a\&quot;b&#39; \&quot;c.dtd\&quot;&gt;&quot;;</span><span class="a">+        assertEquals(&quot;&lt;!DOCTYPE html PUBLIC &#39;a\&quot;b&#39; \&quot;c.dtd\&quot;&gt;&quot;, htmlOutput(publicQuote));</span><span class="a">+    }</span><span class="a">+</span><span class="c">     private String htmlOutput(String in) {</span><span class="c">         DocumentType type = (DocumentType) Jsoup.parse(in).childNode(0);</span><span class="c">         return type.outerHtml();</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/jhy/jsoup/commit/598a895abe717a18d9f8b2df27d8c19799e7ae64" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+17</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">CHANGES.md</span><span class="h">index f5873d51..f697d8da 100644</span><span class="h">@@ -19,6 +19,7 @@</span><span class="c">   * With namespace awareness disabled, inherited and undeclared prefixes now receive the declarations needed for XML serialization.</span><span class="c">   * Valid HTML names that are not XML QNames, such as `a:b:c`, are normalized. Attributes that still cannot be represented are skipped, and unrepresentable elements no longer change the surrounding tree.</span><span class="c"> * Fixed `W3CDom` conversion of programmatically created or renamed elements whose names can be represented in a jsoup HTML DOM but are not valid XML names, such as `1abc`. These names are now normalized (e.g. `_1abc`) instead of causing a `NullPointerException`. [#2560](https://github.com/jhy/jsoup/issues/2560)</span><span class="a">+* Fixed XML doctype serialization when a system identifier contains a double quote, which could otherwise produce invalid XML. [#2571](https://github.com/jhy/jsoup/issues/2571)</span><span class="c"> * Fixed the JDK `HttpClient` implementation to accept responses without a `Content-Type` header, matching the `HttpURLConnection` implementation. [#2549](https://github.com/jhy/jsoup/pull/2549)</span><span class="c"> * Fixed HTTP response content-type matching to handle media types case-insensitively and recognize structured `+xml` suffixes, including vendor-specific media types. [#2550](https://github.com/jhy/jsoup/pull/2550)</span><span class="c"> * Corrected multipart form encoding to percent-escape CR and LF in field names and filenames, matching the HTML form submission specification. Multipart file content-types containing CR or LF are now rejected with a `ValidationException`. [#2555](https://github.com/jhy/jsoup/pull/2555)</span><span class="f">src/main/java/org/jsoup/nodes/DocumentType.java</span><span class="h">index 19148049..4632b6b7 100644</span><span class="h">@@ -100,8 +100,13 @@ public class DocumentType extends LeafNode {</span><span class="c">             accum.append(&quot; &quot;).append(attr(PubSysKey));</span><span class="c">         if (has(PublicId))</span><span class="c">             accum.append(&quot; \&quot;&quot;).append(attr(PublicId)).append(&#39;&quot;&#39;);</span><span class="r">-        if (has(SystemId))</span><span class="r">-            accum.append(&quot; \&quot;&quot;).append(attr(SystemId)).append(&#39;&quot;&#39;);</span><span class="a">+        if (has(SystemId)) {</span><span class="a">+            String systemId = attr(SystemId);</span><span class="a">+            // system IDs can contain quotes; keep the value unchanged and use the other delimiter</span><span class="a">+            // https://www.w3.org/TR/xml/#sec-external-ent</span><span class="a">+            char quote = systemId.indexOf(&#39;&quot;&#39;) &gt;= 0 ? &#39;\&#39;&#39; : &#39;&quot;&#39;;</span><span class="a">+            accum.append(&#39; &#39;).append(quote).append(systemId).append(quote);</span><span class="a">+        }</span><span class="c">         if (attributes().hasKey(InternalSubsetKey)) // only if via the xml parser; html parser will drop</span><span class="c">             accum.append(&quot; [&quot;).append(attr(InternalSubsetKey)).append(&#39;]&#39;);</span><span class="c">         accum.append(&#39;&gt;&#39;);</span><span class="f">src/test/java/org/jsoup/nodes/DocumentTypeTest.java</span><span class="h">index b4a5b8d4..0c9207a5 100644</span><span class="h">@@ -72,6 +72,15 @@ public class DocumentTypeTest {</span><span class="c">         assertEquals(emptySubset, xmlOutput(emptySubset));</span><span class="c">     }</span><span class="c"> </span><span class="a">+    @Test void systemIdentifierUsesSafeQuote() {</span><span class="a">+        // use a delimiter that does not occur in the system identifier</span><span class="a">+        String doubleQuote = &quot;&lt;!DOCTYPE root SYSTEM &#39;a\&quot;b.dtd&#39;&gt;&quot;;</span><span class="a">+        assertEquals(doubleQuote, xmlOutput(doubleQuote));</span><span class="a">+</span><span class="a">+        String singleQuote = &quot;&lt;!DOCTYPE root SYSTEM \&quot;a&#39;b.dtd\&quot;&gt;&quot;;</span><span class="a">+        assertEquals(singleQuote, xmlOutput(singleQuote));</span><span class="a">+    }</span><span class="a">+</span><span class="c">     private String htmlOutput(String in) {</span><span class="c">         DocumentType type = (DocumentType) Jsoup.parse(in).childNode(0);</span><span class="c">         return type.outerHtml();</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/jsoup/run-20261006-181938/2562/">Previous · #2562</a>
+  <a class="mid" href="/backtests/jsoup/run-20261006-181938/">All tickets in this run</a>
+  <a href="/backtests/jsoup/run-20261006-181938/2572/">Next · #2572</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
