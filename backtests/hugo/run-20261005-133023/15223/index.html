@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15223 commands: Fix &quot;hugo config --lang&quot; flag help text — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15223 in gohugoio/hugo, run 5 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261005-133023/15223/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261005-133023/">run-20261005-133023</a><span aria-hidden="true">/</span><span aria-current="page">#15223</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15223" rel="noopener" target="_blank">#15223</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/87260e4a602c6b65134e0b6e1c4ccfd8ade7ee56" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 5 Oct 2026 · <span class="runid">run-20261005-133023</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">commands: Fix &quot;hugo config --lang&quot; flag help text</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same change in commands/config.go and use the suggested help text, so they are equally correct on the core fix. Patch A also adds a testscript. It checks that the new help string appears and the old one does not, which would fail before the change. It also covers the behavior the issue describes: defaultContentLanguage (de) is not first by weight (en), and plain `hugo config` shows the de title. It further tests explicit --lang en/de and the error for an unknown language. Patch A also updates the generated command docs (hugo_config.md) so they match the new help text. That keeps the docs consistent and adds no risk. Patch B makes the minimal correct change but has no tests and leaves the docs stale. On the tests criterion, A is clearly stronger.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 25m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,709 passed · 99 skipped · 3,817 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">37<small>vs 2 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15223" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>The <code>--lang</code> flag help says &quot;Defaults to the first language defined&quot;, but when<br>the flag is empty the command uses the default content language:</p>
+<p><a href="https://github.com/gohugoio/hugo/blob/master/commands/config.go#L74-L76" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/blob/master/commands/config.go#L74-L76</a></p>
+<p>These differ when defaultContentLanguage is not first by weight.</p>
+<p>Suggested text: &quot;the language to display config for (default is the default content language)&quot;</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+35</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">commands/config.go</span><span class="h">index 59433b359..d8f20b50b 100644</span><span class="h">@@ -116,7 +116,7 @@ func (c *configCommand) Init(cd *simplecobra.Commandeer) error {</span><span class="c"> 	cmd.Long = `Display project configuration, both default and custom settings.`</span><span class="c"> 	cmd.Flags().StringVar(&amp;c.format, &quot;format&quot;, &quot;toml&quot;, &quot;preferred file format (toml, yaml or json)&quot;)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;format&quot;, cobra.FixedCompletions([]string{&quot;toml&quot;, &quot;yaml&quot;, &quot;json&quot;}, cobra.ShellCompDirectiveNoFileComp))</span><span class="r">-	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for. Defaults to the first language defined.&quot;)</span><span class="a">+	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for (default is the default content language)&quot;)</span><span class="c"> 	cmd.Flags().BoolVar(&amp;c.printZero, &quot;printZero&quot;, false, `include config options with zero values (e.g. false, 0, &quot;&quot;) in the output`)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;lang&quot;, cobra.NoFileCompletions)</span><span class="c"> 	applyLocalFlagsBuildConfig(cmd, c.r)</span><span class="f">docs/content/en/commands/hugo_config.md</span><span class="h">index 3de89f18c..e6b42d0d2 100644</span><span class="h">@@ -23,7 +23,7 @@ hugo config [command] [flags]</span><span class="c">   -c, --contentDir string        filesystem path to content directory</span><span class="c">       --format string            preferred file format (toml, yaml or json) (default &quot;toml&quot;)</span><span class="c">   -h, --help                     help for config</span><span class="r">-      --lang string              the language to display config for. Defaults to the first language defined.</span><span class="a">+      --lang string              the language to display config for (default is the default content language)</span><span class="c">       --printZero                include config options with zero values (e.g. false, 0, &quot;&quot;) in the output</span><span class="c">       --renderSegments strings   named segments to render (configured in the segments config)</span><span class="c">   -t, --theme strings            themes to use (located in /themes/THEMENAME/)</span><span class="f">testscripts/commands/config__lang.txt</span><span class="h">new file mode 100644</span><span class="h">index 000000000..14c2f21c0</span><span class="h">@@ -0,0 +1,33 @@</span><span class="a">+# Test the config command&#39;s --lang flag.</span><span class="a">+</span><span class="a">+hugo config -h</span><span class="a">+stdout &#39;the language to display config for \(default is the default content language\)&#39;</span><span class="a">+! stdout &#39;Defaults to the first language defined&#39;</span><span class="a">+</span><span class="a">+# defaultContentLanguage (de) is not the first language by weight (en).</span><span class="a">+# Without --lang, the default content language config is displayed.</span><span class="a">+hugo config</span><span class="a">+stdout &#39;(?m)^title = .Mein Projekt.$&#39;</span><span class="a">+! stdout &#39;(?m)^title = .My Project.$&#39;</span><span class="a">+</span><span class="a">+hugo config --lang en</span><span class="a">+stdout &#39;(?m)^title = .My Project.$&#39;</span><span class="a">+! stdout &#39;(?m)^title = .Mein Projekt.$&#39;</span><span class="a">+</span><span class="a">+hugo config --lang de</span><span class="a">+stdout &#39;(?m)^title = .Mein Projekt.$&#39;</span><span class="a">+! stdout &#39;(?m)^title = .My Project.$&#39;</span><span class="a">+</span><span class="a">+! hugo config --lang fr</span><span class="a">+stderr &#39;language &quot;fr&quot; not found&#39;</span><span class="a">+</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &quot;https://example.com/&quot;</span><span class="a">+defaultContentLanguage = &quot;de&quot;</span><span class="a">+[languages]</span><span class="a">+[languages.en]</span><span class="a">+weight = 1</span><span class="a">+title = &quot;My Project&quot;</span><span class="a">+[languages.de]</span><span class="a">+weight = 2</span><span class="a">+title = &quot;Mein Projekt&quot;</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/87260e4a602c6b65134e0b6e1c4ccfd8ade7ee56" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">commands/config.go</span><span class="h">index 59433b359..d8f20b50b 100644</span><span class="h">@@ -116,7 +116,7 @@ func (c *configCommand) Init(cd *simplecobra.Commandeer) error {</span><span class="c"> 	cmd.Long = `Display project configuration, both default and custom settings.`</span><span class="c"> 	cmd.Flags().StringVar(&amp;c.format, &quot;format&quot;, &quot;toml&quot;, &quot;preferred file format (toml, yaml or json)&quot;)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;format&quot;, cobra.FixedCompletions([]string{&quot;toml&quot;, &quot;yaml&quot;, &quot;json&quot;}, cobra.ShellCompDirectiveNoFileComp))</span><span class="r">-	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for. Defaults to the first language defined.&quot;)</span><span class="a">+	cmd.Flags().StringVar(&amp;c.lang, &quot;lang&quot;, &quot;&quot;, &quot;the language to display config for (default is the default content language)&quot;)</span><span class="c"> 	cmd.Flags().BoolVar(&amp;c.printZero, &quot;printZero&quot;, false, `include config options with zero values (e.g. false, 0, &quot;&quot;) in the output`)</span><span class="c"> 	_ = cmd.RegisterFlagCompletionFunc(&quot;lang&quot;, cobra.NoFileCompletions)</span><span class="c"> 	applyLocalFlagsBuildConfig(cmd, c.r)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261005-133023/15208/">Previous · #15208</a>
+  <a class="mid" href="/backtests/hugo/run-20261005-133023/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261005-133023/15228/">Next · #15228</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

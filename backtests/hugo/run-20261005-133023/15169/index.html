@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15169 resources/jsconfig: Address VS Code linting notice in jsconfig.json — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15169 in gohugoio/hugo, run 5 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261005-133023/15169/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261005-133023/">run-20261005-133023</a><span aria-hidden="true">/</span><span aria-current="page">#15169</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15169" rel="noopener" target="_blank">#15169</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/f88f0a9f59f302fb7c60d58921d636ed8da27aca" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 5 Oct 2026 · <span class="runid">run-20261005-133023</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">resources/jsconfig: Address VS Code linting notice in jsconfig.json</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Patch B fixes the root cause. TypeScript and VS Code reject non-relative entries in `paths` when `baseUrl` is unset, so B adds a `./` prefix to every entry that does not already start with `../`. The generated config stays valid and keeps the same mapping: `./*` still lets VS Code resolve bare imports like `imp1/index.js` against the assets dir. It also covers sub-roots such as `/a/assets/sub`, which would otherwise produce the non-relative `sub/*`. B&#39;s unit test checks parent-relative, same-dir and sub-dir cases. Its integration test reads the generated `assets/jsconfig.json` and asserts `./*`; it would fail before the change. Updating the checked-in `docs/assets/jsconfig.json` is consistent with the change. Patch A takes a different route and skips the root equal to `dir`. In the common single-root case this produces no jsconfig at all, which removes the lint warning but also removes the path mapping that gave editor resolution for non-relative imports. That masks the symptom rather than fixing the format. A also leaves sub-roots non-relative (e.g. `sub/*`), so the same warning can still appear. Its test only asserts a nil config, which checks the suppression rather than validity. B is more correct and better tested.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">33m 43s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,697 passed · 99 skipped · 3,805 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">59<small>vs 11 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15169" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>When building a site that calls <code>js.Build</code>, the <code>assets/jsconfig.json</code> file looks like this:</p>
+<pre><code class="lang-json">{
+ &quot;compilerOptions&quot;: {
+  &quot;paths&quot;: {
+   &quot;*&quot;: [
+    &quot;*&quot;
+   ]
+  }
+ }
+}</code></pre>
+<p>VS Code lints line 5 as follows:</p>
+<blockquote><p>Non-relative paths are not allowed when &#39;baseUrl&#39; is not set. Did you forget a leading &#39;./&#39;?</p></blockquote></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+57</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">docs/assets/jsconfig.json</span><span class="h">index 8f9413a6b..57c6f02ed 100644</span><span class="h">@@ -2,7 +2,7 @@</span><span class="c">  &quot;compilerOptions&quot;: {</span><span class="c">   &quot;paths&quot;: {</span><span class="c">    &quot;*&quot;: [</span><span class="r">-    &quot;*&quot;</span><span class="a">+    &quot;./*&quot;</span><span class="c">    ]</span><span class="c">   }</span><span class="c">  }</span><span class="f">resources/jsconfig/jsconfig.go</span><span class="h">index 4aabf69f7..723db3d76 100644</span><span class="h">@@ -16,6 +16,7 @@ package jsconfig</span><span class="c"> import (</span><span class="c"> 	&quot;path/filepath&quot;</span><span class="c"> 	&quot;sort&quot;</span><span class="a">+	&quot;strings&quot;</span><span class="c"> </span><span class="c"> 	&quot;github.com/bep/helpers/maphelpers&quot;</span><span class="c"> )</span><span class="h">@@ -41,7 +42,7 @@ func (b *Builder) Build(dir string) *Config {</span><span class="c"> 	for root := range b.sourceRoots.All() {</span><span class="c"> 		rel, err := filepath.Rel(dir, filepath.Join(root, &quot;*&quot;))</span><span class="c"> 		if err == nil {</span><span class="r">-			roots = append(roots, rel)</span><span class="a">+			roots = append(roots, toRelativePath(rel))</span><span class="c"> 		}</span><span class="c"> 	}</span><span class="c"> 	if len(roots) == 0 {</span><span class="h">@@ -53,6 +54,15 @@ func (b *Builder) Build(dir string) *Config {</span><span class="c"> 	return conf</span><span class="c"> }</span><span class="c"> </span><span class="a">+// toRelativePath makes sure rel starts with &quot;./&quot; or &quot;../&quot;.</span><span class="a">+// Without baseUrl, TypeScript (and VS Code) reject non-relative entries in paths.</span><span class="a">+func toRelativePath(rel string) string {</span><span class="a">+	if rel == &quot;..&quot; || strings.HasPrefix(rel, &quot;..&quot;+string(filepath.Separator)) {</span><span class="a">+		return rel</span><span class="a">+	}</span><span class="a">+	return &quot;.&quot; + string(filepath.Separator) + rel</span><span class="a">+}</span><span class="a">+</span><span class="c"> // AddSourceRoot adds a new source root.</span><span class="c"> // This method is thread safe.</span><span class="c"> func (b *Builder) AddSourceRoot(root string) {</span><span class="f">resources/jsconfig/jsconfig_test.go</span><span class="h">index ab9b739d1..843855a4c 100644</span><span class="h">@@ -38,3 +38,20 @@ func TestJsConfigBuilder(t *testing.T) {</span><span class="c"> </span><span class="c"> 	c.Assert(NewBuilder().Build(&quot;/a/b&quot;), qt.IsNil)</span><span class="c"> }</span><span class="a">+</span><span class="a">+// Non-relative paths are not allowed when baseUrl is not set.</span><span class="a">+func TestJsConfigBuilderPathsAreRelative(t *testing.T) {</span><span class="a">+	c := qt.New(t)</span><span class="a">+</span><span class="a">+	b := NewBuilder()</span><span class="a">+	b.AddSourceRoot(&quot;/a/assets&quot;)</span><span class="a">+	b.AddSourceRoot(&quot;/a/assets/sub&quot;)</span><span class="a">+	b.AddSourceRoot(&quot;/c/assets&quot;)</span><span class="a">+</span><span class="a">+	conf := b.Build(&quot;/a/assets&quot;)</span><span class="a">+	c.Assert(conf.CompilerOptions.Paths[&quot;*&quot;], qt.DeepEquals, []string{</span><span class="a">+		filepath.FromSlash(&quot;../../c/assets/*&quot;),</span><span class="a">+		filepath.FromSlash(&quot;./*&quot;),</span><span class="a">+		filepath.FromSlash(&quot;./sub/*&quot;),</span><span class="a">+	})</span><span class="a">+}</span><span class="f">resources/resource_transformers/js/js_integration_test.go</span><span class="h">index 2244e8f8e..66d7b3256 100644</span><span class="h">@@ -14,6 +14,7 @@</span><span class="c"> package js_test</span><span class="c"> </span><span class="c"> import (</span><span class="a">+	&quot;encoding/json&quot;</span><span class="c"> 	&quot;os&quot;</span><span class="c"> 	&quot;path/filepath&quot;</span><span class="c"> 	&quot;strings&quot;</span><span class="h">@@ -343,6 +344,33 @@ IMPORT_SRC_DIR:imp3/foo.ts</span><span class="c"> 	}</span><span class="c"> }</span><span class="c"> </span><span class="a">+// The paths in the generated jsconfig.json must be relative (start with ./ or ../),</span><span class="a">+// as non-relative paths are not allowed when baseUrl is not set.</span><span class="a">+func TestJSConfigInAssetsRelativePaths(t *testing.T) {</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- assets/imp1/index.js --</span><span class="a">+console.log(&quot;imp1&quot;);</span><span class="a">+-- assets/js/main.js --</span><span class="a">+import &#39;imp1/index.js&#39;;</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $js := resources.Get &quot;js/main.js&quot; | js.Build }}</span><span class="a">+{{ $js.RelPermalink }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files, hugolib.TestOptOsFs())</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/js/main.js&quot;, &quot;imp1&quot;)</span><span class="a">+	var jsConfig struct {</span><span class="a">+		CompilerOptions struct {</span><span class="a">+			Paths map[string][]string `json:&quot;paths&quot;`</span><span class="a">+		} `json:&quot;compilerOptions&quot;`</span><span class="a">+	}</span><span class="a">+	b.Assert(json.Unmarshal([]byte(b.FileContent(&quot;assets/jsconfig.json&quot;)), &amp;jsConfig), qt.IsNil)</span><span class="a">+	b.Assert(jsConfig.CompilerOptions.Paths[&quot;*&quot;], qt.DeepEquals, []string{filepath.FromSlash(&quot;./*&quot;)})</span><span class="a">+}</span><span class="a">+</span><span class="c"> // See https://github.com/evanw/esbuild/issues/2745</span><span class="c"> func TestPreserveLegalComments(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/f88f0a9f59f302fb7c60d58921d636ed8da27aca" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+11</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">resources/jsconfig/jsconfig.go</span><span class="h">index 4aabf69f7..d347cab19 100644</span><span class="h">@@ -39,6 +39,11 @@ func (b *Builder) Build(dir string) *Config {</span><span class="c"> 	}</span><span class="c"> 	var roots []string</span><span class="c"> 	for root := range b.sourceRoots.All() {</span><span class="a">+		if root == dir {</span><span class="a">+			// We need mappings for other source roots (e.g. mounted modules), but not for the current one.</span><span class="a">+			// See issue 15169.</span><span class="a">+			continue</span><span class="a">+		}</span><span class="c"> 		rel, err := filepath.Rel(dir, filepath.Join(root, &quot;*&quot;))</span><span class="c"> 		if err == nil {</span><span class="c"> 			roots = append(roots, rel)</span><span class="f">resources/jsconfig/jsconfig_test.go</span><span class="h">index ab9b739d1..1fb8ef3cd 100644</span><span class="h">@@ -37,4 +37,10 @@ func TestJsConfigBuilder(t *testing.T) {</span><span class="c"> 	c.Assert(string(data), qt.Not(qt.Contains), &quot;baseUrl&quot;)</span><span class="c"> </span><span class="c"> 	c.Assert(NewBuilder().Build(&quot;/a/b&quot;), qt.IsNil)</span><span class="a">+</span><span class="a">+	// Issue 15169.</span><span class="a">+	b = NewBuilder()</span><span class="a">+	b.AddSourceRoot(&quot;/c/assets&quot;)</span><span class="a">+	conf = b.Build(&quot;/c/assets&quot;)</span><span class="a">+	c.Assert(conf, qt.IsNil)</span><span class="c"> }</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261005-133023/15167/">Previous · #15167</a>
+  <a class="mid" href="/backtests/hugo/run-20261005-133023/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261005-133023/15171/">Next · #15171</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

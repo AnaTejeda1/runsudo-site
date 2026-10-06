@@ -146,6 +146,22 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-05",
+          "id": "run-20261005-133023",
+          "source_runs": [
+            "run-20261004-004627",
+            "run-20261004-144857",
+            "run-20261005-133023"
+          ],
+          "tickets": 30,
+          "better": 26,
+          "par": 0,
+          "worse": 3,
+          "error": 1,
+          "notes": "sudo-solver 0.4.0; one sample split across three harness runs after two Docker engine outages",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-02",
           "id": "run-20261002-200313",
           "source_runs": [
