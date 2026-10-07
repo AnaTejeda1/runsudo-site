@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15307 js.Build should support es2025 as target — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15307 in gohugoio/hugo, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261007-020926/15307/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261007-020926/">run-20261007-020926</a><span aria-hidden="true">/</span><span aria-current="page">#15307</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15307" rel="noopener" target="_blank">#15307</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15308" rel="noopener" target="_blank">PR #15308</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-020926</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">js.Build should support es2025 as target</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same root-cause fix: they add &quot;es2025&quot;: api.ES2025 to the target map in internal/js/esbuild/options.go, which removes the &#39;unsupported target&#39; error from the issue. Both also add es2024 and es2025 cases to the TestToBuildOptionsTarget unit test, which fails before the change and passes after. Correctness is therefore equal. Patch B is stronger on tests: it adds an end-to-end integration test (TestBuildTargetES2025) that reproduces the issue&#39;s scenario. That test runs js.Build on a TypeScript asset with target es2025, minify and sourceMap none, and asserts the output keeps an ES2025 regexp-modifier pattern. It would fail before the fix with the reported error. Patch B also updates the user-facing docs list of valid targets and corrects a stale code comment on ExternalOptions.Target. Without the docs change, es2025 would work but remain undocumented, which is part of the issue&#39;s complaint (&#39;doesn&#39;t support and/or list&#39;). These extras are low-risk and directly relevant, not churn. Patch B is the more complete fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">55m 19s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,758 passed · 100 skipped · 3,860 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">23<small>vs 3 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15307" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Hugo&#39;s built-in js.Build function currently doesnt support and/or list es2025 as available target parameter.<br>As far as i understood js.Build relies on evanw/esbuild for bundling, transforming and minifying javascript ressources.</p>
+<p>According to hugo&#39;s own release notes esbuild was just bumped to 0.28.2.<br>According to esbuild&#39;s release notes, support for es2025 as target parameter exists since 0.27.5.<br>Hugo should therefore support es2025 as target parameter.</p>
+<p>However when doing something like this:</p>
+<pre><code>{{- $buildParams := dict
+    &quot;minify&quot; true
+    &quot;sourceMap&quot; &quot;none&quot;
+    &quot;target&quot; &quot;es2025&quot;
+}}
+{{- with . | js.Build $buildParams }}
+    &lt;script&gt;{{ .Content | safeJS }}&lt;/script&gt;
+{{- end }}</code></pre>
+<p>results in the following error message:<br>`<br>... JSBUILD: failed to transform &quot;/ts/test.ts&quot; (text/typescript): unsupported target: [es2025] ...<br>`</p>
+<h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>hugo v0.165.0</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>Yes</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+21</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">docs/content/en/_common/functions/js/options.md</span><span class="h">index ed606b0d7..4767eda6c 100644</span><span class="h">@@ -104,4 +104,4 @@ _comment: Do not remove front matter.</span><span class="c"> : (`bool`) Whether to include the content of the source files in the source map. Default is `true`.</span><span class="c"> </span><span class="c"> `target`</span><span class="r">-: (`string`) The language target. One of: `es5`, `es2015`, `es2016`, `es2017`, `es2018`, `es2019`, `es2020`, `es2021`, `es2022`, `es2023`, `es2024`, or `esnext`. Default is `esnext`.</span><span class="a">+: (`string`) The language target. One of: `es5`, `es2015`, `es2016`, `es2017`, `es2018`, `es2019`, `es2020`, `es2021`, `es2022`, `es2023`, `es2024`, `es2025`, or `esnext`. Default is `esnext`.</span><span class="f">internal/js/esbuild/options.go</span><span class="h">index 4176438e8..3bdf3c66d 100644</span><span class="h">@@ -49,6 +49,7 @@ var (</span><span class="c"> 		&quot;es2022&quot;: api.ES2022,</span><span class="c"> 		&quot;es2023&quot;: api.ES2023,</span><span class="c"> 		&quot;es2024&quot;: api.ES2024,</span><span class="a">+		&quot;es2025&quot;: api.ES2025,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	engineName = map[string]api.EngineName{</span><span class="h">@@ -144,7 +145,7 @@ type ExternalOptions struct {</span><span class="c"> 	SourcesContent bool</span><span class="c"> </span><span class="c"> 	// This sets the target environment for the generated JavaScript and/or CSS code.</span><span class="r">-	// It can specify the JavaScript language version to target (es2015, es2016, es2017, es2018, es2019, es2020 or esnext; default is esnext),</span><span class="a">+	// It can specify the JavaScript language version to target (es5, es2015 through es2025, or esnext; default is esnext),</span><span class="c"> 	// in addition to a set of environments to support, as slice of environment name followed by a version number. e.g. &quot;chrome80&quot;, &quot;firefox73&quot;, &quot;safari13&quot; or &quot;edge80&quot;.</span><span class="c"> 	// See https://esbuild.github.io/api/#target</span><span class="c"> 	Target []string</span><span class="f">internal/js/esbuild/options_test.go</span><span class="h">index b60dcbc4a..683a32db0 100644</span><span class="h">@@ -189,6 +189,8 @@ func TestToBuildOptionsTarget(t *testing.T) {</span><span class="c"> 		{&quot;es2021&quot;, api.ES2021},</span><span class="c"> 		{&quot;es2022&quot;, api.ES2022},</span><span class="c"> 		{&quot;es2023&quot;, api.ES2023},</span><span class="a">+		{&quot;es2024&quot;, api.ES2024},</span><span class="a">+		{&quot;es2025&quot;, api.ES2025},</span><span class="c"> 		{&quot;&quot;, api.ESNext},</span><span class="c"> 		{&quot;esnext&quot;, api.ESNext},</span><span class="c"> 	} {</span><span class="f">resources/resource_transformers/js/js_integration_test.go</span><span class="h">index 2244e8f8e..b4d7e59d9 100644</span><span class="h">@@ -402,6 +402,22 @@ class A {}</span><span class="c"> 	b.AssertFileContent(&quot;public/js/main.js&quot;, &quot;__decorateClass&quot;)</span><span class="c"> }</span><span class="c"> </span><span class="a">+func TestBuildTargetES2025(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;RSS&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- assets/ts/main.ts --</span><span class="a">+const re: RegExp = /(?i:a)b/;</span><span class="a">+console.log(re.test(&quot;Ab&quot;));</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $opts := dict &quot;minify&quot; true &quot;sourceMap&quot; &quot;none&quot; &quot;target&quot; &quot;es2025&quot; }}</span><span class="a">+{{ with resources.Get &quot;ts/main.ts&quot; | js.Build $opts }}&lt;script&gt;{{ .Content | safeJS }}&lt;/script&gt;{{ end }}</span><span class="a">+`</span><span class="a">+	b := hugolib.Test(t, files, hugolib.TestOptOsFs())</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;&lt;script&gt;&quot;, &quot;/(?i:a)b/&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="c"> // Issue 13183.</span><span class="c"> func TestExternalsInAssets(t *testing.T) {</span><span class="c"> 	files := `</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15308" rel="noopener" target="_blank">PR #15308</a></span><span class="pm"><span class="a">+3</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">internal/js/esbuild/options.go</span><span class="h">index 4176438e8..9248701f7 100644</span><span class="h">@@ -49,6 +49,7 @@ var (</span><span class="c"> 		&quot;es2022&quot;: api.ES2022,</span><span class="c"> 		&quot;es2023&quot;: api.ES2023,</span><span class="c"> 		&quot;es2024&quot;: api.ES2024,</span><span class="a">+		&quot;es2025&quot;: api.ES2025,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	engineName = map[string]api.EngineName{</span><span class="f">internal/js/esbuild/options_test.go</span><span class="h">index b60dcbc4a..683a32db0 100644</span><span class="h">@@ -189,6 +189,8 @@ func TestToBuildOptionsTarget(t *testing.T) {</span><span class="c"> 		{&quot;es2021&quot;, api.ES2021},</span><span class="c"> 		{&quot;es2022&quot;, api.ES2022},</span><span class="c"> 		{&quot;es2023&quot;, api.ES2023},</span><span class="a">+		{&quot;es2024&quot;, api.ES2024},</span><span class="a">+		{&quot;es2025&quot;, api.ES2025},</span><span class="c"> 		{&quot;&quot;, api.ESNext},</span><span class="c"> 		{&quot;esnext&quot;, api.ESNext},</span><span class="c"> 	} {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261007-020926/15301/">Previous · #15301</a>
+  <a class="mid" href="/backtests/hugo/run-20261007-020926/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261007-020926/15322/">Next · #15322</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

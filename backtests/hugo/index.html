@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>gohugoio/hugo · 5 Oct 2026 — sudo backtests</title>
-<meta name="description" content="26 of 30 tickets judged better than the merged fix on gohugoio/hugo, run 5 Oct 2026.">
-<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261005-133023/">
+<title>gohugoio/hugo · 7 Oct 2026 — sudo backtests</title>
+<meta name="description" content="28 of 30 tickets judged better than the merged fix on gohugoio/hugo, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261007-020926/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,16 +24,63 @@
 <h1>gohugoio/hugo</h1>
 <p class="lead">Static site generator written in Go.</p>
 <div class="card summary">
-  <p class="k">Latest run · 5 Oct 2026 · <span class="runid">run-20261005-133023</span></p>
-  <p class="big">87%<small>judged better than the merged fix</small></p>
-  <p class="sub">26 of 30 tickets. sudo-solver 0.4.0; one sample split across three harness runs after two Docker engine outages.</p>
-  <div class="bar" role="img" aria-label="26 better, 0 par, 3 worse, 1 error"><span class="b-better" style="width:86.66666666666667%"></span><span class="b-worse" style="width:10%"></span><span class="b-error" style="width:3.3333333333333335%"></span></div>
-  <div class="counts"><span class="better"><i></i>26 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>3 worse</span><span class="error"><i></i>1 error</span></div>
+  <p class="k">Latest run · 7 Oct 2026 · <span class="runid">run-20261007-020926</span></p>
+  <p class="big">93%<small>judged better than the merged fix</small></p>
+  <p class="sub">28 of 30 tickets. sudo-solver 5.1 random new sample of tickets.</p>
+  <div class="bar" role="img" aria-label="28 better, 0 par, 2 worse, 0 error"><span class="b-better" style="width:93.33333333333333%"></span><span class="b-worse" style="width:6.666666666666667%"></span></div>
+  <div class="counts"><span class="better"><i></i>28 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>2 worse</span><span class="error"><i></i>0 error</span></div>
 </div>
 <section>
   <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
   <div class="runs">
-<details class="run" id="run-20261005-133023" open>
+<details class="run" id="run-20261007-020926" open>
+  <summary>
+    <span class="date">7 Oct 2026<span class="runid">run-20261007-020926</span></span>
+    <span class="bars"><div class="bar thin" role="img" aria-label="28 better, 0 par, 2 worse, 0 error"><span class="b-better" style="width:93.33333333333333%"></span><span class="b-worse" style="width:6.666666666666667%"></span></div><span class="counts"><span class="better">28 better</span><span class="par">0 par</span><span class="worse">2 worse</span><span class="error">0 error</span></span></span>
+    <span class="notes">sudo-solver 5.1 random new sample of tickets</span>
+    <span class="meta">30 tickets · <a href="/backtests/hugo/run-20261007-020926/">permalink</a></span>
+  </summary>
+  <div class="runbody">
+<div class="filters" role="group" aria-label="Filter tickets by verdict"><button type="button" data-filter="all" aria-pressed="true">All 30</button><button type="button" class="better" data-filter="better" aria-pressed="false">Better 28</button><button type="button" class="par" data-filter="par" aria-pressed="false">Par 0</button><button type="button" class="worse" data-filter="worse" aria-pressed="false">Worse 2</button></div>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Issue</th><th>Title</th><th>Verdict</th><th class="num">Lines ours / merged</th><th>Test suite</th></tr></thead>
+    <tbody>
+<tr class="link" data-verdict="better"><td class="id">#7515</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/7515/">Related content: Partial-text indexing</a></td><td><span class="pill better">Better</span></td><td class="num">235 / 462</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#11302</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/11302/">The &quot;failed to extract&quot; error refers to outer shortcode instead of inner shortcode</a></td><td><span class="pill better">Better</span></td><td class="num">94 / 43</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#12543</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/12543/">resources/images: Poor overlay quality when background image is an indexed (not true color) PNG</a></td><td><span class="pill better">Better</span></td><td class="num">103 / 58</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#14044</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/14044/">Automatic summary may generate invalid HTML with blockquotes and lists</a></td><td><span class="pill better">Better</span></td><td class="num">130 / 226</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#14352</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/14352/">Support slug in section, taxonomy, and term pages</a></td><td><span class="pill better">Better</span></td><td class="num">181 / 4</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#14625</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/14625/">Make default baseUrl <a href="https://example.org/" rel="noopener nofollow" target="_blank">https://example.org/</a></a></td><td><span class="pill better">Better</span></td><td class="num">225 / 284</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#14937</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/14937/">Add build.cleanDestinationDir config option</a></td><td><span class="pill better">Better</span></td><td class="num">207 / 194</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15027</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15027/">metrics: --templateMetrics duration columns have inconsistent formatting</a></td><td><span class="pill better">Better</span></td><td class="num">88 / 41</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15077</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15077/">Make .Render take additional data</a></td><td><span class="pill better">Better</span></td><td class="num">168 / 90</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15103</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15103/">Add importContext to resources.Copy</a></td><td><span class="pill better">Better</span></td><td class="num">1,187 / 791</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15112</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15112/">Add css.ChromaStyles</a></td><td><span class="pill better">Better</span></td><td class="num">607 / 437</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15116</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15116/">common/hugo: Include aom, dav1d, and libavif in commands/env output</a></td><td><span class="pill better">Better</span></td><td class="num">30 / 51</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15169</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15169/">resources/jsconfig: Address VS Code linting notice in jsconfig.json</a></td><td><span class="pill better">Better</span></td><td class="num">49 / 11</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15174</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15174/">Panic when deleting a directory in static when server is running</a></td><td><span class="pill better">Better</span></td><td class="num">90 / 78</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15199</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15199/">related: Add option to tokenize headings</a></td><td><span class="pill better">Better</span></td><td class="num">246 / 462</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15207</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15207/">panic: slice bounds out of range in contentNodeShifter.Delete when removing draft pages from a multilingual taxonomy</a></td><td><span class="pill better">Better</span></td><td class="num">236 / 161</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15208</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15208/">Add resources.Publish</a></td><td><span class="pill better">Better</span></td><td class="num">111 / 37</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#15228</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15228/">Upgrade to Go 1.27</a></td><td><span class="pill worse">Worse</span></td><td class="num">303 / 642</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15234</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15234/">templates.Defer: identical block bodies in different output formats share one escaping mode, chosen non-deterministically per build</a></td><td><span class="pill better">Better</span></td><td class="num">95 / 29</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15245</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15245/">hugo mod npm pack emits a publishable, checkout-named package.json</a></td><td><span class="pill better">Better</span></td><td class="num">66 / 78</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#15261</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15261/">github: Fix workflow for stale issues</a></td><td><span class="pill worse">Worse</span></td><td class="num">53 / 2</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15266</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15266/">Consider bumping mainImageVersionNumber</a></td><td><span class="pill better">Better</span></td><td class="num">58 / 102</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15301</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15301/">Improve/document security.http.urls override behavior</a></td><td><span class="pill better">Better</span></td><td class="num">100 / 167</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15307</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15307/">js.Build should support es2025 as target</a></td><td><span class="pill better">Better</span></td><td class="num">23 / 3</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15322</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15322/">tpl/compare: eq, le and ge disagree when comparing an int with an equal float</a></td><td><span class="pill better">Better</span></td><td class="num">118 / 696</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15323</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15323/">tpl/collections: union silently returns an empty list when the two slice types differ</a></td><td><span class="pill better">Better</span></td><td class="num">136 / 17</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15332</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15332/">tpl/strings: Add a strings.FirstLower function</a></td><td><span class="pill better">Better</span></td><td class="num">101 / 146</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15355</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15355/">tpl/transform: Strip BOM prior to unmarshaling a resource or string</a></td><td><span class="pill better">Better</span></td><td class="num">109 / 88</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15367</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15367/">Allow symlinks for mount source for the main project</a></td><td><span class="pill better">Better</span></td><td class="num">97 / 31</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15373</td><td class="title"><a href="/backtests/hugo/run-20261007-020926/15373/">Support relative path calls in partials</a></td><td><span class="pill better">Better</span></td><td class="num">250 / 204</td><td class="tests">No new failures</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+</details>
+<details class="run" id="run-20261005-133023">
   <summary>
     <span class="date">5 Oct 2026<span class="runid">run-20261005-133023</span></span>
     <span class="bars"><div class="bar thin" role="img" aria-label="26 better, 0 par, 3 worse, 1 error"><span class="b-better" style="width:86.66666666666667%"></span><span class="b-worse" style="width:10%"></span><span class="b-error" style="width:3.3333333333333335%"></span></div><span class="counts"><span class="better">26 better</span><span class="par">0 par</span><span class="worse">3 worse</span><span class="error">1 error</span></span></span>

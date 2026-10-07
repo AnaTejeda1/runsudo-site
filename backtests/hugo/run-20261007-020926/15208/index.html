@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15208 Add resources.Publish — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15208 in gohugoio/hugo, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261007-020926/15208/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261007-020926/">run-20261007-020926</a><span aria-hidden="true">/</span><span aria-current="page">#15208</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15208" rel="noopener" target="_blank">#15208</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15209" rel="noopener" target="_blank">PR #15209</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-020926</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Add resources.Publish</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches implement the same core fix. Each adds `Namespace.Publish(r resource.Resource)`, which type-asserts to `resource.Source`, calls `Publish()` and returns `r`. Both register the method mapping in `init.go`. So correctness is essentially equal and both resolve the issue&#39;s ask, letting `{{ ... | js.Build | resources.Publish }}` work.
+
+The difference is mainly in testing. Patch B&#39;s single test covers one minified JS resource and checks that the file is written. Patch A&#39;s test covers a much wider range of resource kinds:
+- a transformed JS resource
+- a plain global CSS resource
+- `resources.FromString`
+- an image
+- a resized image
+- a page bundle resource when `publishResources` is false, with a negative check that a sibling resource is not published
+
+Patch A also adds a failure-path test confirming that passing a non-resource produces a sensible error. These tests would fail before the change, because the function is missing from the namespace, and they exercise more real-world scenarios.
+
+On craft, Patch A adds an explicit nil check and prefixes its error messages with `resources.Publish:`, which makes template errors clearer. Its doc comment shows the intended pipeline usage. The documentation page is extra scope but harmless and appropriate for a new template function.
+
+One small risk is whether `errors` is already imported in `resources.go`; neither diff shows import changes, so I treat this as neutral. Overall Patch A is the stronger, better-tested fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">23m 18s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,699 passed · 99 skipped · 3,807 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">111<small>vs 37 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15208" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>So you can write:</p>
+<pre><code class="lang-handlebars">{{ resources.Get &quot;main.js&quot; | js.Build | resources.Publish }}</code></pre>
+<p>Instead of:</p>
+<pre><code class="lang-handlebars">{{ (resources.Get &quot;main.js&quot; | js.Build ).Publish }}</code></pre>
+<p>The first one reads much nicer in my eyes.</p>
+<p><code>resources.Publish</code> would return the <code>Resource</code> it gets as input.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+111</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">docs/content/en/functions/resources/Publish.md</span><span class="h">new file mode 100644</span><span class="h">index 000000000..fb66e3c40</span><span class="h">@@ -0,0 +1,25 @@</span><span class="a">+---</span><span class="a">+title: resources.Publish</span><span class="a">+description: Publishes the given resource to the publish directory and returns it.</span><span class="a">+categories: []</span><span class="a">+params:</span><span class="a">+  functions_and_methods:</span><span class="a">+    aliases: []</span><span class="a">+    returnType: resource.Resource</span><span class="a">+    signatures: [resources.Publish RESOURCE]</span><span class="a">+---</span><span class="a">+</span><span class="a">+The `resources.Publish` function publishes the given resource without rendering its URL, and returns the resource. This is useful at the end of a pipeline:</span><span class="a">+</span><span class="a">+```go-html-template</span><span class="a">+{{ resources.Get &quot;main.js&quot; | js.Build | resources.Publish }}</span><span class="a">+```</span><span class="a">+</span><span class="a">+The example above is equivalent to:</span><span class="a">+</span><span class="a">+```go-html-template</span><span class="a">+{{ (resources.Get &quot;main.js&quot; | js.Build).Publish }}</span><span class="a">+```</span><span class="a">+</span><span class="a">+&gt; [!NOTE]</span><span class="a">+&gt; Use the `resources.Publish` function with global, page, and remote resources.</span><span class="f">tpl/resources/init.go</span><span class="h">index 9ce9bee20..0cda68c4c 100644</span><span class="h">@@ -90,6 +90,11 @@ func init() {</span><span class="c"> 			[][2]string{},</span><span class="c"> 		)</span><span class="c"> </span><span class="a">+		ns.AddMethodMapping(ctx.Publish,</span><span class="a">+			nil,</span><span class="a">+			[][2]string{},</span><span class="a">+		)</span><span class="a">+</span><span class="c"> 		ns.AddMethodMapping(ctx.PostProcess,</span><span class="c"> 			nil,</span><span class="c"> 			[][2]string{},</span><span class="f">tpl/resources/resources.go</span><span class="h">index aae6ac1f3..3e408d0eb 100644</span><span class="h">@@ -296,6 +296,23 @@ func (ns *Namespace) Minify(r resources.ResourceTransformer) (resource.Resource,</span><span class="c"> 	return ns.minifyClient.Minify(r)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Publish publishes r to the public directory and returns it, so it can be</span><span class="a">+// used at the end of a pipeline, e.g.</span><span class="a">+// {{ resources.Get &quot;main.js&quot; | js.Build | resources.Publish }}.</span><span class="a">+func (ns *Namespace) Publish(r resource.Resource) (resource.Resource, error) {</span><span class="a">+	if r == nil {</span><span class="a">+		return nil, errors.New(&quot;resources.Publish: resource is nil&quot;)</span><span class="a">+	}</span><span class="a">+	src, ok := r.(resource.Source)</span><span class="a">+	if !ok {</span><span class="a">+		return nil, fmt.Errorf(&quot;resources.Publish: %T cannot be published&quot;, r)</span><span class="a">+	}</span><span class="a">+	if err := src.Publish(); err != nil {</span><span class="a">+		return nil, err</span><span class="a">+	}</span><span class="a">+	return r, nil</span><span class="a">+}</span><span class="a">+</span><span class="c"> // PostProcess processes r after the build.</span><span class="c"> //</span><span class="c"> // Deprecated: Use templates.Defer instead.</span><span class="f">tpl/resources/resources_integration_test.go</span><span class="h">index b7f86111c..9ce5a83e2 100644</span><span class="h">@@ -296,3 +296,67 @@ body { color: red; }</span><span class="c"> </span><span class="c"> 	b.AssertLogContains(&quot;resources.PostProcess was deprecated in Hugo v0.164.0&quot;)</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestPublish(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;section&quot;, &quot;RSS&quot;, &quot;sitemap&quot;, &quot;robotsTXT&quot;, &quot;404&quot;]</span><span class="a">+-- assets/js/main.js --</span><span class="a">+let   foo = 1;</span><span class="a">+-- assets/css/main.css --</span><span class="a">+body { color: red; }</span><span class="a">+-- assets/images/pixel.png --</span><span class="a">+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==</span><span class="a">+-- content/p1/index.md --</span><span class="a">+---</span><span class="a">+title: p1</span><span class="a">+build:</span><span class="a">+  publishResources: false</span><span class="a">+---</span><span class="a">+-- content/p1/data.txt --</span><span class="a">+data</span><span class="a">+-- content/p1/other.txt --</span><span class="a">+other</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $js := resources.Get &quot;js/main.js&quot; | minify | resources.Publish }}</span><span class="a">+{{ $css := resources.Get &quot;css/main.css&quot; | resources.Publish }}</span><span class="a">+{{ &quot;let bar;&quot; | resources.FromString &quot;js/fromstring.js&quot; | resources.Publish }}</span><span class="a">+{{ resources.Get &quot;images/pixel.png&quot; | resources.Publish }}</span><span class="a">+{{ (resources.Get &quot;images/pixel.png&quot;).Resize &quot;2x2&quot; | resources.Publish }}</span><span class="a">+{{ (site.GetPage &quot;/p1&quot;).Resources.Get &quot;data.txt&quot; | resources.Publish }}</span><span class="a">+JS: {{ $js.Name }}|{{ $js.MediaType }}|</span><span class="a">+CSS: {{ $css.Name }}|</span><span class="a">+-- layouts/page.html --</span><span class="a">+{{ .Title }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	// No permalink is used for any of the resources above, so they are</span><span class="a">+	// published by resources.Publish alone.</span><span class="a">+	b.AssertFileContent(&quot;public/js/main.min.js&quot;, &quot;let foo=1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/css/main.css&quot;, &quot;body { color: red; }&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/js/fromstring.js&quot;, &quot;let bar;&quot;)</span><span class="a">+	b.AssertFileExists(&quot;public/images/pixel.png&quot;, true)</span><span class="a">+	b.AssertFileExists(&quot;public/p1/data.txt&quot;, true)</span><span class="a">+	b.AssertFileExists(&quot;public/p1/other.txt&quot;, false)</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;JS: /js/main.js|text/javascript|&quot;, &quot;CSS: /css/main.css|&quot;)</span><span class="a">+	b.AssertPublishDir(&quot;pixel_hu_&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="a">+func TestPublishNotAResourceShouldFail(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ . | resources.Publish }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+	_, err := hugolib.TestE(t, files)</span><span class="a">+</span><span class="a">+	qt.Assert(t, err, qt.IsNotNil)</span><span class="a">+	qt.Assert(t, err.Error(), qt.Contains, &quot;cannot be published&quot;)</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15209" rel="noopener" target="_blank">PR #15209</a></span><span class="pm"><span class="a">+37</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">tpl/resources/init.go</span><span class="h">index 9ce9bee20..0cda68c4c 100644</span><span class="h">@@ -90,6 +90,11 @@ func init() {</span><span class="c"> 			[][2]string{},</span><span class="c"> 		)</span><span class="c"> </span><span class="a">+		ns.AddMethodMapping(ctx.Publish,</span><span class="a">+			nil,</span><span class="a">+			[][2]string{},</span><span class="a">+		)</span><span class="a">+</span><span class="c"> 		ns.AddMethodMapping(ctx.PostProcess,</span><span class="c"> 			nil,</span><span class="c"> 			[][2]string{},</span><span class="f">tpl/resources/resources.go</span><span class="h">index aae6ac1f3..88722fb07 100644</span><span class="h">@@ -296,6 +296,18 @@ func (ns *Namespace) Minify(r resources.ResourceTransformer) (resource.Resource,</span><span class="c"> 	return ns.minifyClient.Minify(r)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Publish publishes r to the destination and returns it.</span><span class="a">+func (ns *Namespace) Publish(r resource.Resource) (resource.Resource, error) {</span><span class="a">+	s, ok := r.(resource.Source)</span><span class="a">+	if !ok {</span><span class="a">+		return nil, fmt.Errorf(&quot;%T can not be published&quot;, r)</span><span class="a">+	}</span><span class="a">+	if err := s.Publish(); err != nil {</span><span class="a">+		return nil, err</span><span class="a">+	}</span><span class="a">+	return r, nil</span><span class="a">+}</span><span class="a">+</span><span class="c"> // PostProcess processes r after the build.</span><span class="c"> //</span><span class="c"> // Deprecated: Use templates.Defer instead.</span><span class="f">tpl/resources/resources_integration_test.go</span><span class="h">index b7f86111c..b5c611d52 100644</span><span class="h">@@ -278,6 +278,26 @@ disableKinds = [&#39;page&#39;,&#39;section&#39;,&#39;rss&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="c"> 	b.AssertLogContains(&quot;! WARN  Dart Sass: hugo:vars&quot;)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// See issue 15208.</span><span class="a">+func TestPublish(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;section&quot;, &quot;RSS&quot;, &quot;sitemap&quot;, &quot;robotsTXT&quot;, &quot;404&quot;]</span><span class="a">+-- assets/js/main.js --</span><span class="a">+let foo;</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $r := resources.Get &quot;js/main.js&quot; | minify | resources.Publish }}</span><span class="a">+Name: {{ $r.Name }}|</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Name: /js/main.js|&quot;)</span><span class="a">+	b.AssertFileExists(&quot;public/js/main.min.js&quot;, true)</span><span class="a">+}</span><span class="a">+</span><span class="c"> // See issue 15086.</span><span class="c"> func TestPostProcessDeprecated(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261007-020926/15207/">Previous · #15207</a>
+  <a class="mid" href="/backtests/hugo/run-20261007-020926/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261007-020926/15228/">Next · #15228</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15355 tpl/transform: Strip BOM prior to unmarshaling a resource or string — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15355 in gohugoio/hugo, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261007-020926/15355/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261007-020926/">run-20261007-020926</a><span aria-hidden="true">/</span><span aria-current="page">#15355</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15355" rel="noopener" target="_blank">#15355</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15357" rel="noopener" target="_blank">PR #15357</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-020926</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">tpl/transform: Strip BOM prior to unmarshaling a resource or string</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause: they strip the UTF-8 BOM in `metadecoders.Decoder.Unmarshal`, which is the path `transform.Unmarshal` uses for both resources and strings. That resolves the reported CSV/JSON/TOML/XML/YAML failures.
+
+Patch A is more thorough. It also strips the BOM in `UnmarshalTo` (used by `UnmarshalToMap` and `UnmarshalFileToMap`, so front matter, config and data paths are covered) and in `UnmarshalStringTo`, so every decoder entry point behaves the same. The helper and constant are named clearly and cite the issue.
+
+Patch A&#39;s tests are stronger. It adds unit tests for `UnmarshalStringTo` with a BOM, the issue&#39;s CSV integration test, and a broader integration test. That test covers every format as a resource, every format as a string via `.Content`, and BOM-prefixed files in the `data/` directory through `hugo.Data`. Patch B&#39;s test covers each format as a resource and only JSON as a string.
+
+Patch B also reformats several unrelated existing test calls (`AssertFileContent` and `strings.ReplaceAll` argument wrapping). That churn obscures the diff without adding value. Its fix is minimal and correct for the issue, but narrower.
+
+Overall Patch A has comparable correctness, broader consistency, better tests and no unrelated churn.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">46m 28s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,772 passed · 101 skipped · 3,875 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">109<small>vs 88 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15355" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Reference: &lt;https://discourse.gohugo.io/t/57561&gt;</p>
+<p>Although the forum topic above is about CSV data, I think we&#39;d have the same/similar problem with JSON, XML, and TOML data.</p>
+<p>Failing example:</p>
+<pre><code class="lang-text">git clone --single-branch -b hugo-github-issue-15335 https://github.com/jmooring/hugo-testing hugo-github-issue-15335
+cd hugo-github-issue-15335
+hugo --ignoreCache &amp;&amp; cat public/index.html</code></pre>
+<p>Expected:</p>
+<pre><code class="lang-text">city: tokyo|country: japan|
+fruit: apple|color: red|
+id: 1234|role: developer|
+vehicle: car|type: sedan|
+name: laptop|price: 999.99|</code></pre>
+<p>Actual:</p>
+<pre><code class="lang-text">city: |country: japan|
+fruit: |color: red|
+id: |role: developer|
+vehicle: |type: sedan|
+name: |price: 999.99|</code></pre>
+<hr>
+<pre><code class="lang-go">// See issue 15355
+func TestUnmarshalCSVWithBOM(t *testing.T) {
+	t.Parallel()
+
+	bom := &quot;\xef\xbb\xbf&quot;
+
+	files := `
+-- hugo.toml --
+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]
+-- layouts/home.html --
+{{ $r := resources.Get &quot;a.csv&quot; }}
+{{ $opts := dict &quot;targetType&quot; &quot;map&quot; &quot;format&quot; &quot;csv&quot; }}
+{{ $data := transform.Unmarshal $opts $r }}
+{{ range $data }}
+column_a: {{ .column_a }}|column_b: {{ .column_b }}|
+{{ end }}
+-- assets/a.csv --
+` + bom + `column_a,column_b
+foo,bar
+`
+
+	b := hugolib.Test(t, files)
+
+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;column_a: foo|column_b: bar|&quot;)
+}</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+108</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">parser/metadecoders/decoder.go</span><span class="h">index 02e7dbdb7..818bd45f7 100644</span><span class="h">@@ -70,6 +70,15 @@ func (d Decoder) OptionsKey() string {</span><span class="c"> 	return sb.String()</span><span class="c"> }</span><span class="c"> </span><span class="a">+// utf8BOM is the UTF-8 encoded byte order mark.</span><span class="a">+const utf8BOM = &quot;\ufeff&quot;</span><span class="a">+</span><span class="a">+// trimBOM removes a leading UTF-8 byte order mark from data, if present.</span><span class="a">+// See issue 15335.</span><span class="a">+func trimBOM(data []byte) []byte {</span><span class="a">+	return bytes.TrimPrefix(data, []byte(utf8BOM))</span><span class="a">+}</span><span class="a">+</span><span class="c"> // Default is a Decoder in its default configuration.</span><span class="c"> var Default = Decoder{</span><span class="c"> 	Delimiter:  &#39;,&#39;,</span><span class="h">@@ -115,7 +124,7 @@ func (d Decoder) UnmarshalFileToMap(fs afero.Fs, filename string) (map[string]an</span><span class="c"> </span><span class="c"> // UnmarshalStringTo tries to unmarshal data to a new instance of type typ.</span><span class="c"> func (d Decoder) UnmarshalStringTo(data string, typ any) (any, error) {</span><span class="r">-	data = strings.TrimSpace(data)</span><span class="a">+	data = strings.TrimSpace(strings.TrimPrefix(data, utf8BOM))</span><span class="c"> 	// We only check for the possible types in YAML, JSON and TOML.</span><span class="c"> 	switch typ.(type) {</span><span class="c"> 	case string:</span><span class="h">@@ -142,6 +151,7 @@ func (d Decoder) UnmarshalStringTo(data string, typ any) (any, error) {</span><span class="c"> // Unmarshal will unmarshall data in format f into an interface{}.</span><span class="c"> // This is what&#39;s needed for Hugo&#39;s /data handling.</span><span class="c"> func (d Decoder) Unmarshal(data []byte, f Format) (any, error) {</span><span class="a">+	data = trimBOM(data)</span><span class="c"> 	if len(data) == 0 {</span><span class="c"> 		switch f {</span><span class="c"> 		case CSV:</span><span class="h">@@ -278,6 +288,8 @@ func validateAliasLimitForCollections(v any, limit int) error {</span><span class="c"> func (d Decoder) UnmarshalTo(data []byte, f Format, v any) error {</span><span class="c"> 	var err error</span><span class="c"> </span><span class="a">+	data = trimBOM(data)</span><span class="a">+</span><span class="c"> 	switch f {</span><span class="c"> 	case ORG:</span><span class="c"> 		err = d.unmarshalORG(data, v)</span><span class="f">parser/metadecoders/decoder_test.go</span><span class="h">index 678197f7d..6b3941a23 100644</span><span class="h">@@ -174,6 +174,10 @@ func TestUnmarshalStringTo(t *testing.T) {</span><span class="c"> 		{&quot;3.14159&quot;, float64(1), float64(3.14159)},</span><span class="c"> 		{&quot;[3,7,9]&quot;, []any{}, []any{uint64(3), uint64(7), uint64(9)}},</span><span class="c"> 		{&quot;[3.1,7.2,9.3]&quot;, []any{}, []any{3.1, 7.2, 9.3}},</span><span class="a">+		// See issue 15335.</span><span class="a">+		{&quot;\ufeff{ \&quot;a\&quot;: \&quot;b\&quot; }&quot;, make(map[string]any), expectMap},</span><span class="a">+		{&quot;\ufeffa string&quot;, &quot;string&quot;, &quot;a string&quot;},</span><span class="a">+		{&quot;\ufeff32&quot;, int(1234), int(32)},</span><span class="c"> 	} {</span><span class="c"> 		msg := qt.Commentf(&quot;%d: %T&quot;, i, test.to)</span><span class="c"> 		m, err := d.UnmarshalStringTo(test.data, test.to)</span><span class="f">tpl/transform/transform_integration_test.go</span><span class="h">index 9109e6c3e..4efe18ef0 100644</span><span class="h">@@ -640,3 +640,94 @@ i: &amp;i [*h, *h, *h, *h, *h, *h, *h, *h, *h, *h]</span><span class="c"> 	b.Assert(err, qt.IsNotNil)</span><span class="c"> 	b.Assert(err.Error(), qt.Contains, &quot;too many YAML aliases for non-scalar nodes&quot;)</span><span class="c"> }</span><span class="a">+</span><span class="a">+// See issue 15335.</span><span class="a">+func TestUnmarshalCSVWithBOM(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	bom := &quot;\xef\xbb\xbf&quot;</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $r := resources.Get &quot;a.csv&quot; }}</span><span class="a">+{{ $opts := dict &quot;targetType&quot; &quot;map&quot; &quot;format&quot; &quot;csv&quot; }}</span><span class="a">+{{ $data := transform.Unmarshal $opts $r }}</span><span class="a">+{{ range $data }}</span><span class="a">+column_a: {{ .column_a }}|column_b: {{ .column_b }}|</span><span class="a">+{{ end }}</span><span class="a">+-- assets/a.csv --</span><span class="a">+` + bom + `column_a,column_b</span><span class="a">+foo,bar</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;column_a: foo|column_b: bar|&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="a">+// See issue 15335.</span><span class="a">+func TestUnmarshalWithBOM(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	bom := &quot;\xef\xbb\xbf&quot;</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ range $f := slice &quot;a.csv&quot; &quot;a.json&quot; &quot;a.toml&quot; &quot;a.xml&quot; &quot;a.yaml&quot; }}</span><span class="a">+{{ $r := resources.Get $f }}</span><span class="a">+{{ $opts := dict }}</span><span class="a">+{{ if eq $f &quot;a.csv&quot; }}{{ $opts = dict &quot;targetType&quot; &quot;map&quot; }}{{ end }}</span><span class="a">+{{ $data := transform.Unmarshal $opts $r }}</span><span class="a">+{{ if eq $f &quot;a.csv&quot; }}{{ $data = index $data 0 }}{{ end }}</span><span class="a">+resource {{ $f }}: city: {{ $data.city }}|country: {{ $data.country }}|</span><span class="a">+{{ $data = transform.Unmarshal $opts $r.Content }}</span><span class="a">+{{ if eq $f &quot;a.csv&quot; }}{{ $data = index $data 0 }}{{ end }}</span><span class="a">+string {{ $f }}: city: {{ $data.city }}|country: {{ $data.country }}|</span><span class="a">+{{ end }}</span><span class="a">+{{ range $k, $v := hugo.Data }}</span><span class="a">+data {{ $k }}: city: {{ $v.city }}|country: {{ $v.country }}|</span><span class="a">+{{ end }}</span><span class="a">+-- assets/a.csv --</span><span class="a">+` + bom + `city,country</span><span class="a">+tokyo,japan</span><span class="a">+-- assets/a.json --</span><span class="a">+` + bom + `{&quot;city&quot;: &quot;tokyo&quot;, &quot;country&quot;: &quot;japan&quot;}</span><span class="a">+-- assets/a.toml --</span><span class="a">+` + bom + `city = &quot;tokyo&quot;</span><span class="a">+country = &quot;japan&quot;</span><span class="a">+-- assets/a.xml --</span><span class="a">+` + bom + `&lt;root&gt;&lt;city&gt;tokyo&lt;/city&gt;&lt;country&gt;japan&lt;/country&gt;&lt;/root&gt;</span><span class="a">+-- assets/a.yaml --</span><span class="a">+` + bom + `city: tokyo</span><span class="a">+country: japan</span><span class="a">+-- data/djson.json --</span><span class="a">+` + bom + `{&quot;city&quot;: &quot;tokyo&quot;, &quot;country&quot;: &quot;japan&quot;}</span><span class="a">+-- data/dtoml.toml --</span><span class="a">+` + bom + `city = &quot;tokyo&quot;</span><span class="a">+country = &quot;japan&quot;</span><span class="a">+-- data/dxml.xml --</span><span class="a">+` + bom + `&lt;root&gt;&lt;city&gt;tokyo&lt;/city&gt;&lt;country&gt;japan&lt;/country&gt;&lt;/root&gt;</span><span class="a">+-- data/dyaml.yaml --</span><span class="a">+` + bom + `city: tokyo</span><span class="a">+country: japan</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	var expect []string</span><span class="a">+	for _, f := range []string{&quot;a.csv&quot;, &quot;a.json&quot;, &quot;a.toml&quot;, &quot;a.xml&quot;, &quot;a.yaml&quot;} {</span><span class="a">+		expect = append(expect,</span><span class="a">+			&quot;resource &quot;+f+&quot;: city: tokyo|country: japan|&quot;,</span><span class="a">+			&quot;string &quot;+f+&quot;: city: tokyo|country: japan|&quot;,</span><span class="a">+		)</span><span class="a">+	}</span><span class="a">+	for _, k := range []string{&quot;djson&quot;, &quot;dtoml&quot;, &quot;dxml&quot;, &quot;dyaml&quot;} {</span><span class="a">+		expect = append(expect, &quot;data &quot;+k+&quot;: city: tokyo|country: japan|&quot;)</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, expect...)</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15357" rel="noopener" target="_blank">PR #15357</a></span><span class="pm"><span class="a">+80</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">parser/metadecoders/decoder.go</span><span class="h">index 02e7dbdb7..dda9576c6 100644</span><span class="h">@@ -142,6 +142,7 @@ func (d Decoder) UnmarshalStringTo(data string, typ any) (any, error) {</span><span class="c"> // Unmarshal will unmarshall data in format f into an interface{}.</span><span class="c"> // This is what&#39;s needed for Hugo&#39;s /data handling.</span><span class="c"> func (d Decoder) Unmarshal(data []byte, f Format) (any, error) {</span><span class="a">+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF}) // UTF-8 BOM</span><span class="c"> 	if len(data) == 0 {</span><span class="c"> 		switch f {</span><span class="c"> 		case CSV:</span><span class="f">tpl/transform/transform_integration_test.go</span><span class="h">index 9109e6c3e..057a6cc9c 100644</span><span class="h">@@ -124,7 +124,8 @@ code:{{ transform.Highlight &quot;&quot; (dict &quot;type&quot; &quot;go&quot; &quot;code&quot; &quot;i = 42&quot;) }}</span><span class="c"> </span><span class="c"> 	want := `&lt;div class=&quot;highlight&quot;&gt;&lt;pre tabindex=&quot;0&quot; class=&quot;chroma&quot;&gt;&lt;code class=&quot;language-go&quot; data-lang=&quot;go&quot;&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;cl&quot;&gt;&lt;span class=&quot;nx&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;42&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;`</span><span class="c"> </span><span class="r">-	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="c"> 		&quot;lang:&quot;+want,</span><span class="c"> 		&quot;type:&quot;+want,</span><span class="c"> 		&quot;code:&quot;+want,</span><span class="h">@@ -418,11 +419,13 @@ DATA</span><span class="c"> </span><span class="c"> 	// targetType = map</span><span class="c"> 	f := strings.ReplaceAll(files, &quot;OPTS&quot;, `dict &quot;targetType&quot; &quot;map&quot;`)</span><span class="r">-	f = strings.ReplaceAll(f, &quot;DATA&quot;,</span><span class="a">+	f = strings.ReplaceAll(</span><span class="a">+		f, &quot;DATA&quot;,</span><span class="c"> 		&quot;name,type,breed,age\nSpot,dog,Collie,3\nFelix,cat,Malicious,7&quot;,</span><span class="c"> 	)</span><span class="c"> 	b := hugolib.Test(t, f)</span><span class="r">-	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="c"> 		`[{&quot;age&quot;:&quot;3&quot;,&quot;breed&quot;:&quot;Collie&quot;,&quot;name&quot;:&quot;Spot&quot;,&quot;type&quot;:&quot;dog&quot;},{&quot;age&quot;:&quot;7&quot;,&quot;breed&quot;:&quot;Malicious&quot;,&quot;name&quot;:&quot;Felix&quot;,&quot;type&quot;:&quot;cat&quot;}]`,</span><span class="c"> 	)</span><span class="c"> </span><span class="h">@@ -434,11 +437,13 @@ DATA</span><span class="c"> </span><span class="c"> 	// targetType = slice</span><span class="c"> 	f = strings.ReplaceAll(files, &quot;OPTS&quot;, `dict &quot;targetType&quot; &quot;slice&quot;`)</span><span class="r">-	f = strings.ReplaceAll(f, &quot;DATA&quot;,</span><span class="a">+	f = strings.ReplaceAll(</span><span class="a">+		f, &quot;DATA&quot;,</span><span class="c"> 		&quot;name,type,breed,age\nSpot,dog,Collie,3\nFelix,cat,Malicious,7&quot;,</span><span class="c"> 	)</span><span class="c"> 	b = hugolib.Test(t, f)</span><span class="r">-	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="c"> 		`[[&quot;name&quot;,&quot;type&quot;,&quot;breed&quot;,&quot;age&quot;],[&quot;Spot&quot;,&quot;dog&quot;,&quot;Collie&quot;,&quot;3&quot;],[&quot;Felix&quot;,&quot;cat&quot;,&quot;Malicious&quot;,&quot;7&quot;]]`,</span><span class="c"> 	)</span><span class="c"> </span><span class="h">@@ -450,11 +455,13 @@ DATA</span><span class="c"> </span><span class="c"> 	// targetType not specified</span><span class="c"> 	f = strings.ReplaceAll(files, &quot;OPTS&quot;, &quot;dict&quot;)</span><span class="r">-	f = strings.ReplaceAll(f, &quot;DATA&quot;,</span><span class="a">+	f = strings.ReplaceAll(</span><span class="a">+		f, &quot;DATA&quot;,</span><span class="c"> 		&quot;name,type,breed,age\nSpot,dog,Collie,3\nFelix,cat,Malicious,7&quot;,</span><span class="c"> 	)</span><span class="c"> 	b = hugolib.Test(t, f)</span><span class="r">-	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="c"> 		`[[&quot;name&quot;,&quot;type&quot;,&quot;breed&quot;,&quot;age&quot;],[&quot;Spot&quot;,&quot;dog&quot;,&quot;Collie&quot;,&quot;3&quot;],[&quot;Felix&quot;,&quot;cat&quot;,&quot;Malicious&quot;,&quot;7&quot;]]`,</span><span class="c"> 	)</span><span class="c"> </span><span class="h">@@ -503,7 +510,8 @@ DATA</span><span class="c"> </span><span class="c"> 	// targetType = map (error: header row contains duplicate field names)</span><span class="c"> 	f = strings.ReplaceAll(files, &quot;OPTS&quot;, `dict &quot;targetType&quot; &quot;map&quot;`)</span><span class="r">-	f = strings.ReplaceAll(f, &quot;DATA&quot;,</span><span class="a">+	f = strings.ReplaceAll(</span><span class="a">+		f, &quot;DATA&quot;,</span><span class="c"> 		&quot;name,name,breed,age\nSpot,dog,Collie,3\nFelix,cat,Malicious,7&quot;,</span><span class="c"> 	)</span><span class="c"> 	_, err = hugolib.TestE(t, f)</span><span class="h">@@ -640,3 +648,66 @@ i: &amp;i [*h, *h, *h, *h, *h, *h, *h, *h, *h, *h]</span><span class="c"> 	b.Assert(err, qt.IsNotNil)</span><span class="c"> 	b.Assert(err.Error(), qt.Contains, &quot;too many YAML aliases for non-scalar nodes&quot;)</span><span class="c"> }</span><span class="a">+</span><span class="a">+// See issue 15355.</span><span class="a">+func TestUnmarshalWithBOM(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	bom := &quot;\xef\xbb\xbf&quot;</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ with resources.Get &quot;data.csv&quot; | transform.Unmarshal (dict &quot;targetType&quot; &quot;map&quot;) }}</span><span class="a">+  {{ range . }}</span><span class="a">+    csv: {{ .column_a }}|{{ .column_b }}|</span><span class="a">+  {{ end }}</span><span class="a">+{{ end }}</span><span class="a">+</span><span class="a">+{{ with resources.Get &quot;data.json&quot; | transform.Unmarshal }}</span><span class="a">+  json: {{ .column_a }}|{{ .column_b }}|</span><span class="a">+{{ end }}</span><span class="a">+</span><span class="a">+{{ with resources.Get &quot;data.toml&quot; | transform.Unmarshal }}</span><span class="a">+  toml: {{ .column_a }}|{{ .column_b }}|</span><span class="a">+{{ end }}</span><span class="a">+</span><span class="a">+{{ with resources.Get &quot;data.xml&quot; | transform.Unmarshal }}</span><span class="a">+  xml: {{ .column_a }}|{{ .column_b }}|</span><span class="a">+{{ end }}</span><span class="a">+</span><span class="a">+{{ with resources.Get &quot;data.yaml&quot; | transform.Unmarshal }}</span><span class="a">+  yaml: {{ .column_a }}|{{ .column_b }}|</span><span class="a">+{{ end }}</span><span class="a">+</span><span class="a">+{{ with (resources.Get &quot;data.json&quot;).Content | transform.Unmarshal }}</span><span class="a">+  string: {{ .column_a }}|{{ .column_b }}|</span><span class="a">+{{ end }}</span><span class="a">+-- assets/data.csv --</span><span class="a">+` + bom + `column_a,column_b</span><span class="a">+foo,bar</span><span class="a">+-- assets/data.json --</span><span class="a">+` + bom + `{&quot;column_a&quot;: &quot;foo&quot;, &quot;column_b&quot;: &quot;bar&quot;}</span><span class="a">+-- assets/data.toml --</span><span class="a">+` + bom + `column_a = &quot;foo&quot;</span><span class="a">+column_b = &quot;bar&quot;</span><span class="a">+-- assets/data.xml --</span><span class="a">+` + bom + `&lt;root&gt;&lt;column_a&gt;foo&lt;/column_a&gt;&lt;column_b&gt;bar&lt;/column_b&gt;&lt;/root&gt;</span><span class="a">+-- assets/data.yaml --</span><span class="a">+` + bom + `column_a: foo</span><span class="a">+column_b: bar</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(</span><span class="a">+		&quot;public/index.html&quot;,</span><span class="a">+		&quot;csv: foo|bar|&quot;,</span><span class="a">+		&quot;json: foo|bar|&quot;,</span><span class="a">+		&quot;toml: foo|bar|&quot;,</span><span class="a">+		&quot;xml: foo|bar|&quot;,</span><span class="a">+		&quot;yaml: foo|bar|&quot;,</span><span class="a">+		&quot;string: foo|bar|&quot;,</span><span class="a">+	)</span><span class="a">+}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261007-020926/15332/">Previous · #15332</a>
+  <a class="mid" href="/backtests/hugo/run-20261007-020926/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261007-020926/15367/">Next · #15367</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
