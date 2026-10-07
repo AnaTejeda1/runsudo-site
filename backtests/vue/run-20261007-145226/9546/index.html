@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#9546 defineProps options object loses properties when using generics — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #9546 in vuejs/core, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261007-145226/9546/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261007-145226/">run-20261007-145226</a><span aria-hidden="true">/</span><span aria-current="page">#9546</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/9546" rel="noopener" target="_blank">#9546</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15523" rel="noopener" target="_blank">PR #15523</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-145226</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">defineProps options object loses properties when using generics</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same core change: `PropMethod` stops being a conditional on `T`. That removes the deferral of `PropType&lt;T&gt;` that broke `RequiredKeys`/`OptionalKeys` and dropped the non-required props. They differ in `InferPropType`.
+
+Patch A keeps the `unknown extends V ? keyof V extends never ? ...` chain and only changes the innermost branch to `unknown extends D ? V : D`. When `V` is a generic type parameter, `unknown extends V` is still deferred. The resulting prop type is an unresolved conditional that happens to be assignable to `V` because every branch is `V`. This hides the problem rather than resolving the type, and property access or narrowing on such a deferred type can behave poorly.
+
+Patch B checks `unknown extends D` first. `D` is concrete when no default is given, since it is inferred as `unknown`. So in the common case the result resolves immediately to `V`, with no deferral. The default-fallback logic moves to a separate helper, `InferPropTypeWithDefault`, used only when a default exists. This fixes the root cause more directly.
+
+Patch B&#39;s tests are also much broader. They cover all three forms from the issue, a `default: undefined` case, array and function `PropType`s with generics, an array default, a plain `String` prop, and property access on the generic (`props.c.foo`, `props.a?.foo`). They also test `ExtractPropTypes`, `ExtractPublicPropTypes` and `ExtractDefaultPropTypes` directly with generic options. Patch A&#39;s tests are thinner and lean on assignability, which its deferred-type approach would satisfy anyway.
+
+Both patches are tidy and well commented. Patch B has the more robust fix and stronger tests.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">13m 20s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,743 passed · 6 skipped · 3,749 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">124<small>vs 54 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/9546" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.3.7 &amp; 3.4.alpha</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNqNUk1v2zAM/SuELt2Axj70MMBIi25DD9thLbYcdXFsxlVmUxolpxkC//fS8kfT9AO9UXyP5OOjDuqrc8muRZWppS/YuAAeQ+ugzqm61Cp4raBCQjaFPFdaXWkyjbMc4AB3bN3qv0PoYMO2gTPpdKapsOQDOAE9XEKJG0PYU/2ngyaAPIPb9RaLALmfWyxXV+eaenidQaQBBMm/we0J3VhQfKRAuD2D8V9rGMsMArcYk52m7nPfKQpO8ilYT0GhaZkO5shcda6G/RdN7pKttyTexfl6BMSyWZFWYkn/1uo+BOezNC1KkrISa7PjhDCk5Jr0WmgptxRMg4vSNtcXyUXyJS2ND8fpBH2zWLN98MjSRKtxrTgmleQOecFIJTLyR8eelB2PPoFejJ/8E1OCl7NvTHViSWEbZ2rkWxeMfItn1uR1bR9+xtx8jVhzj8XfV/Jbvx92umOMyo72DzlXGAb45s8v3Es8g40t23o8wxvgb/S2bnuNA+1bS6XIPuJFtT/ihQ1VK3+zD0h+WqoXOn3K8R7f31n9Sa64PbvYPQLEQTNC" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNqNUk1v2zAM/SuELt2Axj70MMBIi25DD9thLbYcdXFsxlVmUxolpxkC//fS8kfT9AO9UXyP5OOjDuqrc8muRZWppS/YuAAeQ+ugzqm61Cp4raBCQjaFPFdaXWkyjbMc4AB3bN3qv0PoYMO2gTPpdKapsOQDOAE9XEKJG0PYU/2ngyaAPIPb9RaLALmfWyxXV+eaenidQaQBBMm/we0J3VhQfKRAuD2D8V9rGMsMArcYk52m7nPfKQpO8ilYT0GhaZkO5shcda6G/RdN7pKttyTexfl6BMSyWZFWYkn/1uo+BOezNC1KkrISa7PjhDCk5Jr0WmgptxRMg4vSNtcXyUXyJS2ND8fpBH2zWLN98MjSRKtxrTgmleQOecFIJTLyR8eelB2PPoFejJ/8E1OCl7NvTHViSWEbZ2rkWxeMfItn1uR1bR9+xtx8jVhzj8XfV/Jbvx92umOMyo72DzlXGAb45s8v3Es8g40t23o8wxvgb/S2bnuNA+1bS6XIPuJFtT/ihQ1VK3+zD0h+WqoXOn3K8R7f31n9Sa64PbvYPQLEQTNC</a></p>
+<h3>Steps to reproduce</h3>
+<p>&lt;img width=&quot;443&quot; alt=&quot;image&quot; src=&quot;https://github.com/vuejs/core/assets/4620458/71dad487-a49c-4c18-8fa1-05851ec62fd2&quot;&gt;</p>
+<pre><code class="lang-html">&lt;script setup lang=&quot;ts&quot; generic=&quot;T&quot;&gt;
+import { PropType } from &#39;vue&#39;
+const props = defineProps({
+  a: Object as PropType&lt;T&gt;,
+
+  b: {
+    type: Object as PropType&lt;T&gt;
+  },
+
+  c: {
+    type: Object as PropType&lt;T&gt;,
+    required: true,
+  }
+})
+
+props.a
+props.b
+props.c
+&lt;/script&gt;</code></pre>
+<h3>What is expected?</h3>
+<p>The props to be declared correctly</p>
+<h3>What is actually happening?</h3>
+<p>Properties are been excluded from props, unless they are required 🤔</p>
+<h3>System Info</h3>
+<p>_No response_</p>
+<h3>Any additional comments?</h3>
+<p>_No response_</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+113</span> <span class="r">−11</span></span></div><pre class="diff"><span class="f">packages-private/dts-test/extractProps.test-d.ts</span><span class="h">index 3a5acc66e..000ea45dd 100644</span><span class="h">@@ -1,4 +1,9 @@</span><span class="r">-import type { ExtractPropTypes, ExtractPublicPropTypes } from &#39;vue&#39;</span><span class="a">+import type {</span><span class="a">+  ExtractDefaultPropTypes,</span><span class="a">+  ExtractPropTypes,</span><span class="a">+  ExtractPublicPropTypes,</span><span class="a">+  PropType,</span><span class="a">+} from &#39;vue&#39;</span><span class="c"> import { type Prettify, expectType } from &#39;./utils&#39;</span><span class="c"> </span><span class="c"> const propsOptions = {</span><span class="h">@@ -28,3 +33,39 @@ expectType&lt;number | undefined&gt;(publicProps.foo)</span><span class="c"> expectType&lt;string&gt;(publicProps.bar)</span><span class="c"> expectType&lt;boolean | undefined&gt;(publicProps.baz)</span><span class="c"> expectType&lt;unknown[] | undefined&gt;(publicProps.qux)</span><span class="a">+</span><span class="a">+// generic prop types</span><span class="a">+export function genericProps&lt;T&gt;(): void {</span><span class="a">+  type Options = {</span><span class="a">+    foo: PropType&lt;T&gt;</span><span class="a">+    bar: { type: PropType&lt;T&gt; }</span><span class="a">+    baz: { type: PropType&lt;T&gt;; required: true }</span><span class="a">+    qux: { type: PropType&lt;T[]&gt;; default: () =&gt; [] }</span><span class="a">+  }</span><span class="a">+</span><span class="a">+  // internal facing props</span><span class="a">+  const props = {} as Prettify&lt;ExtractPropTypes&lt;Options&gt;&gt;</span><span class="a">+  expectType&lt;T | undefined&gt;(props.foo)</span><span class="a">+  expectType&lt;T | undefined&gt;(props.bar)</span><span class="a">+  expectType&lt;T&gt;(props.baz)</span><span class="a">+  expectType&lt;T[]&gt;(props.qux)</span><span class="a">+  // @ts-expect-error optional</span><span class="a">+  expectType&lt;T&gt;(props.foo)</span><span class="a">+  // @ts-expect-error optional</span><span class="a">+  expectType&lt;T&gt;(props.bar)</span><span class="a">+</span><span class="a">+  // external facing props</span><span class="a">+  const publicProps = {} as Prettify&lt;ExtractPublicPropTypes&lt;Options&gt;&gt;</span><span class="a">+  expectType&lt;T | undefined&gt;(publicProps.foo)</span><span class="a">+  expectType&lt;T | undefined&gt;(publicProps.bar)</span><span class="a">+  expectType&lt;T&gt;(publicProps.baz)</span><span class="a">+  expectType&lt;T[] | undefined&gt;(publicProps.qux)</span><span class="a">+  // @ts-expect-error optional</span><span class="a">+  expectType&lt;T&gt;(publicProps.foo)</span><span class="a">+</span><span class="a">+  // default props</span><span class="a">+  const defaults = {} as ExtractDefaultPropTypes&lt;Options&gt;</span><span class="a">+  expectType&lt;T[]&gt;(defaults.qux)</span><span class="a">+  // @ts-expect-error no default</span><span class="a">+  defaults.foo</span><span class="a">+}</span><span class="f">packages-private/dts-test/setupHelpers.test-d.ts</span><span class="h">index 067b81b03..fea8913e2 100644</span><span class="h">@@ -178,6 +178,53 @@ describe(&#39;defineProps w/ generic discriminate union + withDefaults&#39;, () =&gt; {</span><span class="c">   }</span><span class="c"> })</span><span class="c"> </span><span class="a">+describe(&#39;defineProps w/ runtime declaration + generics&#39;, () =&gt; {</span><span class="a">+  function test&lt;T extends { foo: string }&gt;() {</span><span class="a">+    const props = defineProps({</span><span class="a">+      a: Object as PropType&lt;T&gt;,</span><span class="a">+      b: {</span><span class="a">+        type: Object as PropType&lt;T&gt;,</span><span class="a">+      },</span><span class="a">+      c: {</span><span class="a">+        type: Object as PropType&lt;T&gt;,</span><span class="a">+        required: true,</span><span class="a">+      },</span><span class="a">+      d: {</span><span class="a">+        type: Object as PropType&lt;T&gt;,</span><span class="a">+        default: undefined,</span><span class="a">+      },</span><span class="a">+      e: Array as PropType&lt;T[]&gt;,</span><span class="a">+      f: {</span><span class="a">+        type: Function as PropType&lt;(value: T) =&gt; void&gt;,</span><span class="a">+        required: true,</span><span class="a">+      },</span><span class="a">+      g: {</span><span class="a">+        type: Array as PropType&lt;T[]&gt;,</span><span class="a">+        default: () =&gt; [],</span><span class="a">+      },</span><span class="a">+      h: String,</span><span class="a">+    })</span><span class="a">+    expectType&lt;T | undefined&gt;(props.a)</span><span class="a">+    expectType&lt;T | undefined&gt;(props.b)</span><span class="a">+    expectType&lt;T&gt;(props.c)</span><span class="a">+    expectType&lt;string&gt;(props.c.foo)</span><span class="a">+    expectType&lt;T | undefined&gt;(props.d)</span><span class="a">+    expectType&lt;T[] | undefined&gt;(props.e)</span><span class="a">+    expectType&lt;(value: T) =&gt; void&gt;(props.f)</span><span class="a">+    expectType&lt;T[]&gt;(props.g)</span><span class="a">+    expectType&lt;string | undefined&gt;(props.h)</span><span class="a">+    expectType&lt;string | undefined&gt;(props.a?.foo)</span><span class="a">+</span><span class="a">+    // @ts-expect-error not declared</span><span class="a">+    props.z</span><span class="a">+    // @ts-expect-error optional</span><span class="a">+    expectType&lt;T&gt;(props.a)</span><span class="a">+    // @ts-expect-error optional</span><span class="a">+    expectType&lt;T&gt;(props.b)</span><span class="a">+  }</span><span class="a">+  test()</span><span class="a">+})</span><span class="a">+</span><span class="c"> describe(&#39;defineProps w/ generic type declaration + withDefaults&#39;, &lt;T extends</span><span class="c">   number, TA extends {</span><span class="c">   a: string</span><span class="f">packages/runtime-core/src/componentProps.ts</span><span class="h">index 94782e17c..9e673a57c 100644</span><span class="h">@@ -72,11 +72,18 @@ export type PropType&lt;T&gt; = PropConstructor&lt;T&gt; | (PropConstructor&lt;T&gt; | null)[]</span><span class="c"> type PropConstructor&lt;T = any&gt; =</span><span class="c">   { new (...args: any[]): T &amp; {} } | { (): T } | PropMethod&lt;T&gt;</span><span class="c"> </span><span class="r">-type PropMethod&lt;T, TConstructor = any&gt; = [T] extends [</span><span class="r">-  ((...args: any) =&gt; any) | undefined,</span><span class="r">-] // if is function with args, allowing non-required functions</span><span class="r">-  ? { new (): TConstructor; (): T; readonly prototype: TConstructor } // Create Function like constructor</span><span class="r">-  : never</span><span class="a">+// Function like constructor, allows e.g. `Function as PropType&lt;(a: number) =&gt; void&gt;`.</span><span class="a">+// This must not be a conditional type on `T`: when `T` is a generic type</span><span class="a">+// parameter (e.g. `&lt;script setup generic=&quot;T&quot;&gt;`), a conditional would be</span><span class="a">+// deferred and make every check on the prop options (required / default /</span><span class="a">+// inferred type) unresolvable, dropping the props from `ExtractPropTypes`.</span><span class="a">+// For non-function `T` this member is harmless since it is strictly narrower</span><span class="a">+// than `{ (): T }`.</span><span class="a">+type PropMethod&lt;T, TConstructor = any&gt; = {</span><span class="a">+  new (): TConstructor</span><span class="a">+  (): T</span><span class="a">+  readonly prototype: TConstructor</span><span class="a">+}</span><span class="c"> </span><span class="c"> type RequiredKeys&lt;T&gt; = {</span><span class="c">   [K in keyof T]: T[K] extends</span><span class="h">@@ -122,13 +129,20 @@ type InferPropType&lt;T, NullAsAny = true&gt; = [T] extends [null]</span><span class="c">               ? Date | InferPropType&lt;U, false&gt;</span><span class="c">               : InferPropType&lt;U, false&gt;</span><span class="c">             : [T] extends [Prop&lt;infer V, infer D&gt;]</span><span class="r">-              ? unknown extends V</span><span class="r">-                ? keyof V extends never</span><span class="r">-                  ? IfAny&lt;V, V, D&gt;</span><span class="r">-                  : V</span><span class="r">-                : V</span><span class="a">+              ? // no `default` provided (`D` is exactly `unknown`): use `V` as-is,</span><span class="a">+                // so a generic `V` (e.g. `PropType&lt;T&gt;`) is not deferred</span><span class="a">+                unknown extends D</span><span class="a">+                ? IfAny&lt;D, InferPropTypeWithDefault&lt;V, D&gt;, V&gt;</span><span class="a">+                : InferPropTypeWithDefault&lt;V, D&gt;</span><span class="c">               : T</span><span class="c"> </span><span class="a">+// fallback to the type of `default` when the prop type cannot be inferred</span><span class="a">+type InferPropTypeWithDefault&lt;V, D&gt; = unknown extends V</span><span class="a">+  ? keyof V extends never</span><span class="a">+    ? IfAny&lt;V, V, D&gt;</span><span class="a">+    : V</span><span class="a">+  : V</span><span class="a">+</span><span class="c"> /**</span><span class="c">  * Extract prop types from a runtime props options object.</span><span class="c">  * The extracted types are **internal** - i.e. the resolved props received by</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15523" rel="noopener" target="_blank">PR #15523</a></span><span class="pm"><span class="a">+48</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">packages-private/dts-test/setupHelpers.test-d.ts</span><span class="h">index 067b81b03..6402aea3e 100644</span><span class="h">@@ -299,6 +299,40 @@ describe(&#39;defineProps w/ runtime declaration&#39;, () =&gt; {</span><span class="c">   props2.baz</span><span class="c"> })</span><span class="c"> </span><span class="a">+describe(&#39;defineProps w/ runtime declaration + generic PropType&#39;, &lt;T extends</span><span class="a">+  Record&lt;string, any&gt;&gt;() =&gt; {</span><span class="a">+  // #9546</span><span class="a">+  const props = defineProps({</span><span class="a">+    foo: {</span><span class="a">+      type: Object as PropType&lt;T&gt;,</span><span class="a">+      required: false,</span><span class="a">+      default: null,</span><span class="a">+    },</span><span class="a">+    bar: {</span><span class="a">+      type: Object as PropType&lt;T&gt;,</span><span class="a">+      required: true,</span><span class="a">+    },</span><span class="a">+    baz: Object as PropType&lt;T&gt;,</span><span class="a">+    qux: String,</span><span class="a">+  })</span><span class="a">+  expectType&lt;&#39;foo&#39; | &#39;bar&#39; | &#39;baz&#39; | &#39;qux&#39;&gt;(null! as keyof typeof props)</span><span class="a">+  expectType&lt;T | null&gt;(props.foo)</span><span class="a">+  expectType&lt;T&gt;(props.bar)</span><span class="a">+  expectType&lt;T | undefined&gt;(props.baz)</span><span class="a">+  expectType&lt;string | undefined&gt;(props.qux)</span><span class="a">+</span><span class="a">+  // @ts-expect-error should not be a string</span><span class="a">+  expectType&lt;string&gt;(props.foo)</span><span class="a">+  // @ts-expect-error should not be a string</span><span class="a">+  expectType&lt;string&gt;(props.bar)</span><span class="a">+  // @ts-expect-error should not be a string</span><span class="a">+  expectType&lt;string&gt;(props.baz)</span><span class="a">+</span><span class="a">+  // #9277: props should be usable where `T` is expected</span><span class="a">+  const use = (p: { bar: T }) =&gt; p</span><span class="a">+  use(props)</span><span class="a">+})</span><span class="a">+</span><span class="c"> describe(&#39;defineEmits w/ type declaration&#39;, () =&gt; {</span><span class="c">   const emit = defineEmits&lt;(e: &#39;change&#39;) =&gt; void&gt;()</span><span class="c">   emit(&#39;change&#39;)</span><span class="f">packages/runtime-core/src/componentProps.ts</span><span class="h">index 94782e17c..eccb28a6c 100644</span><span class="h">@@ -72,11 +72,16 @@ export type PropType&lt;T&gt; = PropConstructor&lt;T&gt; | (PropConstructor&lt;T&gt; | null)[]</span><span class="c"> type PropConstructor&lt;T = any&gt; =</span><span class="c">   { new (...args: any[]): T &amp; {} } | { (): T } | PropMethod&lt;T&gt;</span><span class="c"> </span><span class="r">-type PropMethod&lt;T, TConstructor = any&gt; = [T] extends [</span><span class="r">-  ((...args: any) =&gt; any) | undefined,</span><span class="r">-] // if is function with args, allowing non-required functions</span><span class="r">-  ? { new (): TConstructor; (): T; readonly prototype: TConstructor } // Create Function like constructor</span><span class="r">-  : never</span><span class="a">+// Function-like constructor so that `Function as PropType&lt;() =&gt; void&gt;`</span><span class="a">+// type-checks. Intentionally not conditional on `T`: a conditional type here</span><span class="a">+// makes `PropType&lt;T&gt;` a deferred (generic) type whenever `T` is a type</span><span class="a">+// parameter, which in turn defers `RequiredKeys` / `OptionalKeys` and drops</span><span class="a">+// every non-required prop from `ExtractPropTypes` (#9546).</span><span class="a">+type PropMethod&lt;T, TConstructor = any&gt; = {</span><span class="a">+  new (): TConstructor</span><span class="a">+  (): T</span><span class="a">+  readonly prototype: TConstructor</span><span class="a">+}</span><span class="c"> </span><span class="c"> type RequiredKeys&lt;T&gt; = {</span><span class="c">   [K in keyof T]: T[K] extends</span><span class="h">@@ -124,7 +129,10 @@ type InferPropType&lt;T, NullAsAny = true&gt; = [T] extends [null]</span><span class="c">             : [T] extends [Prop&lt;infer V, infer D&gt;]</span><span class="c">               ? unknown extends V</span><span class="c">                 ? keyof V extends never</span><span class="r">-                  ? IfAny&lt;V, V, D&gt;</span><span class="a">+                  ? // `D` is only meaningful when a default is present; falling</span><span class="a">+                    // back to `V` keeps the deferred type assignable to `V`</span><span class="a">+                    // when `V` is a type parameter (#9546)</span><span class="a">+                    IfAny&lt;V, V, unknown extends D ? V : D&gt;</span><span class="c">                   : V</span><span class="c">                 : V</span><span class="c">               : T</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261007-145226/9239/">Previous · #9239</a>
+  <a class="mid" href="/backtests/vue/run-20261007-145226/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261007-145226/10505/">Next · #10505</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

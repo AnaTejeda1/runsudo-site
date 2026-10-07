@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15091 hydrateOnVisible: Cannot read properties of null (reading &#39;nodeType&#39;) when the SSR node is detached before the IntersectionObserver callback fires — vuejs/core backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #15091 in vuejs/core, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261007-145226/15091/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261007-145226/">run-20261007-145226</a><span aria-hidden="true">/</span><span aria-current="page">#15091</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15091" rel="noopener" target="_blank">#15091</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15092" rel="noopener" target="_blank">PR #15092</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-145226</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">hydrateOnVisible: Cannot read properties of null (reading &#39;nodeType&#39;) when the SSR node is detached before the IntersectionObserver callback fires</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches add a guard in `__asyncHydrate`&#39;s `performHydrate`, which is where the issue says the fix belongs. They differ on what counts as &#39;detached&#39;.
+
+Patch A bails only when `!el.parentNode`. That stops the reported crash when the SSR root node itself is removed. It does not cover the case where an ancestor is removed. There, `el.parentNode` is still set, so A goes ahead and hydrates a subtree that is no longer in the document: mount hooks run and listeners attach to orphaned DOM. The issue explicitly asks that a node no longer connected to the document not be hydrated, and its suggested fix uses `isConnected`. A also adds a null guard in `getContainerType`. That is reasonable defense-in-depth but earns no credit on its own.
+
+Patch B bails on `!el.parentNode || (wasConnected &amp;&amp; !el.isConnected)`. That handles both direct removal and ancestor removal, matching the issue&#39;s `isConnected` semantics. Capturing `wasConnected` at setup time keeps existing behavior when hydrating into a container that was never attached to the document, as in many tests, so it should not regress current suites. This is a careful edge-case consideration.
+
+Tests: both add tests that would fail before the change.
+- A covers single-root, fragment and component roots, plus a positive &#39;still hydrates&#39; case, but only with direct detachment.
+- B parameterizes over root versus ancestor detachment. Its ancestor test exercises exactly the gap in A&#39;s logic.
+
+A&#39;s positive test is a nice addition, but B&#39;s guard is more faithful to the issue&#39;s intent and more robust in the real-world scenario (route change or re-render detaching a parent). On correctness, which weighs most, B wins.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 16s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,622 passed · 6 skipped · 3,628 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">131<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15091" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.33</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://stackblitz.com/edit/vitejs-vite-ktsycrrc?file=repro.mjs" rel="noopener nofollow" target="_blank">https://stackblitz.com/edit/vitejs-vite-ktsycrrc?file=repro.mjs</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>SSR-render an async component that uses hydrate: hydrateOnVisible().</li><li>On the client, hydration is deferred and the strategy registers an IntersectionObserver on the component&#39;s SSR node.</li><li>The node gets detached from the document before the observer&#39;s callback executes (in production this is a route change / re-render while the intersection callback is already queued).</li><li>The observer callback runs and invokes hydrate() against the now-detached node.</li></ol>
+<h3>What is expected?</h3>
+<p>A node that is no longer connected to the document should simply not be hydrated (there&#39;s nothing to hydrate), no exception thrown.</p>
+<h3>What is actually happening?</h3>
+<p>hydrate() reaches hydrateNode, which computes the container type from the node&#39;s parent:</p>
+<pre><code>// packages/runtime-core/src/hydration.ts — inside hydrateNode, async-component branch
+nextNode = vnode.type.hydrate(
+  node, vnode, parentComponent, parentSuspense,
+  getContainerType(parentNode(node)),   // parentNode(node) === null for a detached node
+  slotScopeIds, optimized, rendererInternals, hydrateNode,
+)</code></pre>
+<pre><code>// packages/runtime-core/src/hydration.ts
+const getContainerType = (container) =&gt; {
+  if (container.nodeType !== 1) return undefined   // &lt;-- container is null -&gt; throws
+  ...
+}</code></pre>
+<p>For a detached node parentNode(node) is null, so getContainerType(null) throws TypeError: Cannot read properties of null (reading &#39;nodeType&#39;).</p>
+<p>The async-component hydration wrapper only guards against the patched case, never against disconnection:</p>
+<pre><code>// packages/runtime-core/src/apiAsyncComponent.ts — __asyncHydrate
+const performHydrate = () =&gt; {
+  if (patched) { /* warn + */ return }   // only guards `patched`
+  hydrate()                              // no isConnected check
+}</code></pre>
+<p>Because the strategy runs inside load().then(...), the throw surfaces as an unhandledrejection, so app-level try/catch around the component can&#39;t catch it.</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell">vue: 3.5.33
+@vue/server-renderer: 3.5.33
+Environment where it triggers: Android WebView (Chrome), production SSR + client hydration</code></pre>
+<h3>Any additional comments?</h3>
+<p>We see this almost exclusively on Android Chrome WebView (~43k occurrences / ~12.8k users over a rollout window) on a page that lazy-hydrates several below-the-fold sections via hydrateOnVisible. The IntersectionObserver callback is dispatched asynchronously; when the user navigates/re-renders in the WebView, the observed node is detached between the intersection being recorded and the callback running, exactly the sequence above. Desktop rarely hits the race.</p>
+<p>Skip hydration when the anchor node is no longer connected. the semantically correct place is the async performHydrate (or each built-in strategy&#39;s trigger), e.g. bail when no observed/anchor element isConnected:</p>
+<pre><code>const performHydrate = () =&gt; {
+  if (patched) { return }
+  if (el &amp;&amp; !el.isConnected) return   // detached before hydration → nothing to hydrate
+  hydrate()
+}</code></pre>
+<p>As defense-in-depth, getContainerType could also tolerate a <code>null</code> container <code>(if (!container || container.nodeType !== 1) return undefined)</code>, since it&#39;s called with parentNode(node) at several sites.</p>
+<p>We&#39;re currently shipping a userland wrapper around hydrateOnVisible that applies exactly the isConnected guard, which fully stops the crash.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+129</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/hydration.spec.ts</span><span class="h">index df0114065..aa03b04a7 100644</span><span class="h">@@ -19,6 +19,7 @@ import {</span><span class="c">   defineAsyncComponent,</span><span class="c">   defineComponent,</span><span class="c">   h,</span><span class="a">+  hydrateOnVisible,</span><span class="c">   nextTick,</span><span class="c">   onMounted,</span><span class="c">   onServerPrefetch,</span><span class="h">@@ -1315,6 +1316,124 @@ describe(&#39;SSR hydration&#39;, () =&gt; {</span><span class="c">     )</span><span class="c">   })</span><span class="c"> </span><span class="a">+  describe(&#39;lazy hydration of a detached SSR node&#39;, () =&gt; {</span><span class="a">+    let observerCallbacks: IntersectionObserverCallback[] = []</span><span class="a">+    const OriginalIntersectionObserver = (globalThis as any)</span><span class="a">+      .IntersectionObserver</span><span class="a">+</span><span class="a">+    beforeEach(() =&gt; {</span><span class="a">+      observerCallbacks = []</span><span class="a">+      ;(globalThis as any).IntersectionObserver = class {</span><span class="a">+        constructor(cb: IntersectionObserverCallback) {</span><span class="a">+          observerCallbacks.push(cb)</span><span class="a">+        }</span><span class="a">+        observe() {}</span><span class="a">+        disconnect() {}</span><span class="a">+      }</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    afterEach(() =&gt; {</span><span class="a">+      ;(globalThis as any).IntersectionObserver = OriginalIntersectionObserver</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    const triggerIntersection = () =&gt; {</span><span class="a">+      for (const cb of observerCallbacks) {</span><span class="a">+        cb([{ isIntersecting: true } as IntersectionObserverEntry], {} as any)</span><span class="a">+      }</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    async function setup(Comp: any) {</span><span class="a">+      const AsyncComp = defineAsyncComponent({</span><span class="a">+        loader: () =&gt; Promise.resolve(Comp),</span><span class="a">+        hydrate: hydrateOnVisible(),</span><span class="a">+      })</span><span class="a">+      const App = { render: () =&gt; h(&#39;div&#39;, [h(AsyncComp)]) }</span><span class="a">+      const html = await renderToString(h(App))</span><span class="a">+</span><span class="a">+      const container = document.createElement(&#39;div&#39;)</span><span class="a">+      container.innerHTML = html</span><span class="a">+      createSSRApp(App).mount(container)</span><span class="a">+      // wait for the async loader to resolve and the strategy to be set up</span><span class="a">+      await new Promise(r =&gt; setTimeout(r))</span><span class="a">+      expect(observerCallbacks.length).toBe(1)</span><span class="a">+      return container</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    // detached between the intersection being recorded and the callback running</span><span class="a">+    test(&#39;single root&#39;, async () =&gt; {</span><span class="a">+      const spy = vi.fn()</span><span class="a">+      const mountedSpy = vi.fn()</span><span class="a">+      const Comp = {</span><span class="a">+        setup() {</span><span class="a">+          onMounted(mountedSpy)</span><span class="a">+          return () =&gt; h(&#39;button&#39;, { onClick: spy }, &#39;click&#39;)</span><span class="a">+        },</span><span class="a">+      }</span><span class="a">+      const container = await setup(Comp)</span><span class="a">+      const button = container.querySelector(&#39;button&#39;)!</span><span class="a">+      button.remove()</span><span class="a">+</span><span class="a">+      expect(() =&gt; triggerIntersection()).not.toThrow()</span><span class="a">+      expect(mountedSpy).not.toHaveBeenCalled()</span><span class="a">+      button.dispatchEvent(new Event(&#39;click&#39;))</span><span class="a">+      expect(spy).not.toHaveBeenCalled()</span><span class="a">+      expect(`Hydration node mismatch`).not.toHaveBeenWarned()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;fragment root&#39;, async () =&gt; {</span><span class="a">+      const spy = vi.fn()</span><span class="a">+      const mountedSpy = vi.fn()</span><span class="a">+      const Comp = {</span><span class="a">+        setup() {</span><span class="a">+          onMounted(mountedSpy)</span><span class="a">+          return () =&gt; [</span><span class="a">+            h(&#39;button&#39;, { onClick: spy }, &#39;click&#39;),</span><span class="a">+            h(&#39;span&#39;, &#39;foo&#39;),</span><span class="a">+          ]</span><span class="a">+        },</span><span class="a">+      }</span><span class="a">+      const container = await setup(Comp)</span><span class="a">+      const button = container.querySelector(&#39;button&#39;)!</span><span class="a">+      // detach the whole fragment, including its anchors</span><span class="a">+      const wrapper = container.firstChild!</span><span class="a">+      while (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild)</span><span class="a">+</span><span class="a">+      expect(() =&gt; triggerIntersection()).not.toThrow()</span><span class="a">+      expect(mountedSpy).not.toHaveBeenCalled()</span><span class="a">+      button.dispatchEvent(new Event(&#39;click&#39;))</span><span class="a">+      expect(spy).not.toHaveBeenCalled()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;component root&#39;, async () =&gt; {</span><span class="a">+      const spy = vi.fn()</span><span class="a">+      const mountedSpy = vi.fn()</span><span class="a">+      const Child = {</span><span class="a">+        setup() {</span><span class="a">+          onMounted(mountedSpy)</span><span class="a">+          return () =&gt; h(&#39;button&#39;, { onClick: spy }, &#39;click&#39;)</span><span class="a">+        },</span><span class="a">+      }</span><span class="a">+      const Comp = { render: () =&gt; h(Child) }</span><span class="a">+      const container = await setup(Comp)</span><span class="a">+      const button = container.querySelector(&#39;button&#39;)!</span><span class="a">+      button.remove()</span><span class="a">+</span><span class="a">+      expect(() =&gt; triggerIntersection()).not.toThrow()</span><span class="a">+      expect(mountedSpy).not.toHaveBeenCalled()</span><span class="a">+      button.dispatchEvent(new Event(&#39;click&#39;))</span><span class="a">+      expect(spy).not.toHaveBeenCalled()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    test(&#39;still hydrates when the node remains attached&#39;, async () =&gt; {</span><span class="a">+      const spy = vi.fn()</span><span class="a">+      const Comp = () =&gt; h(&#39;button&#39;, { onClick: spy }, &#39;click&#39;)</span><span class="a">+      const container = await setup(Comp)</span><span class="a">+      triggerIntersection()</span><span class="a">+      container.querySelector(&#39;button&#39;)!.dispatchEvent(new Event(&#39;click&#39;))</span><span class="a">+      expect(spy).toHaveBeenCalledTimes(1)</span><span class="a">+    })</span><span class="a">+  })</span><span class="a">+</span><span class="c">   test(&#39;hydrate safely when property used by async setup changed before render&#39;, async () =&gt; {</span><span class="c">     const toggle = ref(true)</span><span class="c"> </span><span class="f">packages/runtime-core/src/apiAsyncComponent.ts</span><span class="h">index 66cb15a27..3c055c9bd 100644</span><span class="h">@@ -136,6 +136,13 @@ export function defineAsyncComponent&lt;</span><span class="c">           }</span><span class="c">           return</span><span class="c">         }</span><span class="a">+        // skip hydration if the SSR node has been detached from its parent</span><span class="a">+        // before the (possibly deferred) hydration strategy triggered, e.g. an</span><span class="a">+        // IntersectionObserver callback that was already queued when the node</span><span class="a">+        // got removed. There is nothing left to hydrate in that case.</span><span class="a">+        if (!el.parentNode) {</span><span class="a">+          return</span><span class="a">+        }</span><span class="c">         hydrate()</span><span class="c">       }</span><span class="c">       const doHydrate = hydrateStrategy</span><span class="f">packages/runtime-core/src/hydration.ts</span><span class="h">index 405a5db93..672b7d3c1 100644</span><span class="h">@@ -73,9 +73,10 @@ const isMathMLContainer = (container: Element) =&gt;</span><span class="c">   container.namespaceURI!.includes(&#39;MathML&#39;)</span><span class="c"> </span><span class="c"> const getContainerType = (</span><span class="r">-  container: Element | ShadowRoot,</span><span class="a">+  container: Element | ShadowRoot | null,</span><span class="c"> ): &#39;svg&#39; | &#39;mathml&#39; | undefined =&gt; {</span><span class="r">-  if (container.nodeType !== DOMNodeTypes.ELEMENT) return undefined</span><span class="a">+  if (!container || container.nodeType !== DOMNodeTypes.ELEMENT)</span><span class="a">+    return undefined</span><span class="c">   if (isSVGContainer(container as Element)) return &#39;svg&#39;</span><span class="c">   if (isMathMLContainer(container as Element)) return &#39;mathml&#39;</span><span class="c">   return undefined</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15092" rel="noopener" target="_blank">PR #15092</a></span><span class="pm"><span class="a">+56</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">packages/runtime-core/__tests__/hydration.spec.ts</span><span class="h">index df0114065..89fa5e829 100644</span><span class="h">@@ -19,6 +19,7 @@ import {</span><span class="c">   defineAsyncComponent,</span><span class="c">   defineComponent,</span><span class="c">   h,</span><span class="a">+  hydrateOnVisible,</span><span class="c">   nextTick,</span><span class="c">   onMounted,</span><span class="c">   onServerPrefetch,</span><span class="h">@@ -1191,6 +1192,59 @@ describe(&#39;SSR hydration&#39;, () =&gt; {</span><span class="c">     expect(spy).toHaveBeenCalled()</span><span class="c">   })</span><span class="c"> </span><span class="a">+  // #15091</span><span class="a">+  async function assertSkipLazyHydration(detached: &#39;root&#39; | &#39;ancestor&#39;) {</span><span class="a">+    let observer!: IntersectionObserver</span><span class="a">+    let observerCallback!: IntersectionObserverCallback</span><span class="a">+    const originalIntersectionObserver = globalThis.IntersectionObserver</span><span class="a">+    globalThis.IntersectionObserver = class {</span><span class="a">+      constructor(callback: IntersectionObserverCallback) {</span><span class="a">+        observer = this as any</span><span class="a">+        observerCallback = callback</span><span class="a">+      }</span><span class="a">+      disconnect() {}</span><span class="a">+      observe() {}</span><span class="a">+    } as any</span><span class="a">+</span><span class="a">+    try {</span><span class="a">+      const Comp = vi.fn(() =&gt; h(&#39;p&#39;, &#39;hello&#39;))</span><span class="a">+      const AsyncComp = defineAsyncComponent({</span><span class="a">+        loader: () =&gt; Promise.resolve(Comp),</span><span class="a">+        hydrate: hydrateOnVisible(),</span><span class="a">+      })</span><span class="a">+      const App = () =&gt; h(AsyncComp)</span><span class="a">+      const container = document.createElement(&#39;div&#39;)</span><span class="a">+</span><span class="a">+      container.innerHTML = await renderToString(h(App))</span><span class="a">+      document.body.appendChild(container)</span><span class="a">+      Comp.mockClear()</span><span class="a">+      createSSRApp(App).mount(container)</span><span class="a">+</span><span class="a">+      const el = container.firstElementChild!</span><span class="a">+      if (detached === &#39;root&#39;) {</span><span class="a">+        el.remove()</span><span class="a">+      } else {</span><span class="a">+        container.remove()</span><span class="a">+      }</span><span class="a">+      expect(el.isConnected).toBe(false)</span><span class="a">+</span><span class="a">+      expect(() =&gt;</span><span class="a">+        observerCallback(</span><span class="a">+          [{ isIntersecting: true, target: el } as IntersectionObserverEntry],</span><span class="a">+          observer,</span><span class="a">+        ),</span><span class="a">+      ).not.toThrow()</span><span class="a">+      expect(Comp).not.toHaveBeenCalled()</span><span class="a">+    } finally {</span><span class="a">+      globalThis.IntersectionObserver = originalIntersectionObserver</span><span class="a">+    }</span><span class="a">+  }</span><span class="a">+</span><span class="a">+  test.each([&#39;root&#39;, &#39;ancestor&#39;] as const)(</span><span class="a">+    &#39;skip lazy hydration when the SSR %s is detached&#39;,</span><span class="a">+    assertSkipLazyHydration,</span><span class="a">+  )</span><span class="a">+</span><span class="c">   test(&#39;update async wrapper before resolve&#39;, async () =&gt; {</span><span class="c">     const Comp = {</span><span class="c">       render() {</span><span class="f">packages/runtime-core/src/apiAsyncComponent.ts</span><span class="h">index 66cb15a27..95de65b8e 100644</span><span class="h">@@ -123,6 +123,7 @@ export function defineAsyncComponent&lt;</span><span class="c">     __asyncLoader: load,</span><span class="c"> </span><span class="c">     __asyncHydrate(el, instance, hydrate) {</span><span class="a">+      const wasConnected = el.isConnected</span><span class="c">       let patched = false</span><span class="c">       ;(instance.bu || (instance.bu = [])).push(() =&gt; (patched = true))</span><span class="c">       const performHydrate = () =&gt; {</span><span class="h">@@ -136,6 +137,7 @@ export function defineAsyncComponent&lt;</span><span class="c">           }</span><span class="c">           return</span><span class="c">         }</span><span class="a">+        if (!el.parentNode || (wasConnected &amp;&amp; !el.isConnected)) return</span><span class="c">         hydrate()</span><span class="c">       }</span><span class="c">       const doHydrate = hydrateStrategy</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261007-145226/15083/">Previous · #15083</a>
+  <a class="mid" href="/backtests/vue/run-20261007-145226/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261007-145226/15096/">Next · #15096</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
