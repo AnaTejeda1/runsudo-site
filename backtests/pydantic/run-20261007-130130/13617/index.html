@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13617 Cannot create `defauldict` field with `dict` value type — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13617 in pydantic/pydantic, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261007-130130/13617/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261007-130130/">run-20261007-130130</a><span aria-hidden="true">/</span><span aria-current="page">#13617</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13617" rel="noopener" target="_blank">#13617</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13623" rel="noopener" target="_blank">PR #13623</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-130130</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Cannot create <code>defauldict</code> field with <code>dict</code> value type</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way. Each adds `dict: dict` and `frozenset: frozenset` to the allowed default-factory map, so `defaultdict[str, dict]` and `defaultdict[str, dict[str, int]]` (via `get_origin`) now resolve to a `dict` factory.
+
+Patch B is a minimal, targeted change. Its tests cover the exact scenario from the issue: a `BaseModel` field `defaultdict[str, dict] = defaultdict(dict)`, checked for both validation and missing-key behaviour. It also adds parametrized cases for bare and parameterized `dict` and `frozenset`, and asserts the type of the produced default. These tests would fail before the change and pass after it. Patch B keeps the existing tests intact.
+
+Patch A also fixes the issue, but it adds risky extra behaviour. On Python ≥3.15 it remaps `collections.abc.Mapping` from `dict` to `frozendict`. That silently changes the inferred default for existing `defaultdict[..., Mapping]` users, which is outside the issue&#39;s ask. It also adds a `frozendict` entry that is referenced under `noqa: F821`. Beyond that, it rewrites the error message (&quot;keys&quot; → &quot;values&quot;), hoists the dict to module level, and replaces the existing inference test with a parametrized version, removing 16 test lines. The message fix is arguably correct, but together these changes are churn that obscures the fix. Patch A&#39;s tests also never exercise the parameterized `dict[str, X]` case or the model-field case from the issue.
+
+With correctness equal, Patch B wins on scope and risk and has tests that more directly target the issue.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 27s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,411 passed · 508 skipped · 12,919 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">30<small>vs 89 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13617" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>For now it&#39;s impossible to create a model with <code>defaultdict(dict)</code> value.<br>It&#39;s possible to create with <code>Mapping</code> and <code>MutableMapping</code> types, then why not add the basic simple type <code>dict</code>? Other basic types are allowed too.</p>
+<p>The corresponding code is located <a href="https://github.com/pydantic/pydantic/blob/main/pydantic/_internal/_validators.py#L424-L437" rel="noopener nofollow" target="_blank">here</a>.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">from collections import defaultdict
+from pydantic import BaseModel
+
+class Test(BaseModel):
+    prop: defaultdict[str, dict] = defaultdict(dict)
+# ...
+# pydantic.errors.PydanticSchemaGenerationError: Unable to infer a default factory for keys of type &lt;class &#39;dict&#39;&gt;. Only float, frozenset, int, dict, str, set, list, tuple, bool are supported, other types require an explicit default factory set using `DefaultDict[..., Annotated[..., Field(default_factory=...)]]`</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">             pydantic version: 2.13.4
+        pydantic-core version: 2.46.4
+          pydantic-core build: profile=release pgo=false
+               python version: 3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]
+                     platform: Windows-10-10.0.26200-SP0
+             related packages: fastapi-0.116.0 pydantic-settings-2.9.1 typing_extensions-4.15.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+30</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_validators.py</span><span class="h">index 729c5fae..5562206c 100644</span><span class="h">@@ -428,7 +428,9 @@ def get_defaultdict_default_default_factory(values_source_type: Any) -&gt; Callable</span><span class="c">             list: list,</span><span class="c">             set: set,</span><span class="c">             collections.abc.MutableSet: set,</span><span class="a">+            frozenset: frozenset,</span><span class="c">             collections.abc.Set: frozenset,</span><span class="a">+            dict: dict,</span><span class="c">             collections.abc.Mapping: dict,</span><span class="c">             collections.abc.MutableMapping: dict,</span><span class="c">             float: float,</span><span class="f">tests/types/test_defaultdict.py</span><span class="h">index 67131324..b61515b4 100644</span><span class="h">@@ -6,6 +6,7 @@ from pydantic_core import CoreSchema, core_schema</span><span class="c"> from typing_extensions import get_args  # noqa: UP035 (for `get_args`)</span><span class="c"> </span><span class="c"> from pydantic import (</span><span class="a">+    BaseModel,</span><span class="c">     Field,</span><span class="c">     GetCoreSchemaHandler,</span><span class="c">     PydanticSchemaGenerationError,</span><span class="h">@@ -51,6 +52,33 @@ def test_defaultdict_infer_default_factory() -&gt; None:</span><span class="c">     assert v.default_factory() == set()</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;value_type,expected_default&#39;,</span><span class="a">+    [</span><span class="a">+        (dict, {}),</span><span class="a">+        (dict[str, int], {}),</span><span class="a">+        (frozenset, frozenset()),</span><span class="a">+        (frozenset[int], frozenset()),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_defaultdict_infer_default_factory_builtin_containers(value_type: Any, expected_default: Any) -&gt; None:</span><span class="a">+    ta = TypeAdapter(defaultdict[str, value_type])</span><span class="a">+    v = ta.validate_python({&#39;a&#39;: expected_default})</span><span class="a">+    assert type(v[&#39;a&#39;]) is type(expected_default)</span><span class="a">+    assert v[&#39;missing&#39;] == expected_default</span><span class="a">+    assert type(v[&#39;missing&#39;]) is type(expected_default)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_defaultdict_dict_value_model_field() -&gt; None:</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        prop: defaultdict[str, dict] = defaultdict(dict)</span><span class="a">+</span><span class="a">+    m = Model(prop={&#39;a&#39;: {&#39;x&#39;: 1}})</span><span class="a">+    assert m.prop[&#39;a&#39;] == {&#39;x&#39;: 1}</span><span class="a">+    assert m.prop[&#39;b&#39;] == {}</span><span class="a">+    assert Model().prop[&#39;c&#39;] == {}</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_defaultdict_explicit_default_factory() -&gt; None:</span><span class="c">     class MyList(list[int]):</span><span class="c">         pass</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13623" rel="noopener" target="_blank">PR #13623</a></span><span class="pm"><span class="a">+54</span> <span class="r">−35</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_validators.py</span><span class="h">index 729c5fae4..9ce71efe7 100644</span><span class="h">@@ -8,6 +8,7 @@ from __future__ import annotations as _annotations</span><span class="c"> import collections.abc</span><span class="c"> import math</span><span class="c"> import re</span><span class="a">+import sys</span><span class="c"> import typing</span><span class="c"> from collections.abc import Callable, Sequence</span><span class="c"> from decimal import Decimal</span><span class="h">@@ -415,27 +416,35 @@ def defaultdict_validator(</span><span class="c">         return collections.defaultdict(default_default_factory, handler(input_value))</span><span class="c"> </span><span class="c"> </span><span class="a">+_defaultdict_allowed_default_types: dict[type[Any], type[Any]] = {</span><span class="a">+    float: float,</span><span class="a">+    int: int,</span><span class="a">+    str: str,</span><span class="a">+    bool: bool,</span><span class="a">+    tuple: tuple,</span><span class="a">+    collections.abc.Sequence: tuple,</span><span class="a">+    collections.abc.MutableSequence: list,</span><span class="a">+    list: list,</span><span class="a">+    set: set,</span><span class="a">+    collections.abc.MutableSet: set,</span><span class="a">+    frozenset: frozenset,</span><span class="a">+    collections.abc.Set: frozenset,</span><span class="a">+    dict: dict,</span><span class="a">+    collections.abc.Mapping: dict,</span><span class="a">+    collections.abc.MutableMapping: dict,</span><span class="a">+}</span><span class="a">+</span><span class="a">+if sys.version_info &gt;= (3, 15):</span><span class="a">+    _defaultdict_allowed_default_types[collections.abc.Mapping] = frozendict  # noqa: F821</span><span class="a">+    _defaultdict_allowed_default_types[frozendict] = frozendict  # noqa: F821</span><span class="a">+</span><span class="a">+</span><span class="c"> def get_defaultdict_default_default_factory(values_source_type: Any) -&gt; Callable[[], Any]:</span><span class="c">     FieldInfo = import_cached_field_info()</span><span class="c"> </span><span class="c">     values_type_origin = get_origin(values_source_type)</span><span class="c"> </span><span class="c">     def infer_default() -&gt; Callable[[], Any]:</span><span class="r">-        allowed_default_types: dict[Any, Any] = {</span><span class="r">-            tuple: tuple,</span><span class="r">-            collections.abc.Sequence: tuple,</span><span class="r">-            collections.abc.MutableSequence: list,</span><span class="r">-            list: list,</span><span class="r">-            set: set,</span><span class="r">-            collections.abc.MutableSet: set,</span><span class="r">-            collections.abc.Set: frozenset,</span><span class="r">-            collections.abc.Mapping: dict,</span><span class="r">-            collections.abc.MutableMapping: dict,</span><span class="r">-            float: float,</span><span class="r">-            int: int,</span><span class="r">-            str: str,</span><span class="r">-            bool: bool,</span><span class="r">-        }</span><span class="c">         values_type = values_type_origin or values_source_type</span><span class="c">         instructions = &#39;set using `DefaultDict[..., Annotated[..., Field(default_factory=...)]]`&#39;</span><span class="c">         if typing_objects.is_typevar(values_type):</span><span class="h">@@ -447,15 +456,15 @@ def get_defaultdict_default_default_factory(values_source_type: Any) -&gt; Callable</span><span class="c">                 )</span><span class="c"> </span><span class="c">             return type_var_default_factory</span><span class="r">-        elif values_type not in allowed_default_types:</span><span class="a">+        elif values_type not in _defaultdict_allowed_default_types:</span><span class="c">             # a somewhat subjective set of types that have reasonable default values</span><span class="r">-            allowed_msg = &#39;, &#39;.join([t.__name__ for t in set(allowed_default_types.keys())])</span><span class="a">+            allowed_msg = &#39;, &#39;.join([t.__name__ for t in _defaultdict_allowed_default_types.keys()])</span><span class="c">             raise PydanticSchemaGenerationError(</span><span class="r">-                f&#39;Unable to infer a default factory for keys of type {values_source_type}.&#39;</span><span class="a">+                f&#39;Unable to infer a default factory for values of type {values_source_type}.&#39;</span><span class="c">                 f&#39; Only {allowed_msg} are supported, other types require an explicit default factory&#39;</span><span class="c">                 &#39; &#39; + instructions</span><span class="c">             )</span><span class="r">-        return allowed_default_types[values_type]</span><span class="a">+        return _defaultdict_allowed_default_types[values_type]</span><span class="c"> </span><span class="c">     # Assume Annotated[..., Field(...)]</span><span class="c">     if typing_objects.is_annotated(values_type_origin):</span><span class="f">tests/types/test_defaultdict.py</span><span class="h">index 671313244..b688da7f4 100644</span><span class="h">@@ -1,3 +1,4 @@</span><span class="a">+import sys</span><span class="c"> from collections import defaultdict</span><span class="c"> from typing import Annotated, Any, TypeVar</span><span class="c"> </span><span class="h">@@ -24,31 +25,40 @@ def test_typing_coercion_defaultdict():</span><span class="c"> </span><span class="c"> </span><span class="c"> def test_defaultdict_unknown_default_factory() -&gt; None:</span><span class="r">-    &quot;&quot;&quot;</span><span class="r">-    https://github.com/pydantic/pydantic/issues/4687</span><span class="r">-    &quot;&quot;&quot;</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/4687&quot;&quot;&quot;</span><span class="c">     with pytest.raises(</span><span class="c">         PydanticSchemaGenerationError,</span><span class="r">-        match=r&#39;Unable to infer a default factory for keys of type collections.defaultdict\[int, int\]&#39;,</span><span class="a">+        match=r&#39;Unable to infer a default factory for values of type collections.defaultdict\[int, int\]&#39;,</span><span class="c">     ):</span><span class="c">         TypeAdapter(defaultdict[int, defaultdict[int, int]])</span><span class="c"> </span><span class="c"> </span><span class="r">-def test_defaultdict_infer_default_factory() -&gt; None:</span><span class="r">-    ta_list = TypeAdapter(defaultdict[int, list[int]])</span><span class="r">-    v = ta_list.validate_python({})</span><span class="r">-    assert v.default_factory is not None</span><span class="r">-    assert v.default_factory() == []</span><span class="a">+defaultdict_types_params = [</span><span class="a">+    (int, 0),</span><span class="a">+    (float, 0.0),</span><span class="a">+    (str, &#39;&#39;),</span><span class="a">+    (bool, False),</span><span class="a">+    (tuple, ()),</span><span class="a">+    (list[int], []),</span><span class="a">+    (list, []),</span><span class="a">+    (set, set()),</span><span class="a">+    (frozenset, frozenset()),</span><span class="a">+    (dict, {}),</span><span class="a">+]</span><span class="c"> </span><span class="r">-    ta_int = TypeAdapter(defaultdict[int, int])</span><span class="r">-    v = ta_int.validate_python({})</span><span class="r">-    assert v.default_factory is not None</span><span class="r">-    assert v.default_factory() == 0</span><span class="a">+if sys.version_info &gt;= (3, 15):</span><span class="a">+    defaultdict_types_params.append((frozendict, frozendict()))  # noqa: F821</span><span class="c"> </span><span class="r">-    ta_set = TypeAdapter(defaultdict[int, set])</span><span class="r">-    v = ta_set.validate_python({})</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    [&#39;default_factory_type&#39;, &#39;value&#39;],</span><span class="a">+    defaultdict_types_params,</span><span class="a">+)</span><span class="a">+def test_defaultdict_infer_default_factory(default_factory_type: Any, value: Any) -&gt; None:</span><span class="a">+    ta_list = TypeAdapter(defaultdict[int, default_factory_type])</span><span class="a">+    v = ta_list.validate_python({})</span><span class="c">     assert v.default_factory is not None</span><span class="r">-    assert v.default_factory() == set()</span><span class="a">+    assert v.default_factory() == value</span><span class="c"> </span><span class="c"> </span><span class="c"> def test_defaultdict_explicit_default_factory() -&gt; None:</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261007-130130/13601/">Previous · #13601</a>
+  <a class="mid" href="/backtests/pydantic/run-20261007-130130/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261007-130130/13621/">Next · #13621</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

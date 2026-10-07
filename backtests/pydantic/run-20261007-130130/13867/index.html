@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13867 `FieldInfo.get_default` is 5-6x slower on 2.13 because of a relative import in the function body — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13867 in pydantic/pydantic, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261007-130130/13867/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261007-130130/">run-20261007-130130</a><span aria-hidden="true">/</span><span aria-current="page">#13867</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13867" rel="noopener" target="_blank">#13867</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13871" rel="noopener" target="_blank">PR #13871</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-130130</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title"><code>FieldInfo.get_default</code> is 5-6x slower on 2.13 because of a relative import in the function body</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The source changes are byte-for-byte identical. Both move `smart_deepcopy` into the existing module-level `from ._utils import ...` line in `_fields.py` and delete the in-body relative import from `resolve_default_value`. That removes the root cause the issue identifies (the per-call `resolve_name`/import-statement overhead), so correctness, scope and craft of the fix are equal.
+
+The difference is tests. Patch B adds none. Patch A adds a regression test that monkeypatches `builtins.__import__` to raise while calling `get_default()`. It covers plain defaults, mutable defaults, `default_factory`, factories that take validated data, and `PrivateAttr` variants, and adds a `model_construct()` case. Before the fix, the `from ._utils import smart_deepcopy` statement goes through `__import__` and the test fails. After the fix it passes. So the test directly encodes the regression rather than being tautological.
+
+The tests are somewhat brittle, since any future lazy import anywhere on these paths would trip them. But that is arguably the intended guard for a hot path, and it adds no risk to library code. With identical fixes, Patch A&#39;s meaningful regression coverage makes it the better patch.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 47s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,874 passed · 526 skipped · 13,400 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">66<small>vs 4 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13867" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p><code>FieldInfo.get_default()</code> costs about five to six times more on 2.13 than on 2.12.</p>
+<p>On 2.13 the call is delegated to <code>pydantic._internal._fields.resolve_default_value</code>, whose body starts with a relative import that runs on every call:</p>
+<pre><code class="lang-python">def resolve_default_value(...):
+    from ._utils import smart_deepcopy</code></pre>
+<p>On 2.12 the plain-default branch was <code>return _utils.smart_deepcopy(self.default)</code>, with no import at call time. In 2.13 the import sits before the <code>default_factory</code> branch, so every call pays it.</p>
+<p><code>_fields.py</code> already has a module-level import from <code>._utils</code>, so the in-body import is not breaking an import cycle, and moving the name up adds nothing to import time.</p>
+<p>Measured with <code>timeit</code>, best of 5 runs of 200000 calls:</p>
+<div class="tablewrap"><table class="table"><thead><tr><th></th><th>2.12.3</th><th>2.13.5</th><th>2.13.5, import moved up</th></tr></thead><tbody><tr><td><code>FieldInfo(default=123)</code></td><td>55 ns</td><td>300 ns</td><td>85 ns</td></tr><tr><td><code>FieldInfo(default_factory=list)</code></td><td>35 ns</td><td>271 ns</td><td>60 ns</td></tr></tbody></table></div>
+<p>The cost is the import statement rather than module loading, since the module is already in <code>sys.modules</code>. With the relative form, <code>resolve_name</code> runs before the <code>sys.modules</code> lookup, so it is paid on every call even though the module is cached. A three-function package, identical except for the import form used to obtain the same callee:</p>
+<div class="tablewrap"><table class="table"><thead><tr><th>form</th><th>per call</th></tr></thead><tbody><tr><td><code>from ._helper import work</code> inside the body</td><td>234 ns</td></tr><tr><td><code>from pkg._helper import work</code> inside the body</td><td>108 ns</td></tr><tr><td>module-level import</td><td>32 ns</td></tr></tbody></table></div>
+<p>Moving the import up removes most of the gap but not all of it. What is left is the extra <code>resolve_default_value</code> call and the sentinel checks added to <code>smart_deepcopy</code>.</p>
+<p>This is visible in <code>model_construct()</code>, where <code>get_default</code> runs once per field. For a five-field model with defaults: 1.18 us on 2.12.3 against 2.49 us on 2.13.5. Passing every field explicitly, so that no default is resolved, gives 1.12 us on both.</p>
+<h3>Version info</h3>
+<p>pydantic 2.13.5, CPython 3.13, macOS on arm64. The in-body import is still on <code>main</code>. Not measured on Linux or x86_64, so the absolute numbers will differ there, though the ratios should hold.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+63</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_fields.py</span><span class="h">index 29cde2df..51e7c9f0 100644</span><span class="h">@@ -25,7 +25,7 @@ from ._docs_extraction import extract_docstrings_from_cls</span><span class="c"> from ._import_utils import import_cached_base_model, import_cached_field_info</span><span class="c"> from ._namespace_utils import NsResolver</span><span class="c"> from ._repr import Representation</span><span class="r">-from ._utils import can_be_positional, get_first_not_none</span><span class="a">+from ._utils import can_be_positional, get_first_not_none, smart_deepcopy</span><span class="c"> </span><span class="c"> if TYPE_CHECKING:</span><span class="c">     from annotated_types import BaseMetadata</span><span class="h">@@ -866,8 +866,6 @@ def resolve_default_value(</span><span class="c">     call_default_factory: bool = False,</span><span class="c"> ) -&gt; Any:</span><span class="c">     &quot;&quot;&quot;Resolve the default value using either a static default or a default_factory.&quot;&quot;&quot;</span><span class="r">-    from ._utils import smart_deepcopy</span><span class="r">-</span><span class="c">     if default_factory is None:</span><span class="c">         return smart_deepcopy(default)</span><span class="c">     if call_default_factory:</span><span class="f">tests/test_fields.py</span><span class="h">index 5c8dc1ae..777cb9d9 100644</span><span class="h">@@ -1,4 +1,7 @@</span><span class="a">+import builtins</span><span class="c"> import copy</span><span class="a">+from collections.abc import Iterator</span><span class="a">+from contextlib import contextmanager</span><span class="c"> from typing import Annotated, Any, Final, Generic, TypeVar</span><span class="c"> </span><span class="c"> import pytest</span><span class="h">@@ -463,6 +466,65 @@ def test_default_factory_without_validated_data_unsupported() -&gt; None:</span><span class="c">         FooBar.model_fields[&#39;a&#39;].get_default(call_default_factory=True)</span><span class="c"> </span><span class="c"> </span><span class="a">+@contextmanager</span><span class="a">+def _forbid_imports() -&gt; Iterator[None]:</span><span class="a">+    &quot;&quot;&quot;Make any `import` statement executed within the context raise.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    def _import(name: str, *args: Any, **kwargs: Any) -&gt; Any:</span><span class="a">+        raise AssertionError(f&#39;Unexpected import at call time: {name!r}&#39;)</span><span class="a">+</span><span class="a">+    with pytest.MonkeyPatch.context() as mp:</span><span class="a">+        mp.setattr(builtins, &#39;__import__&#39;, _import)</span><span class="a">+        yield</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;field_info&#39;,</span><span class="a">+    [</span><span class="a">+        pytest.param(FieldInfo(default=123), id=&#39;default&#39;),</span><span class="a">+        pytest.param(FieldInfo(default=[1, 2]), id=&#39;mutable_default&#39;),</span><span class="a">+        pytest.param(FieldInfo(default_factory=list), id=&#39;default_factory&#39;),</span><span class="a">+        pytest.param(FieldInfo(default_factory=lambda data: data[&#39;a&#39;]), id=&#39;default_factory_with_data&#39;),</span><span class="a">+        pytest.param(PrivateAttr(default=123), id=&#39;private_attr_default&#39;),</span><span class="a">+        pytest.param(PrivateAttr(default_factory=list), id=&#39;private_attr_default_factory&#39;),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_get_default_does_not_import_at_call_time(field_info: Any) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13867</span><span class="a">+</span><span class="a">+    Resolving a default is on hot paths (e.g. `model_construct()`), it must not execute import statements.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    expected_default = field_info.get_default()</span><span class="a">+    if field_info.default_factory is None:</span><span class="a">+        expected_called = expected_default</span><span class="a">+    elif getattr(field_info, &#39;default_factory_takes_validated_data&#39;, False):</span><span class="a">+        expected_called = 1</span><span class="a">+    else:</span><span class="a">+        expected_called = []</span><span class="a">+</span><span class="a">+    with _forbid_imports():</span><span class="a">+        default = field_info.get_default()</span><span class="a">+        called = field_info.get_default(call_default_factory=True, validated_data={&#39;a&#39;: 1})</span><span class="a">+</span><span class="a">+    assert default == expected_default</span><span class="a">+    assert called == expected_called</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_construct_defaults_do_not_import_at_call_time() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13867&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        a: int = 1</span><span class="a">+        b: list[int] = [1]</span><span class="a">+        c: list[int] = Field(default_factory=list)</span><span class="a">+        d: int = Field(default_factory=lambda data: data[&#39;a&#39;] + 1)</span><span class="a">+</span><span class="a">+    with _forbid_imports():</span><span class="a">+        m = Model.model_construct()</span><span class="a">+</span><span class="a">+    assert m.model_dump() == {&#39;a&#39;: 1, &#39;b&#39;: [1], &#39;c&#39;: [], &#39;d&#39;: 2}</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     [&#39;private_attr&#39;, &#39;result&#39;],</span><span class="c">     [</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13871" rel="noopener" target="_blank">PR #13871</a></span><span class="pm"><span class="a">+1</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_fields.py</span><span class="h">index 29cde2dff..51e7c9f01 100644</span><span class="h">@@ -25,7 +25,7 @@ from ._docs_extraction import extract_docstrings_from_cls</span><span class="c"> from ._import_utils import import_cached_base_model, import_cached_field_info</span><span class="c"> from ._namespace_utils import NsResolver</span><span class="c"> from ._repr import Representation</span><span class="r">-from ._utils import can_be_positional, get_first_not_none</span><span class="a">+from ._utils import can_be_positional, get_first_not_none, smart_deepcopy</span><span class="c"> </span><span class="c"> if TYPE_CHECKING:</span><span class="c">     from annotated_types import BaseMetadata</span><span class="h">@@ -866,8 +866,6 @@ def resolve_default_value(</span><span class="c">     call_default_factory: bool = False,</span><span class="c"> ) -&gt; Any:</span><span class="c">     &quot;&quot;&quot;Resolve the default value using either a static default or a default_factory.&quot;&quot;&quot;</span><span class="r">-    from ._utils import smart_deepcopy</span><span class="r">-</span><span class="c">     if default_factory is None:</span><span class="c">         return smart_deepcopy(default)</span><span class="c">     if call_default_factory:</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261007-130130/13857/">Previous · #13857</a>
+  <a class="mid" href="/backtests/pydantic/run-20261007-130130/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261007-130130/13868/">Next · #13868</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

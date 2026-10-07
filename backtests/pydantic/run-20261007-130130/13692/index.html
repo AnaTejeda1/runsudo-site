@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13692 model_dump_json crashes on a SecretStr field with an unvalidated None default (internal AttributeError instead of null/warning) — pydantic/pydantic backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #13692 in pydantic/pydantic, run 7 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261007-130130/13692/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261007-130130/">run-20261007-130130</a><span aria-hidden="true">/</span><span aria-current="page">#13692</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13692" rel="noopener" target="_blank">#13692</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13699" rel="noopener" target="_blank">PR #13699</a></span>
+  <span>Run 7 Oct 2026 · <span class="runid">run-20261007-130130</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">model_dump_json crashes on a SecretStr field with an unvalidated None default (internal AttributeError instead of null/warning)</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Patch B fixes the root cause with one change. It sets `when_used=&#39;unless-none&#39;` on the SecretStr/SecretBytes plain serializer, so `_serialize_secret_field` is never called with `None`. pydantic-core then serializes the unvalidated default as `null` in both python and JSON modes. This is the issue&#39;s preferred outcome 1, and it matches how the control field `n: int = None` behaves: null with no warning, since the issue reports zero warnings from `model_dump()` with that field present. Patch B&#39;s test fails before the fix (AttributeError wrapped in PydanticSerializationError) and passes after it.
+
+Patch A guards the serializer with `isinstance` checks and raises `PydanticSerializationUnexpectedValue`. pydantic-core catches this, falls back to inference and emits a warning, which corresponds to outcome 2. That does resolve the crash, but it changes behavior elsewhere:
+- `model_dump()` in python mode previously returned `None` silently for these fields and now emits a UserWarning. Patch A&#39;s own tests assert this.
+- The result is inconsistent with the `int = None` control, which does not warn.
+- It also rewrites serializers for re.Pattern, ByteSize, Base64Bytes/Base64Str and generic Secret, none of which the issue mentions. These rewrites add new warnings and new code paths, for example ByteSize now raises for non-int values, which raises the regression risk without being needed for the reported bug.
+
+Patch A&#39;s tests are more extensive, but much of what they lock in is new warning behavior rather than the requested fix. On correctness, consistency and scope, Patch B is the cleaner and safer fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">11m 31s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,414 passed · 501 skipped · 12,915 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">108<small>vs 12 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13692" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I have checked that this issue has not already been reported.</li><li><input type="checkbox" disabled checked> I have confirmed the bug exists on the latest version of pydantic (2.13.4) and on current <code>main</code>.</li></ul>
+<h3>Python Version</h3>
+<p>3.13.14</p>
+<h3>Pydantic Version</h3>
+<p>pydantic 2.13.4 / pydantic-core (latest from pip at time of report)</p>
+<h3>Description</h3>
+<p>A model field annotated <code>SecretStr</code> with an <strong>unvalidated <code>None</code> default</strong> crashes serialization to JSON. Per <a href="https://docs.pydantic.dev/latest/concepts/models/" rel="noopener nofollow" target="_blank">models docs</a>, field defaults are only validated when <code>validate_default=True</code>, so constructing such a model without arguments is legal — and every other scalar annotation serializes the unvalidated default as <code>null</code>. For <code>SecretStr</code>, however, <code>model_dump_json()</code> raises instead.</p>
+<p>Note this is specific to the JSON path and to the <em>non-nullable</em> annotation:</p>
+<ul><li><code>model_dump()</code> (python mode) returns <code>None</code> fine;</li><li><code>Optional[SecretStr] = None</code> dumps to JSON correctly (<code>{&quot;s&quot;:null}</code>);</li><li>a control field <code>n: int = None</code> also dumps fine — so only the combination &quot;non-nullable SecretStr + None default + JSON serializer&quot; hits the broken path.</li></ul>
+<h3>Example Code</h3>
+<pre><code class="lang-python">import warnings
+from typing import Optional
+from pydantic import BaseModel, SecretStr
+
+class M(BaseModel):
+    n: int = None          # same pattern, control group
+    s: SecretStr = None    # crashes
+
+with warnings.catch_warnings(record=True) as w:
+    warnings.simplefilter(&quot;always&quot;)
+    print(M().model_dump())          # {&#39;n&#39;: None, &#39;s&#39;: None}  -- OK
+    try:
+        print(M().model_dump_json())
+    except Exception as e:
+        print(type(e).__name__, &quot;|&quot;, e)
+    print(&quot;warnings emitted:&quot;, len(w))
+
+class O(BaseModel):
+    s: Optional[SecretStr] = None
+
+print(O().model_dump_json())         # {&quot;s&quot;:null} -- OK</code></pre>
+<h3>Actual behavior</h3>
+<pre><code>{&#39;n&#39;: None, &#39;s&#39;: None}
+PydanticSerializationError | Error calling function &#39;_serialize_secret_field&#39;: AttributeError: &#39;NoneType&#39; object has no attribute &#39;get_secret_value&#39;
+warnings emitted: 0
+{&quot;s&quot;:null}</code></pre>
+<p>The exception escapes even though the value mismatch is exactly the situation the serialization layer normally degrades gracefully on (serialize as-is / warn). No <code>UserWarning</code> about the mismatched default is emitted either.</p>
+<p>Looking at <code>_serialize_secret_field</code>, it calls <code>.get_secret_value()</code> unconditionally when the serializer runs with <code>when_used=&#39;always&#39;</code>; there is no guard for <code>value is None</code> on a non-optional annotation, while core handles <code>None</code> defaults for other types before user serializers are reached.</p>
+<h3>Expected behavior</h3>
+<p>Either of the consistent-with-everything-else outcomes:</p>
+<ol><li>serialize the unvalidated default as <code>null</code>: <code>{&quot;n&quot;:null,&quot;s&quot;:null}</code> (matching how <code>int = None</code>, <code>str = None</code> etc. behave), or</li><li>at minimum emit the standard serialization-mismatch <code>UserWarning</code> instead of raising an internal <code>AttributeError</code> wrapped into <code>PydanticSerializationError</code>.</li></ol>
+<p>The current traceback points users at pydantic internals rather than their own model definition.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+105</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_generate_schema.py</span><span class="h">index 3766cfee..1b7812c1 100644</span><span class="h">@@ -1825,8 +1825,16 @@ class GenerateSchema:</span><span class="c">         from . import _validators</span><span class="c"> </span><span class="c">         metadata = {&#39;pydantic_js_functions&#39;: [lambda _1, _2: {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;regex&#39;}]}</span><span class="a">+</span><span class="a">+        def ser_pattern(pattern: Any) -&gt; str | bytes:</span><span class="a">+            if not isinstance(pattern, re.Pattern):</span><span class="a">+                raise PydanticSerializationUnexpectedValue(</span><span class="a">+                    f&quot;Expected `{re.Pattern}` but got `{type(pattern)}` with value `&#39;{pattern}&#39;` - serialized value may not be as expected.&quot;</span><span class="a">+                )</span><span class="a">+            return pattern.pattern</span><span class="a">+</span><span class="c">         ser = core_schema.plain_serializer_function_ser_schema(</span><span class="r">-            attrgetter(&#39;pattern&#39;), when_used=&#39;json&#39;, return_schema=core_schema.str_schema()</span><span class="a">+            ser_pattern, when_used=&#39;json&#39;, return_schema=core_schema.str_schema()</span><span class="c">         )</span><span class="c">         if pattern_type is typing.Pattern or pattern_type is re.Pattern:</span><span class="c">             # bare type</span><span class="f">pydantic/types.py</span><span class="h">index 50f94cf4..7617efc5 100644</span><span class="h">@@ -29,7 +29,13 @@ from uuid import UUID</span><span class="c"> </span><span class="c"> import annotated_types</span><span class="c"> from annotated_types import BaseMetadata, MaxLen, MinLen</span><span class="r">-from pydantic_core import CoreSchema, PydanticCustomError, SchemaSerializer, core_schema</span><span class="a">+from pydantic_core import (</span><span class="a">+    CoreSchema,</span><span class="a">+    PydanticCustomError,</span><span class="a">+    PydanticSerializationUnexpectedValue,</span><span class="a">+    SchemaSerializer,</span><span class="a">+    core_schema,</span><span class="a">+)</span><span class="c"> from typing_extensions import (  # noqa: UP035 (for `get_args` and `get_origin`)</span><span class="c">     Protocol,</span><span class="c">     TypeAliasType,</span><span class="h">@@ -1574,7 +1580,20 @@ class _SecretBase(Generic[SecretType]):</span><span class="c">         raise NotImplementedError</span><span class="c"> </span><span class="c"> </span><span class="a">+def _unexpected_value_error(</span><span class="a">+    expected: str, value: Any, *, include_value: bool = True</span><span class="a">+) -&gt; PydanticSerializationUnexpectedValue:</span><span class="a">+    # `include_value=False` keeps (potentially secret) values out of the warning message</span><span class="a">+    value_info = f&#39; with value `{value!r}`&#39; if include_value else &#39;&#39;</span><span class="a">+    return PydanticSerializationUnexpectedValue(</span><span class="a">+        f&#39;Expected `{expected}` but got `{type(value).__name__}`{value_info} - serialized value may not be as expected.&#39;</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="c"> def _serialize_secret(value: Secret[SecretType], info: core_schema.SerializationInfo) -&gt; str | Secret[SecretType]:</span><span class="a">+    if not isinstance(value, Secret):</span><span class="a">+        # e.g. an unvalidated default: let pydantic-core fall back to inference and emit a warning</span><span class="a">+        raise _unexpected_value_error(&#39;Secret&#39;, value, include_value=False)</span><span class="c">     if info.mode == &#39;json&#39;:</span><span class="c">         return str(value)</span><span class="c">     else:</span><span class="h">@@ -1753,6 +1772,9 @@ def _secret_display(value: SecretType) -&gt; str:  # type: ignore</span><span class="c"> def _serialize_secret_field(</span><span class="c">     value: _SecretField[SecretType], info: core_schema.SerializationInfo</span><span class="c"> ) -&gt; str | _SecretField[SecretType]:</span><span class="a">+    if not isinstance(value, _SecretField):</span><span class="a">+        # e.g. an unvalidated default: let pydantic-core fall back to inference and emit a warning</span><span class="a">+        raise _unexpected_value_error(&#39;SecretStr | SecretBytes&#39;, value, include_value=False)</span><span class="c">     if info.mode == &#39;json&#39;:</span><span class="c">         # we want the output to always be string without the `b&#39;` prefix for bytes,</span><span class="c">         # hence we just use `secret_display`</span><span class="h">@@ -2067,6 +2089,13 @@ class PaymentCardNumber(str):</span><span class="c"> # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BYTE SIZE TYPE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span><span class="c"> </span><span class="c"> </span><span class="a">+def _serialize_byte_size(value: Any) -&gt; int:</span><span class="a">+    if not isinstance(value, int):</span><span class="a">+        # e.g. an unvalidated default: let pydantic-core fall back to inference and emit a warning</span><span class="a">+        raise _unexpected_value_error(&#39;ByteSize&#39;, value)</span><span class="a">+    return int(value)</span><span class="a">+</span><span class="a">+</span><span class="c"> class ByteSize(int):</span><span class="c">     &quot;&quot;&quot;Converts a string representing a number of bytes with units (such as `&#39;1KB&#39;` or `&#39;11.5MiB&#39;`) into an integer.</span><span class="c"> </span><span class="h">@@ -2150,7 +2179,7 @@ class ByteSize(int):</span><span class="c">                 custom_error_message=&#39;could not parse value and unit from byte string&#39;,</span><span class="c">             ),</span><span class="c">             serialization=core_schema.plain_serializer_function_ser_schema(</span><span class="r">-                int, return_schema=core_schema.int_schema(ge=0)</span><span class="a">+                _serialize_byte_size, return_schema=core_schema.int_schema(ge=0)</span><span class="c">             ),</span><span class="c">         )</span><span class="c"> </span><span class="h">@@ -2617,6 +2646,9 @@ class EncodedBytes:</span><span class="c">         Returns:</span><span class="c">             The encoded data.</span><span class="c">         &quot;&quot;&quot;</span><span class="a">+        if not isinstance(value, (bytes, bytearray, memoryview)):</span><span class="a">+            # e.g. an unvalidated default: let pydantic-core fall back to inference and emit a warning</span><span class="a">+            raise _unexpected_value_error(&#39;bytes&#39;, value)</span><span class="c">         return self.encoder.encode(value)</span><span class="c"> </span><span class="c">     def __hash__(self) -&gt; int:</span><span class="h">@@ -2716,6 +2748,9 @@ class EncodedStr:</span><span class="c">         Returns:</span><span class="c">             The encoded data.</span><span class="c">         &quot;&quot;&quot;</span><span class="a">+        if not isinstance(value, str):</span><span class="a">+            # e.g. an unvalidated default: let pydantic-core fall back to inference and emit a warning</span><span class="a">+            raise _unexpected_value_error(&#39;str&#39;, value)</span><span class="c">         return self.encoder.encode(value.encode()).decode()  # noqa: UP008</span><span class="c"> </span><span class="c">     def __hash__(self) -&gt; int:</span><span class="f">tests/test_types.py</span><span class="h">index d168c449..01d6b7a9 100644</span><span class="h">@@ -1237,6 +1237,65 @@ def test_secret_bytes_min_max_length():</span><span class="c">     assert Foobar(password=value).password.get_secret_value() == value</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;field_type,expected&#39;,</span><span class="a">+    [</span><span class="a">+        (SecretStr, &#39;Expected `SecretStr | SecretBytes` but got `NoneType` - &#39;),</span><span class="a">+        (SecretBytes, &#39;Expected `SecretStr | SecretBytes` but got `NoneType` - &#39;),</span><span class="a">+        (Secret[int], &#39;Expected `Secret` but got `NoneType` - &#39;),</span><span class="a">+        (ByteSize, &#39;Expected `ByteSize` but got `NoneType` with value `None` - &#39;),</span><span class="a">+        (Base64Bytes, &#39;Expected `bytes` but got `NoneType` with value `None` - &#39;),</span><span class="a">+        (Base64Str, &#39;Expected `str` but got `NoneType` with value `None` - &#39;),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+@pytest.mark.parametrize(&#39;mode&#39;, [&#39;python&#39;, &#39;json&#39;])</span><span class="a">+def test_unvalidated_none_default_serialization(field_type, expected, mode) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13692&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        n: int = None</span><span class="a">+        value: field_type = None</span><span class="a">+</span><span class="a">+    expected_warning = f&#39;{expected}serialized value may not be as expected.&#39;</span><span class="a">+    with pytest.warns(UserWarning, match=re.escape(expected_warning)):</span><span class="a">+        if mode == &#39;json&#39;:</span><span class="a">+            assert Model().model_dump_json() == &#39;{&quot;n&quot;:null,&quot;value&quot;:null}&#39;</span><span class="a">+        else:</span><span class="a">+            assert Model().model_dump() == {&#39;n&#39;: None, &#39;value&#39;: None}</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;field_type&#39;, [SecretStr, SecretBytes, Secret[str]])</span><span class="a">+def test_secret_non_secret_value_serialization(field_type) -&gt; None:</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        value: field_type</span><span class="a">+</span><span class="a">+    m = Model.model_construct(value=&#39;plain&#39;)</span><span class="a">+    with pytest.warns(UserWarning, match=&#39;serialized value may not be as expected&#39;) as record:</span><span class="a">+        assert m.model_dump_json() == &#39;{&quot;value&quot;:&quot;plain&quot;}&#39;</span><span class="a">+    with pytest.warns(UserWarning, match=&#39;serialized value may not be as expected&#39;):</span><span class="a">+        assert m.model_dump() == {&#39;value&#39;: &#39;plain&#39;}</span><span class="a">+    # the (non-secret) value must not leak into the warning message</span><span class="a">+    assert all(&#39;plain&#39; not in str(w.message) for w in record)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_encoded_bytes_bytes_like_serialization() -&gt; None:</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        value: Base64Bytes</span><span class="a">+</span><span class="a">+    assert Model.model_construct(value=bytearray(b&#39;ab&#39;)).model_dump_json() == &#39;{&quot;value&quot;:&quot;YWI=&quot;}&#39;</span><span class="a">+    assert Model.model_construct(value=memoryview(b&#39;ab&#39;)).model_dump_json() == &#39;{&quot;value&quot;:&quot;YWI=&quot;}&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;field_type&#39;, [re.Pattern, re.Pattern[str]], ids=[&#39;bare&#39;, &#39;str&#39;])</span><span class="a">+def test_pattern_unvalidated_none_default_serialization(field_type) -&gt; None:</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        value: field_type = None</span><span class="a">+</span><span class="a">+    with pytest.warns(UserWarning, match=&#39;serialized value may not be as expected&#39;):</span><span class="a">+        assert Model().model_dump_json() == &#39;{&quot;value&quot;:null}&#39;</span><span class="a">+    assert Model().model_dump() == {&#39;value&#39;: None}</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_generic_without_params():</span><span class="c">     class Model(BaseModel):</span><span class="c">         generic_list: list</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13699" rel="noopener" target="_blank">PR #13699</a></span><span class="pm"><span class="a">+11</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/types.py</span><span class="h">index 50f94cf43..a12b19100 100644</span><span class="h">@@ -1795,7 +1795,7 @@ class _SecretField(_SecretBase[SecretType]):</span><span class="c">                 serialization=core_schema.plain_serializer_function_ser_schema(</span><span class="c">                     _serialize_secret_field,</span><span class="c">                     info_arg=True,</span><span class="r">-                    when_used=&#39;always&#39;,</span><span class="a">+                    when_used=&#39;unless-none&#39;,</span><span class="c">                 ),</span><span class="c">             )</span><span class="c"> </span><span class="f">tests/test_types.py</span><span class="h">index d168c4490..5d54df58f 100644</span><span class="h">@@ -2424,3 +2424,13 @@ def test_custom_serializer_override_secret_str() -&gt; None:</span><span class="c"> </span><span class="c">     u = User(name=&#39;sam&#39;, password=&#39;hi&#39;)</span><span class="c">     assert u.model_dump()[&#39;password&#39;] == &#39;secret: **********&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_secret_str_none() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13692&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        f: SecretStr = None</span><span class="a">+</span><span class="a">+    assert Model().model_dump() == {&#39;f&#39;: None}</span><span class="a">+    assert Model().model_dump_json() == &#39;{&quot;f&quot;:null}&#39;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261007-130130/13675/">Previous · #13675</a>
+  <a class="mid" href="/backtests/pydantic/run-20261007-130130/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261007-130130/13713/">Next · #13713</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
