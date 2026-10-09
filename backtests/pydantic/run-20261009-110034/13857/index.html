@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13857 _FieldNameStack/_ModelTypeStack lose their pop() on exception, corrupting later unrelated schema builds — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13857 in pydantic/pydantic, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261009-110034/13857/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261009-110034/">run-20261009-110034</a><span aria-hidden="true">/</span><span aria-current="page">#13857</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13857" rel="noopener" target="_blank">#13857</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13859" rel="noopener" target="_blank">PR #13859</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-110034</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">_FieldNameStack/_ModelTypeStack lose their pop() on exception, corrupting later unrelated schema builds</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the same root-cause fix: they wrap `yield` in `try`/`finally` in both `_FieldNameStack.push()` and `_ModelTypeStack.push()`. So they are equal on correctness for the reported issue.
+
+Patch A also applies the identical `try`/`finally` hardening to `generic_recursion_self_type` in `_generics.py`. That is the same bug pattern, the change is low-risk, and it has its own targeted test. Per the criteria this is neutral rather than a credit, and it does not obscure the main fix.
+
+On tests, both add regressions that would fail before the change:
+- Patch A&#39;s `test_internal` test drives a real `GenerateSchema` instance through a failing `TypedDict` schema build. It then directly asserts that `field_name_stack.get()` and `model_type_stack.get()` are `None`, that a later unrelated push does not reveal stale entries (the issue&#39;s exact scenario), and that `Self` is still rejected instead of resolving to the stale `TD`. This covers both stacks plus the downstream consequence. Its imports are local and self-contained.
+- Patch B&#39;s tests are end-to-end through `__get_pydantic_core_schema__` handlers that swallow the error. They show user-visible effects: `Self` resolves correctly for a child model, and `handler.field_name` is `None`. These are realistic and valuable, but more indirect. They also depend on several module-level imports in `test_edge_cases.py` that the diff does not show, and their docstrings are placeholders.
+
+The overall difference is small. Patch A&#39;s direct assertions on both stacks, which mirror the issue&#39;s reproduction, plus its self-contained test setup give it a slight edge on test quality and craft.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 13s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,849 passed · 526 skipped · 13,375 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">74<small>vs 62 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13857" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Description</h2>
+<p><code>_FieldNameStack.push()</code> and <code>_ModelTypeStack.push()</code> in <code>pydantic/_internal/_generate_schema.py</code> (around lines 2910/2929) push onto their internal list, <code>yield</code>, then pop:</p>
+<pre><code class="lang-python">@contextmanager
+def push(self, field_name: str) -&gt; Iterator[None]:
+    self._stack.append(field_name)
+    yield
+    self._stack.pop()</code></pre>
+<p>If the code inside the <code>with self.field_name_stack.push(...):</code> block raises (schema generation is deeply recursive and can legitimately raise, e.g. <code>PydanticUserError</code> for a circular reference a few lines above this class in the same file), the <code>yield</code>&#39;s continuation - the <code>.pop()</code> - never runs. The stale entry stays on the stack forever, and corrupts every <em>later</em>, otherwise-unrelated <code>push()</code>/<code>get()</code> on that same <code>GenerateSchema</code> instance, not just the one that failed.</p>
+<h2>Reproduction</h2>
+<p>Isolated (no pydantic-core needed to demonstrate - this is pure Python control flow, verified against the actual class body copied verbatim):</p>
+<pre><code class="lang-python">from contextlib import contextmanager
+
+class _FieldNameStack:
+    __slots__ = (&#39;_stack&#39;,)
+    def __init__(self):
+        self._stack = []
+    @contextmanager
+    def push(self, field_name):
+        self._stack.append(field_name)
+        yield
+        self._stack.pop()
+    def get(self):
+        return self._stack[-1] if self._stack else None
+
+stack = _FieldNameStack()
+
+try:
+    with stack.push(&#39;some_field&#39;):
+        raise ValueError(&#39;boom&#39;)  # simulates any exception during schema generation
+except ValueError:
+    pass
+
+print(stack.get())  # &#39;some_field&#39; - already wrong, nothing is being processed
+
+# The real damage: this leaks into a completely unrelated, later, successful push.
+with stack.push(&#39;other_field&#39;):
+    pass
+print(stack.get())  # &#39;some_field&#39; again - should be None, &#39;other_field&#39; was popped
+                     # correctly but the stale entry underneath it was never cleared</code></pre>
+<p>Output:</p>
+<pre><code>some_field
+some_field</code></pre>
+<p>Both lines should print <code>None</code>.</p>
+<h2>Fix</h2>
+<p>Wrap the <code>yield</code> in <code>try</code>/<code>finally</code> so the pop runs unconditionally, the same guarantee a class-based context manager&#39;s <code>__exit__</code> gets for free:</p>
+<pre><code class="lang-python">@contextmanager
+def push(self, field_name: str) -&gt; Iterator[None]:
+    self._stack.append(field_name)
+    try:
+        yield
+    finally:
+        self._stack.pop()</code></pre>
+<p>Same fix applies identically to <code>_ModelTypeStack.push()</code> a few lines below - same shape, same bug.</p>
+<p>I have a fix + regression test ready (asserts <code>.get()</code> returns <code>None</code> after a push whose body raised) and I&#39;m happy to open a PR, per the note in the PR template about discussing non-trivial changes here first.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+68</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_generate_schema.py</span><span class="h">index b458013a..a446559b 100644</span><span class="h">@@ -2910,8 +2910,10 @@ class _FieldNameStack:</span><span class="c">     @contextmanager</span><span class="c">     def push(self, field_name: str) -&gt; Iterator[None]:</span><span class="c">         self._stack.append(field_name)</span><span class="r">-        yield</span><span class="r">-        self._stack.pop()</span><span class="a">+        try:</span><span class="a">+            yield</span><span class="a">+        finally:</span><span class="a">+            self._stack.pop()</span><span class="c"> </span><span class="c">     def get(self) -&gt; str | None:</span><span class="c">         if self._stack:</span><span class="h">@@ -2929,8 +2931,10 @@ class _ModelTypeStack:</span><span class="c">     @contextmanager</span><span class="c">     def push(self, type_obj: type) -&gt; Iterator[None]:</span><span class="c">         self._stack.append(type_obj)</span><span class="r">-        yield</span><span class="r">-        self._stack.pop()</span><span class="a">+        try:</span><span class="a">+            yield</span><span class="a">+        finally:</span><span class="a">+            self._stack.pop()</span><span class="c"> </span><span class="c">     def get(self) -&gt; type | None:</span><span class="c">         if self._stack:</span><span class="f">pydantic/_internal/_generics.py</span><span class="h">index 15c4c56d..45f9aeff 100644</span><span class="h">@@ -432,8 +432,10 @@ def generic_recursion_self_type(</span><span class="c">             yield self_type</span><span class="c">         else:</span><span class="c">             previously_seen_type_refs.add(type_ref)</span><span class="r">-            yield</span><span class="r">-            previously_seen_type_refs.remove(type_ref)</span><span class="a">+            try:</span><span class="a">+                yield</span><span class="a">+            finally:</span><span class="a">+                previously_seen_type_refs.remove(type_ref)</span><span class="c">     finally:</span><span class="c">         if token:</span><span class="c">             _generic_recursion_cache.reset(token)</span><span class="f">tests/test_generics.py</span><span class="h">index f8c396cf..5326253d 100644</span><span class="h">@@ -2473,6 +2473,31 @@ def test_generic_recursion_contextvar():</span><span class="c">     assert not recursively_defined_type_refs()</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_generic_recursion_self_type_nested_exception():</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class TestingException(Exception):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    class Model(BaseModel, Generic[T]):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    assert not recursively_defined_type_refs()</span><span class="a">+    with generic_recursion_self_type(Model, (int,)):</span><span class="a">+        outer_refs = recursively_defined_type_refs()</span><span class="a">+        try:</span><span class="a">+            with generic_recursion_self_type(Model, (str,)):</span><span class="a">+                assert len(recursively_defined_type_refs()) == len(outer_refs) + 1</span><span class="a">+                raise TestingException</span><span class="a">+        except TestingException:</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+        # The inner type ref must not leak into the still-active outer recursion cache:</span><span class="a">+        assert recursively_defined_type_refs() == outer_refs</span><span class="a">+        with generic_recursion_self_type(Model, (str,)) as self_type:</span><span class="a">+            assert self_type is None</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_limited_dict():</span><span class="c">     d = LimitedDict(10)</span><span class="c">     d[1] = &#39;1&#39;</span><span class="f">tests/test_internal.py</span><span class="h">index 3bfc123f..c3713650 100644</span><span class="h">@@ -356,3 +356,34 @@ def _wrap_identity(v: Any, handler: Any) -&gt; Any:</span><span class="c"> )</span><span class="c"> def test_as_ser_schema(schema: CoreSchema, expected: cs.SerSchema) -&gt; None:</span><span class="c">     assert as_ser_schema(schema) == expected</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_schema_generation_stacks_reset_after_exception() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A failure while generating a field/model schema must not leave stale entries on the</span><span class="a">+    field name and model type stacks of the `GenerateSchema` instance.&quot;&quot;&quot;</span><span class="a">+    from typing_extensions import Self, TypedDict</span><span class="a">+</span><span class="a">+    from pydantic import PydanticSchemaGenerationError, PydanticUserError</span><span class="a">+</span><span class="a">+    class Unsupported:</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    class TD(TypedDict):</span><span class="a">+        bad_field: Unsupported</span><span class="a">+</span><span class="a">+    gen = GenerateSchema(ConfigWrapper(None))</span><span class="a">+    with pytest.raises(PydanticSchemaGenerationError):</span><span class="a">+        gen.generate_schema(TD)</span><span class="a">+</span><span class="a">+    assert gen.field_name_stack.get() is None</span><span class="a">+    assert gen.model_type_stack.get() is None</span><span class="a">+</span><span class="a">+    # Later, unrelated pushes must not reveal the stale entries either:</span><span class="a">+    with gen.field_name_stack.push(&#39;other_field&#39;):</span><span class="a">+        assert gen.field_name_stack.get() == &#39;other_field&#39;</span><span class="a">+    assert gen.field_name_stack.get() is None</span><span class="a">+</span><span class="a">+    # `Self` outside of a model context is still rejected (instead of resolving to `TD`):</span><span class="a">+    with pytest.raises(PydanticUserError) as exc_info:</span><span class="a">+        gen.generate_schema(Self)</span><span class="a">+    assert exc_info.value.code == &#39;invalid-self-type&#39;</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13859" rel="noopener" target="_blank">PR #13859</a></span><span class="pm"><span class="a">+58</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_generate_schema.py</span><span class="h">index b458013ae..a446559b8 100644</span><span class="h">@@ -2910,8 +2910,10 @@ class _FieldNameStack:</span><span class="c">     @contextmanager</span><span class="c">     def push(self, field_name: str) -&gt; Iterator[None]:</span><span class="c">         self._stack.append(field_name)</span><span class="r">-        yield</span><span class="r">-        self._stack.pop()</span><span class="a">+        try:</span><span class="a">+            yield</span><span class="a">+        finally:</span><span class="a">+            self._stack.pop()</span><span class="c"> </span><span class="c">     def get(self) -&gt; str | None:</span><span class="c">         if self._stack:</span><span class="h">@@ -2929,8 +2931,10 @@ class _ModelTypeStack:</span><span class="c">     @contextmanager</span><span class="c">     def push(self, type_obj: type) -&gt; Iterator[None]:</span><span class="c">         self._stack.append(type_obj)</span><span class="r">-        yield</span><span class="r">-        self._stack.pop()</span><span class="a">+        try:</span><span class="a">+            yield</span><span class="a">+        finally:</span><span class="a">+            self._stack.pop()</span><span class="c"> </span><span class="c">     def get(self) -&gt; type | None:</span><span class="c">         if self._stack:</span><span class="f">tests/test_edge_cases.py</span><span class="h">index f5e0de1a1..981d787c0 100644</span><span class="h">@@ -3218,3 +3218,53 @@ def test_get_pydantic_core_schema_instance() -&gt; None:</span><span class="c"> </span><span class="c">     ta = TypeAdapter(SchemaProvider())</span><span class="c">     assert ta.validate_python(&#39;1&#39;) == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_model_type_stack_popped_after_schema_generation_error() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13857&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Unsupported:</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    class Bad(TypedDict):</span><span class="a">+        x: Unsupported</span><span class="a">+</span><span class="a">+    class Fallback:</span><span class="a">+        @classmethod</span><span class="a">+        def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -&gt; CoreSchema:</span><span class="a">+            try:</span><span class="a">+                return handler.generate_schema(Bad)</span><span class="a">+            except PydanticSchemaGenerationError:</span><span class="a">+                return core_schema.any_schema()</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        a: Fallback</span><span class="a">+        child: Self | None = None</span><span class="a">+</span><span class="a">+    m = Model.model_validate({&#39;a&#39;: 1, &#39;child&#39;: {&#39;a&#39;: 2}})</span><span class="a">+    assert isinstance(m.child, Model)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_field_name_stack_popped_after_schema_generation_error() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13857&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Unsupported:</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    class Bad(TypedDict):</span><span class="a">+        x: Unsupported</span><span class="a">+</span><span class="a">+    field_names: list[str | None] = []</span><span class="a">+</span><span class="a">+    class Fallback:</span><span class="a">+        @classmethod</span><span class="a">+        def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -&gt; CoreSchema:</span><span class="a">+            try:</span><span class="a">+                handler.generate_schema(Bad)</span><span class="a">+            except PydanticSchemaGenerationError:</span><span class="a">+                pass</span><span class="a">+            field_names.append(handler.field_name)</span><span class="a">+            return core_schema.any_schema()</span><span class="a">+</span><span class="a">+    TypeAdapter(Fallback)</span><span class="a">+    assert field_names == [None]</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261009-110034/13802/">Previous · #13802</a>
+  <a class="mid" href="/backtests/pydantic/run-20261009-110034/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261009-110034/13867/">Next · #13867</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13645 TypeError: unhashable type: &#39;list&#39; in match_type for PEP 695 aliases with a ParamSpec (regression in 2.14.0b1) — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13645 in pydantic/pydantic, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261009-110034/13645/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261009-110034/">run-20261009-110034</a><span aria-hidden="true">/</span><span aria-current="page">#13645</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13645" rel="noopener" target="_blank">#13645</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13648" rel="noopener" target="_blank">PR #13648</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-110034</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">TypeError: unhashable type: &#39;list&#39; in match_type for PEP 695 aliases with a ParamSpec (regression in 2.14.0b1)</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches stop the `TypeError` at the `match_type` lookup, but B is the better fix.
+
+**Patch A**
+- It swaps the hash-based lookup for `typing_objects.DEPRECATED_ALIASES_IDS.get(id(obj))` and bumps `typing-inspection` to &gt;=0.4.4.
+- The diff does not show that `DEPRECATED_ALIASES_IDS` exists, so the fix rests on an outside dependency. If that attribute is missing, every schema build fails with `AttributeError`.
+- The idea itself is sound: the deprecated aliases are singletons, so looking them up by `id` avoids hashing.
+- Its test uses `list[Annotated[int, Meta()]]` with unhashable metadata. That likely fails before the change, since hashing an `Annotated` alias hashes its metadata. It does not cover the reported PEP 695 / ParamSpec `Alias[[], int]` case, and it carries a typo in the name (`unhasbable`).
+
+**Patch B**
+- It wraps the `DEPRECATED_ALIASES.get(obj)` call in `try/except TypeError`, which is the issue&#39;s own suggestion. This is self-contained and correct, because an unhashable object can never be a dict key.
+- It also hardens two nearby places where the same unhashable object would be hashed later in the pipeline:
+  - the `json_encoders.get(base)` loop;
+  - the `path_type not in {str, bytes}` set check, now a tuple.
+- These extras are small, low-risk and on topic, since the same reported annotation would otherwise crash further along.
+- Its tests rebuild the exact scenario from the issue: a `TypeAliasType` with a `ParamSpec`, parameterized as `[[], int]`. They assert the alias is unhashable, then check model creation, validation, the JSON schema, `TypeAdapter`, `json_encoders` and `os.PathLike`. All of these would fail before the change.
+
+**Verdict**
+B is more robust, needs no dependency change, and tests the reported case directly.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">12m 26s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,329 passed · 500 skipped · 12,829 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">90<small>vs 23 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13645" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Reported downstream in Giskard-AI/giskard#2719 (breaks <code>import giskard.checks</code>); repro and analysis below. The report was drafted jointly with @davidberenstein1957, who invited it to be filed upstream as-is.</p>
+<h3>Description</h3>
+<p><code>_generate_schema.match_type</code> added an unguarded dict lookup in 2.14 that assumes the annotation object is hashable. It is not, for a PEP 695 type alias with a <code>ParamSpec</code> parameterized by an empty list. Schema building for any model containing such an annotation crashes.</p>
+<p>This is a regression: the same code builds fine on 2.13.4.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-python">from typing import Any
+from pydantic import BaseModel
+
+type Alias[**P, R] = Any
+
+class M(BaseModel):
+    f: Alias[[], int] | None = None</code></pre>
+<p>Raises immediately at class-definition time:</p>
+<pre><code>File &quot;.../pydantic/_internal/_generate_schema.py&quot;, line 1127, in match_type
+    if origin is not None and (aliased_obj := typing_objects.DEPRECATED_ALIASES.get(obj)):
+TypeError: unhashable type: &#39;list&#39;</code></pre>
+<h3>Mechanism</h3>
+<p><code>Alias[[], int]</code> is a <code>types.GenericAlias</code> whose <code>__args__</code> is <code>([], int)</code>. Hashing the alias hashes that tuple, which contains a <code>list</code> — so it is unhashable. The line at <code>_generate_schema.py:1127</code></p>
+<pre><code class="lang-python">if origin is not None and (aliased_obj := typing_objects.DEPRECATED_ALIASES.get(obj)):</code></pre>
+<p>calls <code>.get(obj)</code> without checking that <code>obj</code> can be hashed. <code>dict.get</code> propagates the <code>TypeError</code> rather than treating an unhashable key as absent.</p>
+<h3>Suggested fix</h3>
+<p>Guard the lookup, e.g.</p>
+<pre><code class="lang-python">if origin is not None and isinstance(obj, Hashable) and (aliased_obj := typing_objects.DEPRECATED_ALIASES.get(obj)):</code></pre>
+<p>or wrap it in <code>try/except TypeError</code>. An unhashable object cannot be a <code>DEPRECATED_ALIASES</code> key by construction, so skipping the lookup is always correct.</p>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<ul><li>pydantic 2.14.0b1 (fails) / 2.13.4 (works)</li><li>Python 3.12.13</li><li>Reproduced on Linux and macOS</li></ul>
+<h3>Real-world impact</h3>
+<p>Hit in <a href="https://github.com/Giskard-AI/giskard-oss" rel="noopener nofollow" target="_blank">giskard-oss</a>, where <code>type GeneratorType[**P, R, S] = ...</code> parameterized as <code>GeneratorType[[], InputType, None]</code> makes <code>import giskard.checks</code> fail outright under 2.14.0b1. Instrumenting <code>match_type</code> confirms the offending object:</p>
+<pre><code>OFFENDING obj  = GeneratorType[[], InputType, None]
+OFFENDING type = &lt;class &#39;types.GenericAlias&#39;&gt;
+OFFENDING args = ([], InputType, None)</code></pre>
+<p>There is no workaround on the library side short of pinning <code>pydantic&lt;2.14</code> (done in Giskard-AI/giskard#2752), which is what downstream has had to do.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+80</span> <span class="r">−10</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_generate_schema.py</span><span class="h">index 53971d20..c2c95089 100644</span><span class="h">@@ -287,7 +287,12 @@ def _add_custom_serialization_from_json_encoders(</span><span class="c">     # Decimal.__class__.__mro__ (and probably other cases) doesn&#39;t include Decimal itself</span><span class="c">     # if the type is a GenericAlias (e.g. from list[int]) we need to use __class__ instead of .__mro__</span><span class="c">     for base in (tp, *getattr(tp, &#39;__mro__&#39;, tp.__class__.__mro__)[:-1]):</span><span class="r">-        encoder = json_encoders.get(base)</span><span class="a">+        try:</span><span class="a">+            encoder = json_encoders.get(base)</span><span class="a">+        except TypeError:</span><span class="a">+            # `tp` can be unhashable (e.g. a PEP 695 alias parameterized with a list,</span><span class="a">+            # such as `Alias[[], int]`), in which case it can&#39;t be a key of `json_encoders`.</span><span class="a">+            continue</span><span class="c">         if encoder is None:</span><span class="c">             continue</span><span class="c"> </span><span class="h">@@ -586,7 +591,7 @@ class GenerateSchema:</span><span class="c">         )</span><span class="c"> </span><span class="c">     def _path_schema(self, tp: Any, path_type: Any) -&gt; CoreSchema:</span><span class="r">-        if tp is os.PathLike and (path_type not in {str, bytes} and not typing_objects.is_any(path_type)):</span><span class="a">+        if tp is os.PathLike and (path_type not in (str, bytes) and not typing_objects.is_any(path_type)):</span><span class="c">             raise PydanticUserError(</span><span class="c">                 &#39;`os.PathLike` can only be used with `str`, `bytes` or `Any`&#39;, code=&#39;schema-for-unknown-type&#39;</span><span class="c">             )</span><span class="h">@@ -1124,10 +1129,17 @@ class GenerateSchema:</span><span class="c">             # early for model-like fields, which handles it already.</span><span class="c">             return core_schema.any_schema()</span><span class="c"> </span><span class="r">-        if origin is not None and (aliased_obj := typing_objects.DEPRECATED_ALIASES.get(obj)):</span><span class="r">-            # See https://typing-inspection.pydantic.dev/dev/usage/#inspecting-the-type-expression:</span><span class="r">-            obj = aliased_obj</span><span class="r">-            origin = None</span><span class="a">+        if origin is not None:</span><span class="a">+            try:</span><span class="a">+                aliased_obj = typing_objects.DEPRECATED_ALIASES.get(obj)</span><span class="a">+            except TypeError:</span><span class="a">+                # `obj` can be unhashable (e.g. a PEP 695 alias parameterized with</span><span class="a">+                # a list, such as `Alias[[], int]`), in which case it can&#39;t be a deprecated alias.</span><span class="a">+                aliased_obj = None</span><span class="a">+            if aliased_obj is not None:</span><span class="a">+                # See https://typing-inspection.pydantic.dev/dev/usage/#inspecting-the-type-expression:</span><span class="a">+                obj = aliased_obj</span><span class="a">+                origin = None</span><span class="c"> </span><span class="c">         if origin is None:</span><span class="c">             # Thanks to the checks before this point, no origin means `obj` is a</span><span class="f">tests/test_type_alias_type.py</span><span class="h">index 13b56cbc..d23a063b 100644</span><span class="h">@@ -1,13 +1,22 @@</span><span class="c"> import datetime</span><span class="a">+import os</span><span class="c"> from collections.abc import Sequence</span><span class="c"> from dataclasses import dataclass</span><span class="r">-from typing import Annotated, Generic, Literal, TypeVar, Union</span><span class="a">+from typing import Annotated, Any, Generic, Literal, TypeVar, Union</span><span class="c"> </span><span class="c"> import pytest</span><span class="c"> from annotated_types import MaxLen</span><span class="r">-from typing_extensions import TypeAliasType</span><span class="r">-</span><span class="r">-from pydantic import BaseModel, PlainSerializer, PydanticUserError, TypeAdapter, ValidationError, WithJsonSchema</span><span class="a">+from typing_extensions import ParamSpec, TypeAliasType</span><span class="a">+</span><span class="a">+from pydantic import (</span><span class="a">+    BaseModel,</span><span class="a">+    ConfigDict,</span><span class="a">+    PlainSerializer,</span><span class="a">+    PydanticUserError,</span><span class="a">+    TypeAdapter,</span><span class="a">+    ValidationError,</span><span class="a">+    WithJsonSchema,</span><span class="a">+)</span><span class="c"> </span><span class="c"> T = TypeVar(&#39;T&#39;)</span><span class="c"> </span><span class="h">@@ -488,3 +497,52 @@ def test_type_alias_type_with_metadata() -&gt; None:</span><span class="c"> </span><span class="c">     ta = TypeAdapter(B)</span><span class="c">     assert ta.json_schema() == {&#39;type&#39;: &#39;int&#39;, &#39;extra&#39;: 1}</span><span class="a">+</span><span class="a">+</span><span class="a">+P = ParamSpec(&#39;P&#39;)</span><span class="a">+R = TypeVar(&#39;R&#39;)</span><span class="a">+ParamSpecAlias = TypeAliasType(&#39;ParamSpecAlias&#39;, Any, type_params=(P, R))</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_type_alias_type_param_spec_list_arg_unhashable() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13645</span><span class="a">+</span><span class="a">+    Equivalent to `type ParamSpecAlias[**P, R] = Any`, parameterized with an (unhashable) list.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    alias = ParamSpecAlias[[], int]</span><span class="a">+    with pytest.raises(TypeError):</span><span class="a">+        hash(alias)</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        f: ParamSpecAlias[[], int] | None = None</span><span class="a">+</span><span class="a">+    assert Model().f is None</span><span class="a">+    assert Model(f=&#39;anything&#39;).f == &#39;anything&#39;</span><span class="a">+    assert Model.model_json_schema() == {</span><span class="a">+        &#39;$defs&#39;: {&#39;ParamSpecAlias_list_int_&#39;: {}},</span><span class="a">+        &#39;properties&#39;: {</span><span class="a">+            &#39;f&#39;: {&#39;anyOf&#39;: [{&#39;$ref&#39;: &#39;#/$defs/ParamSpecAlias_list_int_&#39;}, {&#39;type&#39;: &#39;null&#39;}], &#39;default&#39;: None}</span><span class="a">+        },</span><span class="a">+        &#39;title&#39;: &#39;Model&#39;,</span><span class="a">+        &#39;type&#39;: &#39;object&#39;,</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(ParamSpecAlias[[], int])</span><span class="a">+    assert ta.validate_python([1, &#39;a&#39;]) == [1, &#39;a&#39;]</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_type_alias_type_param_spec_list_arg_with_json_encoders() -&gt; None:</span><span class="a">+    with pytest.warns(DeprecationWarning, match=&#39;json_encoders&#39;):</span><span class="a">+</span><span class="a">+        class Model(BaseModel):</span><span class="a">+            model_config = ConfigDict(json_encoders={int: str})</span><span class="a">+</span><span class="a">+            f: ParamSpecAlias[[], int]</span><span class="a">+            g: int</span><span class="a">+</span><span class="a">+    assert Model(f=1, g=2).model_dump_json() == &#39;{&quot;f&quot;:1,&quot;g&quot;:&quot;2&quot;}&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_type_alias_type_param_spec_list_arg_in_path_like() -&gt; None:</span><span class="a">+    with pytest.raises(PydanticUserError, match=&#39;`os.PathLike` can only be used with `str`, `bytes` or `Any`&#39;):</span><span class="a">+        TypeAdapter(os.PathLike[ParamSpecAlias[[], int]])</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13648" rel="noopener" target="_blank">PR #13648</a></span><span class="pm"><span class="a">+17</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_generate_schema.py</span><span class="h">index 53971d205..815766b37 100644</span><span class="h">@@ -1124,7 +1124,7 @@ class GenerateSchema:</span><span class="c">             # early for model-like fields, which handles it already.</span><span class="c">             return core_schema.any_schema()</span><span class="c"> </span><span class="r">-        if origin is not None and (aliased_obj := typing_objects.DEPRECATED_ALIASES.get(obj)):</span><span class="a">+        if origin is not None and (aliased_obj := typing_objects.DEPRECATED_ALIASES_IDS.get(id(obj))):</span><span class="c">             # See https://typing-inspection.pydantic.dev/dev/usage/#inspecting-the-type-expression:</span><span class="c">             obj = aliased_obj</span><span class="c">             origin = None</span><span class="f">pyproject.toml</span><span class="h">index dcd9d1464..27f62269f 100644</span><span class="h">@@ -48,7 +48,7 @@ dependencies = [</span><span class="c">     &#39;annotated-types&gt;=0.6.0&#39;,</span><span class="c">     # Keep this in sync with the version in the `check_pydantic_core_version()` function:</span><span class="c">     &#39;pydantic-core==2.48.0&#39;,</span><span class="r">-    &#39;typing-inspection&gt;=0.4.2&#39;,</span><span class="a">+    &#39;typing-inspection&gt;=0.4.4&#39;,</span><span class="c"> ]</span><span class="c"> dynamic = [&#39;version&#39;, &#39;readme&#39;]</span><span class="c"> </span><span class="f">tests/test_edge_cases.py</span><span class="h">index 3649fb3d7..699a49da0 100644</span><span class="h">@@ -3198,3 +3198,14 @@ def test_interconnected_models_build_in_linear_time() -&gt; None:</span><span class="c">     instance = last.model_validate({&#39;value&#39;: 1, &#39;ref2&#39;: {&#39;value&#39;: 2, &#39;ref2&#39;: {&#39;value&#39;: 3}}})</span><span class="c">     assert instance.ref2.ref2.value == 3</span><span class="c">     assert instance.model_dump(exclude_none=True) == {&#39;value&#39;: 1, &#39;ref2&#39;: {&#39;value&#39;: 2, &#39;ref2&#39;: {&#39;value&#39;: 3}}}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_unhasbable_generic_alias() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13645&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Meta:</span><span class="a">+        __hash__ = None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(list[Annotated[int, Meta()]])</span><span class="a">+</span><span class="a">+    assert ta.validate_python([&#39;1&#39;]) == [1]</span><span class="f">uv.lock</span><span class="h">index be6b53763..ef8660538 100644</span><span class="h">@@ -2551,7 +2551,7 @@ requires-dist = [</span><span class="c">     { name = &quot;email-validator&quot;, marker = &quot;extra == &#39;email&#39;&quot;, specifier = &quot;&gt;=2.0.0&quot; },</span><span class="c">     { name = &quot;pydantic-core&quot;, editable = &quot;pydantic-core&quot; },</span><span class="c">     { name = &quot;typing-extensions&quot;, specifier = &quot;&gt;=4.15.0&quot; },</span><span class="r">-    { name = &quot;typing-inspection&quot;, specifier = &quot;&gt;=0.4.2&quot; },</span><span class="a">+    { name = &quot;typing-inspection&quot;, specifier = &quot;&gt;=0.4.4&quot; },</span><span class="c">     { name = &quot;tzdata&quot;, marker = &quot;sys_platform == &#39;win32&#39; and extra == &#39;timezone&#39;&quot; },</span><span class="c"> ]</span><span class="c"> provides-extras = [&quot;email&quot;, &quot;timezone&quot;]</span><span class="h">@@ -3949,14 +3949,14 @@ wheels = [</span><span class="c"> </span><span class="c"> [[package]]</span><span class="c"> name = &quot;typing-inspection&quot;</span><span class="r">-version = &quot;0.4.3&quot;</span><span class="a">+version = &quot;0.4.4&quot;</span><span class="c"> source = { registry = &quot;https://pypi.org/simple&quot; }</span><span class="c"> dependencies = [</span><span class="c">     { name = &quot;typing-extensions&quot; },</span><span class="c"> ]</span><span class="r">-sdist = { url = &quot;https://files.pythonhosted.org/packages/6d/bc/4eae18cd40c65798a16267572ba346c11f599d44b01603dbd843342042bc/typing_inspection-0.4.3.tar.gz&quot;, hash = &quot;sha256:c5f9ec1530b5c1e2c9bc34a84d9a3466ed1b2f3f2fa9f901368d9c5596210e4d&quot;, size = 76711, upload-time = &quot;2026-08-10T09:39:18.063Z&quot; }</span><span class="a">+sdist = { url = &quot;https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz&quot;, hash = &quot;sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47&quot;, size = 76928, upload-time = &quot;2026-08-12T12:37:25.997Z&quot; }</span><span class="c"> wheels = [</span><span class="r">-    { url = &quot;https://files.pythonhosted.org/packages/42/f7/7a3935abdebd5cf18705a5f0335dd6a3a18bef3baa7cb9edc3b6b9922cc8/typing_inspection-0.4.3-py3-none-any.whl&quot;, hash = &quot;sha256:5f42b23858a91e0b4ef521f5418f03a0da3c9216fd2995ef5e73463100e676cd&quot;, size = 14693, upload-time = &quot;2026-08-10T09:39:16.693Z&quot; },</span><span class="a">+    { url = &quot;https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl&quot;, hash = &quot;sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147&quot;, size = 14750, upload-time = &quot;2026-08-12T12:37:24.648Z&quot; },</span><span class="c"> ]</span><span class="c"> </span><span class="c"> [[package]]</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261009-110034/13621/">Previous · #13621</a>
+  <a class="mid" href="/backtests/pydantic/run-20261009-110034/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261009-110034/13647/">Next · #13647</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

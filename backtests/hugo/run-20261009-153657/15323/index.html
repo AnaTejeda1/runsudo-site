@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15323 tpl/collections: union silently returns an empty list when the two slice types differ — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15323 in gohugoio/hugo, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261009-153657/15323/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261009-153657/">run-20261009-153657</a><span aria-hidden="true">/</span><span aria-current="page">#15323</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15323" rel="noopener" target="_blank">#15323</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/commit/ffbcdba9e9768b6a1bd0580eb56ed26c486f2cce" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-153657</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">tpl/collections: union silently returns an empty list when the two slice types differ</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The issue&#39;s core complaint is that `union` silently returns an empty slice when the two argument types differ. Patch A removes that early return. When l1&#39;s element type is concrete, Patch A converts each l2 value to it through `convertUnionValue`. That function does a lossless numeric conversion, a direct assign, or a plain-string conversion. If none applies, it returns an explicit error. When l1&#39;s element type is an interface, Patch A keeps the prototype-based conversion and errors if the value is not assignable. Every path now either produces a correct union or returns an error. Removing the early return also lets the uncomparable-types check run, so `union (slice (slice 1)) (slice 2)` now errors as the issue says it should.
+
+Patch B only lets numeric-to-numeric pairs through. `union (slice 1) (slice &quot;a&quot;)`, which the issue explicitly lists, still silently returns `[]`. The uncomparable case `(slice (slice 1)) (slice 2)` is still short-circuited to an empty list. B&#39;s new `AssignableTo` guard also drops values silently: `[]int{} ∪ []float64{1.0}` yields `[]int{}`, and B&#39;s own test locks that in. So B fixes part of the symptom and keeps the silent-empty behaviour the issue objects to.
+
+On tests, Patch A has broad unit coverage: numeric unification, lossy-conversion errors (`1.5` into int), string/int errors, the uncomparable error, a `template.HTML` safety case, and interface mixes. It also adds an integration test that reproduces the issue&#39;s template, including `intersect` parity and the error messages. A changes two existing expectations from empty-slice to error, which is the intended behaviour change. Patch B&#39;s tests cover only the numeric cases and encode a remaining silent-drop case as correct.
+
+On craft, A refuses to convert into named string types like `template.HTML`, a thoughtful safety edge. A&#39;s refactor is larger but coherent. B is smaller but incomplete. A is the better fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">20m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">244 passed · 0 skipped · 244 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">135<small>vs 17 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15323" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>&lt;pre&gt;<br>$ hugo version<br>hugo v0.166.0-DEV-ae07063fcc9a59c95838e83e7fdf12e326ebee7d darwin/arm64<br>&lt;/pre&gt;</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>I built <code>master</code> at <code>ae07063</code> and reproduced it there. I did not run a tagged release binary, so I have not confirmed it against one directly, though <code>Union</code> is unchanged in <code>tpl/collections/collections.go</code>.</p>
+<h3>What did you expect to see?</h3>
+<p><code>union</code> either returning the union of its two arguments, or returning an error. It already errors for the other argument shapes it cannot handle, for example <code>union does not support slices or arrays of uncomparable types</code> and <code>can&#39;t iterate over ...</code>.</p>
+<h3>What did you see instead?</h3>
+<p><code>union</code> returns an empty slice, with no error, whenever the two arguments have different slice types and neither has an interface element type.</p>
+<p><code>layouts/index.html</code>:</p>
+<pre><code class="lang-go-html-template">{{ printf &quot;%T&quot; (slice 1) }}
+{{ printf &quot;%T&quot; (slice 1.0) }}
+union int,int    -&gt; {{ union (slice 1) (slice 2) }}
+union int,float  -&gt; {{ union (slice 1) (slice 1.0) }}
+union int,string -&gt; {{ union (slice 1) (slice &quot;a&quot;) }}
+union lists      -&gt; {{ union (slice 1 2) (slice 2.0 3.0) }}
+intersect lists  -&gt; {{ intersect (slice 1 2) (slice 2.0 3.0) }}</code></pre>
+<p>Output:</p>
+<pre><code>[]int
+[]float64
+union int,int    -&gt; [1 2]
+union int,float  -&gt; []
+union int,string -&gt; []
+union lists      -&gt; []
+intersect lists  -&gt; [2]</code></pre>
+<p><code>intersect</code> handles the same two mixed-type lists and returns <code>[2]</code>, so the sibling functions disagree about whether these arguments are usable at all.</p>
+<p>The cause is this early return in <code>Union</code>:</p>
+<pre><code class="lang-go">if l1v.Type() != l2v.Type() &amp;&amp;
+	l1v.Type().Elem().Kind() != reflect.Interface &amp;&amp;
+	l2v.Type().Elem().Kind() != reflect.Interface {
+	return ins.r.Interface(), nil
+}</code></pre>
+<p><code>ins.r</code> is the empty slice made just above, so a caller gets an empty list rather than an error. It is reachable from ordinary templates because <code>slice 1</code> is <code>[]int</code> and <code>slice 1.0</code> is <code>[]float64</code>, and it also runs before the uncomparable-types check, so <code>union (slice (slice 1)) (slice 2)</code> returns <code>[]</code> instead of the error that check would raise.</p>
+<p>Adding one element of another type to the first argument avoids it, since the slice then becomes <code>[]interface {}</code>: <code>union (slice 1 &quot;x&quot;) (slice 1.0)</code> returns <code>[1 x]</code>.</p>
+<h3>Stack traceback or browser console output</h3>
+<p>None, no error is raised. That is the problem.</p>
+<hr>
+<p>This is a different mechanism from #3411, which was closed in 2017 and is now locked with a note asking that related bugs be opened as new issues.</p>
+<p>Happy to send a PR. Returning an error here would be a small change; making <code>union</code> accept mixed types the way <code>intersect</code> does is bigger, so I would rather you pick the direction first.</p>
+<p>This issue was written primarily by Claude Code, including the reproduction above.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+113</span> <span class="r">−22</span></span></div><pre class="diff"><span class="f">tpl/collections/collections.go</span><span class="h">index a44603b53..d863c2a78 100644</span><span class="h">@@ -631,8 +631,9 @@ func (i *intersector) handleValuePair(l1vv, l2vv reflect.Value) {</span><span class="c"> }</span><span class="c"> </span><span class="c"> // Union returns the union of the given sets, l1 and l2. l1 and</span><span class="r">-// l2 must be of the same type and may be either arrays or slices.</span><span class="r">-// If l1 and l2 aren&#39;t of the same type then l1 will be returned.</span><span class="a">+// l2 may be either arrays or slices. The result has the type of l1;</span><span class="a">+// values in l2 are converted to l1&#39;s element type when possible, and</span><span class="a">+// an error is returned if a value in l2 cannot be represented in the result.</span><span class="c"> // If either l1 or l2 is nil then the non-nil list will be returned.</span><span class="c"> func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 	if l1 == nil &amp;&amp; l2 == nil {</span><span class="h">@@ -653,12 +654,7 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 		switch l2v.Kind() {</span><span class="c"> 		case reflect.Array, reflect.Slice:</span><span class="c"> 			ins = &amp;intersector{r: reflect.MakeSlice(l1v.Type(), 0, 0), seen: make(map[any]bool)}</span><span class="r">-</span><span class="r">-			if l1v.Type() != l2v.Type() &amp;&amp;</span><span class="r">-				l1v.Type().Elem().Kind() != reflect.Interface &amp;&amp;</span><span class="r">-				l2v.Type().Elem().Kind() != reflect.Interface {</span><span class="r">-				return ins.r.Interface(), nil</span><span class="r">-			}</span><span class="a">+			elemType := l1v.Type().Elem()</span><span class="c"> </span><span class="c"> 			var (</span><span class="c"> 				l1vv  reflect.Value</span><span class="h">@@ -677,6 +673,25 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 				}</span><span class="c"> 			}</span><span class="c"> </span><span class="a">+			if elemType.Kind() != reflect.Interface {</span><span class="a">+				// The result can only hold values of l1&#39;s element type.</span><span class="a">+				for j := range l2v.Len() {</span><span class="a">+					l2vv := l2v.Index(j)</span><span class="a">+					if l2vv.Kind() == reflect.Interface {</span><span class="a">+						if l2vv.IsNil() {</span><span class="a">+							continue</span><span class="a">+						}</span><span class="a">+						l2vv = l2vv.Elem()</span><span class="a">+					}</span><span class="a">+					v, err := convertUnionValue(l2vv, elemType)</span><span class="a">+					if err != nil {</span><span class="a">+						return nil, fmt.Errorf(&quot;union: %w&quot;, err)</span><span class="a">+					}</span><span class="a">+					ins.appendIfNotSeen(v)</span><span class="a">+				}</span><span class="a">+				break</span><span class="a">+			}</span><span class="a">+</span><span class="c"> 			if !l1vv.IsValid() {</span><span class="c"> 				// The first slice may be empty. Pick the first value of the second</span><span class="c"> 				// to use as a prototype.</span><span class="h">@@ -687,33 +702,52 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> </span><span class="c"> 			for j := range l2v.Len() {</span><span class="c"> 				l2vv := l2v.Index(j)</span><span class="r">-				typ := l1vv.Type()</span><span class="a">+				v := l2vv</span><span class="c"> </span><span class="a">+				// Convert to the type of the l1 prototype when possible,</span><span class="a">+				// otherwise keep the value as is.</span><span class="c"> 				switch kind := l1vv.Kind(); {</span><span class="c"> 				case kind == reflect.String:</span><span class="r">-					l2t, err := hreflect.ToStringE(l2vv)</span><span class="r">-					if err == nil {</span><span class="r">-						ins.appendIfNotSeen(reflect.ValueOf(l2t))</span><span class="a">+					if l2t, err := hreflect.ToStringE(l2vv); err == nil {</span><span class="a">+						v = reflect.ValueOf(l2t)</span><span class="c"> 					}</span><span class="c"> 				case hreflect.IsNumber(kind):</span><span class="r">-					var err error</span><span class="r">-					l2vv, err = convertNumber(l2vv, typ)</span><span class="r">-					if err == nil {</span><span class="r">-						ins.appendIfNotSeen(l2vv)</span><span class="a">+					if cv, err := convertNumber(l2vv, l1vv.Type()); err == nil {</span><span class="a">+						v = cv</span><span class="c"> 					}</span><span class="r">-				case kind == reflect.Interface, kind == reflect.Struct, kind == reflect.Pointer:</span><span class="r">-					ins.appendIfNotSeen(l2vv)</span><span class="a">+				}</span><span class="c"> </span><span class="a">+				if v.Kind() == reflect.Interface &amp;&amp; !v.IsNil() {</span><span class="a">+					v = v.Elem()</span><span class="c"> 				}</span><span class="a">+				if !v.Type().AssignableTo(elemType) {</span><span class="a">+					return nil, fmt.Errorf(&quot;union: unable to add value of type %q to %q&quot;, v.Type().String(), l1v.Type().String())</span><span class="a">+				}</span><span class="a">+				ins.appendIfNotSeen(v)</span><span class="c"> 			}</span><span class="r">-</span><span class="r">-			return ins.r.Interface(), nil</span><span class="c"> 		default:</span><span class="c"> 			return nil, errors.New(&quot;can&#39;t iterate over &quot; + reflect.ValueOf(l2).Type().String())</span><span class="c"> 		}</span><span class="c"> 	default:</span><span class="c"> 		return nil, errors.New(&quot;can&#39;t iterate over &quot; + reflect.ValueOf(l1).Type().String())</span><span class="c"> 	}</span><span class="a">+</span><span class="a">+	return ins.r.Interface(), nil</span><span class="a">+}</span><span class="a">+</span><span class="a">+// convertUnionValue converts v to typ without loss, returning an error if that is not possible.</span><span class="a">+func convertUnionValue(v reflect.Value, typ reflect.Type) (reflect.Value, error) {</span><span class="a">+	switch {</span><span class="a">+	case hreflect.IsNumber(typ.Kind()):</span><span class="a">+		return convertNumber(v, typ)</span><span class="a">+	case v.Type().AssignableTo(typ):</span><span class="a">+		return v, nil</span><span class="a">+	case typ == reflect.TypeFor[string]() &amp;&amp; v.Kind() == reflect.String:</span><span class="a">+		// Only convert to a plain string; converting to a named string type</span><span class="a">+		// (e.g. template.HTML) would mark untrusted content as safe.</span><span class="a">+		return v.Convert(typ), nil</span><span class="a">+	}</span><span class="a">+	return reflect.Value{}, fmt.Errorf(&quot;unable to convert value of type %q to %q&quot;, v.Type().String(), typ.String())</span><span class="c"> }</span><span class="c"> </span><span class="c"> // Uniq returns a new list with duplicate elements in the list l removed.</span><span class="f">tpl/collections/collections_integration_test.go</span><span class="h">index 52939f3c3..462ba558b 100644</span><span class="h">@@ -19,6 +19,7 @@ import (</span><span class="c"> 	&quot;strings&quot;</span><span class="c"> 	&quot;testing&quot;</span><span class="c"> </span><span class="a">+	qt &quot;github.com/frankban/quicktest&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/hugolib&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/resources/page&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/tpl/collections&quot;</span><span class="h">@@ -653,3 +654,41 @@ All.</span><span class="c"> 		}</span><span class="c"> 	})</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestUnionDifferentSliceTypes(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &#39;http://example.com/&#39;</span><span class="a">+-- layouts/home.html --</span><span class="a">+int,int: {{ union (slice 1) (slice 2) }}|</span><span class="a">+int,float: {{ union (slice 1) (slice 1.0) }}|</span><span class="a">+lists: {{ union (slice 1 2) (slice 2.0 3.0) }}|</span><span class="a">+intersect: {{ intersect (slice 1 2) (slice 2.0 3.0) }}|</span><span class="a">+mixed: {{ union (slice 1 &quot;x&quot;) (slice 1.0) }}|</span><span class="a">+`</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+		&quot;int,int: [1 2]|&quot;,</span><span class="a">+		&quot;int,float: [1]|&quot;,</span><span class="a">+		&quot;lists: [1 2 3]|&quot;,</span><span class="a">+		&quot;intersect: [2]|&quot;,</span><span class="a">+		&quot;mixed: [1 x]|&quot;,</span><span class="a">+	)</span><span class="a">+</span><span class="a">+	for _, tc := range []struct {</span><span class="a">+		tpl    string</span><span class="a">+		errMsg string</span><span class="a">+	}{</span><span class="a">+		{`{{ union (slice 1) (slice &quot;a&quot;) }}`, `union: unable to convert value of type &quot;string&quot; to &quot;int&quot;`},</span><span class="a">+		{`{{ union (slice 1) (slice 1.5) }}`, `union: unable to convert value of type &quot;float64&quot; to &quot;int&quot;`},</span><span class="a">+		{`{{ union (slice (slice 1)) (slice 2) }}`, &quot;union does not support slices or arrays of uncomparable types&quot;},</span><span class="a">+	} {</span><span class="a">+		files := strings.Replace(files, &quot;int,int:&quot;, tc.tpl+&quot;\nint,int:&quot;, 1)</span><span class="a">+		_, err := hugolib.TestE(t, files)</span><span class="a">+		qt.Assert(t, err, qt.IsNotNil)</span><span class="a">+		qt.Assert(t, err.Error(), qt.Contains, tc.errMsg)</span><span class="a">+	}</span><span class="a">+}</span><span class="f">tpl/collections/collections_test.go</span><span class="h">index 5562a80d6..5e3ff10fc 100644</span><span class="h">@@ -664,8 +664,26 @@ func TestUnion(t *testing.T) {</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;}, nil, []string{&quot;a&quot;, &quot;b&quot;}, false},</span><span class="c"> </span><span class="c"> 		// []A ∪ []B</span><span class="r">-		{[]string{&quot;1&quot;, &quot;2&quot;}, []int{3}, []string{}, false},</span><span class="r">-		{[]int{1, 2}, []string{&quot;1&quot;, &quot;2&quot;}, []int{}, false},</span><span class="a">+		{[]string{&quot;1&quot;, &quot;2&quot;}, []int{3}, false, true},</span><span class="a">+		{[]int{1, 2}, []string{&quot;1&quot;, &quot;2&quot;}, false, true},</span><span class="a">+		{[]int{1, 2}, []float64{2.0, 3.0}, []int{1, 2, 3}, false},</span><span class="a">+		{[]float64{1.5}, []int{1, 2}, []float64{1.5, 1, 2}, false},</span><span class="a">+		{[]float64{}, []int{1}, []float64{1}, false},</span><span class="a">+		{[]int{1}, []float64{1.5}, false, true},</span><span class="a">+		{[]int{1}, []string{&quot;a&quot;}, false, true},</span><span class="a">+		{[]bool{true}, []bool{false, true}, []bool{true, false}, false},</span><span class="a">+		{[][]int{{1}}, []int{2}, false, true},</span><span class="a">+		{[]template.HTML{&quot;&lt;b&gt;a&lt;/b&gt;&quot;}, []string{&quot;&lt;script&gt;&quot;}, false, true},</span><span class="a">+		{[]string{&quot;a&quot;}, []template.HTML{&quot;&lt;b&gt;b&lt;/b&gt;&quot;}, []string{&quot;a&quot;, &quot;&lt;b&gt;b&lt;/b&gt;&quot;}, false},</span><span class="a">+</span><span class="a">+		// []T ∪ []interface{} with values that can&#39;t be converted to T</span><span class="a">+		{[]int{2}, []any{&quot;a&quot;}, false, true},</span><span class="a">+		{[]string{&quot;a&quot;}, []any{1}, false, true},</span><span class="a">+</span><span class="a">+		// []interface{} ∪ []T with values that can&#39;t be converted to the l1 prototype</span><span class="a">+		{[]any{1, 2}, []string{&quot;x&quot;}, []any{1, 2, &quot;x&quot;}, false},</span><span class="a">+		{[]any{1}, []any{&quot;a&quot;, 1.0}, []any{1, &quot;a&quot;}, false},</span><span class="a">+		{[]any{&quot;a&quot;}, []bool{true}, []any{&quot;a&quot;, true}, false},</span><span class="c"> </span><span class="c"> 		// []T ∪ []T</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;c&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;b&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, false},</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/commit/ffbcdba9e9768b6a1bd0580eb56ed26c486f2cce" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+15</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">tpl/collections/collections.go</span><span class="h">index a44603b53..fdb2501f6 100644</span><span class="h">@@ -657,7 +657,12 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 			if l1v.Type() != l2v.Type() &amp;&amp;</span><span class="c"> 				l1v.Type().Elem().Kind() != reflect.Interface &amp;&amp;</span><span class="c"> 				l2v.Type().Elem().Kind() != reflect.Interface {</span><span class="r">-				return ins.r.Interface(), nil</span><span class="a">+				// Numeric element types unify through the conversion below,</span><span class="a">+				// mirroring how intersect matches numbers across types.</span><span class="a">+				if !hreflect.IsNumber(l1v.Type().Elem().Kind()) ||</span><span class="a">+					!hreflect.IsNumber(l2v.Type().Elem().Kind()) {</span><span class="a">+					return ins.r.Interface(), nil</span><span class="a">+				}</span><span class="c"> 			}</span><span class="c"> </span><span class="c"> 			var (</span><span class="h">@@ -698,7 +703,8 @@ func (ns *Namespace) Union(l1, l2 any) (any, error) {</span><span class="c"> 				case hreflect.IsNumber(kind):</span><span class="c"> 					var err error</span><span class="c"> 					l2vv, err = convertNumber(l2vv, typ)</span><span class="r">-					if err == nil {</span><span class="a">+					// The empty l1 prototype comes from l2 and may not match l1&#39;s element type.</span><span class="a">+					if err == nil &amp;&amp; l2vv.Type().AssignableTo(l1v.Type().Elem()) {</span><span class="c"> 						ins.appendIfNotSeen(l2vv)</span><span class="c"> 					}</span><span class="c"> 				case kind == reflect.Interface, kind == reflect.Struct, kind == reflect.Pointer:</span><span class="f">tpl/collections/collections_test.go</span><span class="h">index 5562a80d6..47c51e01d 100644</span><span class="h">@@ -667,6 +667,13 @@ func TestUnion(t *testing.T) {</span><span class="c"> 		{[]string{&quot;1&quot;, &quot;2&quot;}, []int{3}, []string{}, false},</span><span class="c"> 		{[]int{1, 2}, []string{&quot;1&quot;, &quot;2&quot;}, []int{}, false},</span><span class="c"> </span><span class="a">+		// numeric []A ∪ []B unify. See issue 15323.</span><span class="a">+		{[]int{1}, []float64{1.0}, []int{1}, false},</span><span class="a">+		{[]int{1, 2}, []float64{2.0, 3.0}, []int{1, 2, 3}, false},</span><span class="a">+		{[]float64{1.0}, []int{1, 2}, []float64{1.0, 2.0}, false},</span><span class="a">+		// the empty l1 prototype comes from l2, so appends must stay assignable to l1&#39;s element type.</span><span class="a">+		{[]int{}, []float64{1.0}, []int{}, false},</span><span class="a">+</span><span class="c"> 		// []T ∪ []T</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;c&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;b&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, false},</span><span class="c"> 		{[]string{&quot;a&quot;, &quot;b&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}, false},</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261009-153657/15322/">Previous · #15322</a>
+  <a class="mid" href="/backtests/hugo/run-20261009-153657/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261009-153657/15332/">Next · #15332</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13764 Pipeline API `multiple_of()` rejects every `timedelta` and raises `TypeError` for `date`/`time`/`datetime` — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13764 in pydantic/pydantic, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261009-110034/13764/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261009-110034/">run-20261009-110034</a><span aria-hidden="true">/</span><span aria-current="page">#13764</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13764" rel="noopener" target="_blank">#13764</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13768" rel="noopener" target="_blank">PR #13768</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-110034</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Pipeline API <code>multiple_of()</code> rejects every <code>timedelta</code> and raises <code>TypeError</code> for <code>date</code>/<code>time</code>/<code>datetime</code></h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Patch A fixes the root cause the issue identifies. It adds `_MULTIPLE_OF_SCHEMA_TYPES` covering int/float/decimal/date/time/datetime/timedelta, mirroring `_ORDERING_SCHEMA_TYPES` and `_LENGTH_SCHEMA_TYPES`. This makes temporal types apply `multiple_of` natively, as `Field(multiple_of=...)` does. It also hardens the predicate fallback with `not (v % multiple_of)`, so `timedelta % timedelta` returning `timedelta(0)` is handled when the schema is not native, while `Fraction` keeps the predicate path. The tests check pipeline/Field agreement for all four temporal types, the core-schema output, Fraction predicate behavior, and the timedelta predicate fallback. These would fail before the change and pass after it.
+
+Patch B does not touch `pipeline.py` at all, so neither reported bug is fixed: timedelta still rejects every value, and date/time/datetime still raise a bare `TypeError`. Instead, it changes `_known_annotated_metadata.py` to drop `multiple_of` from date/time constraints, which alters the non-experimental `Field()` behavior the issue wants to match. It also deletes the `TIMEDELTA_CONSTRAINTS` and `TIME_CONSTRAINTS` names, which the rest of that module likely references when building `CONSTRAINTS_TO_ALLOWED_SCHEMAS`, so it risks a `NameError` at import time. It adds no tests. Patch A is clearly better on correctness, tests, and scope.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 10s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">12,507 passed · 509 skipped · 13,016 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">74<small>vs 4 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13764" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>In the pipeline API, <code>multiple_of()</code> is broken for every temporal type. <code>timedelta</code> rejects <strong>every</strong> value, including exact multiples, and <code>date</code>/<code>time</code>/<code>datetime</code> raise a bare <code>TypeError</code> that escapes as-is instead of a <code>ValidationError</code>.</p>
+<div class="tablewrap"><table class="table"><thead><tr><th>annotation</th><th><code>.multiple_of(...)</code></th><th><code>Field(multiple_of=...)</code></th><th>correct</th></tr></thead><tbody><tr><td><code>int</code></td><td><code>multiple_of</code> error</td><td><code>multiple_of</code> error</td><td>✅</td></tr><tr><td><code>float</code></td><td><code>multiple_of</code> error</td><td><code>multiple_of</code> error</td><td>✅</td></tr><tr><td><code>Decimal</code></td><td><code>multiple_of</code> error</td><td><code>multiple_of</code> error</td><td>✅</td></tr><tr><td><code>Fraction</code></td><td>predicate check</td><td>n/a (unsupported by core)</td><td>✅</td></tr><tr><td><code>timedelta</code></td><td><strong>rejects everything</strong></td><td>accepts</td><td>❌</td></tr><tr><td><code>date</code></td><td><strong>uncaught <code>TypeError</code></strong></td><td>accepts</td><td>❌</td></tr><tr><td><code>time</code></td><td><strong>uncaught <code>TypeError</code></strong></td><td>accepts</td><td>❌</td></tr><tr><td><code>datetime</code></td><td><strong>uncaught <code>TypeError</code></strong></td><td>accepts</td><td>❌</td></tr></tbody></table></div>
+<p><code>validate_as(timedelta).multiple_of(timedelta(seconds=5))</code> rejects <code>timedelta(seconds=10)</code>, which is an exact multiple.</p>
+<h3>Root cause</h3>
+<p><code>_apply_constraint()</code> applies <code>multiple_of</code> natively only for a hardcoded <code>{&#39;int&#39;, &#39;float&#39;, &#39;decimal&#39;}</code>, and otherwise falls back to a Python predicate:</p>
+<pre><code class="lang-python">def check_multiple_of(v: Any) -&gt; bool:
+    return v % multiple_of == 0</code></pre>
+<p>That predicate cannot work for temporal types:</p>
+<ul><li><code>timedelta(seconds=10) % timedelta(seconds=5)</code> is <code>timedelta(0)</code>, and <code>timedelta(0) == 0</code> is <code>False</code> in Python. The check therefore never holds, for any input.</li><li><code>date</code>, <code>time</code> and <code>datetime</code> do not support <code>%</code> at all, so the predicate raises <code>TypeError: unsupported operand type(s) for %</code>, which is not wrapped into a <code>ValidationError</code>.</li></ul>
+<p>This looks like an oversight rather than a decision. #13659 generalised exactly this pattern for the other constraints, introducing <code>_ORDERING_SCHEMA_TYPES</code> for <code>gt</code>/<code>ge</code>/<code>lt</code>/<code>le</code> and <code>_LENGTH_SCHEMA_TYPES</code> for <code>min_length</code>/<code>max_length</code>, both of which cover the temporal types. <code>MultipleOf</code> was left on its old hardcoded set in the same function.</p>
+<p>Pydantic&#39;s own metadata already records the correct answer — <code>DATE_TIME_CONSTRAINTS</code> in <code>_known_annotated_metadata.py</code> includes <code>NUMERIC_CONSTRAINTS</code>, i.e. <code>multiple_of</code>:</p>
+<pre><code class="lang-python">&gt;&gt;&gt; from pydantic._internal._known_annotated_metadata import CONSTRAINTS_TO_ALLOWED_SCHEMAS
+&gt;&gt;&gt; sorted(CONSTRAINTS_TO_ALLOWED_SCHEMAS[&#39;multiple_of&#39;])
+[&#39;date&#39;, &#39;datetime&#39;, &#39;decimal&#39;, &#39;float&#39;, &#39;int&#39;, &#39;time&#39;, &#39;timedelta&#39;]</code></pre>
+<p><code>fraction</code> is correctly absent there, and must keep using the predicate path — <code>fraction_schema()</code> takes no <code>multiple_of</code> argument, and <code>Fraction</code> supports <code>%</code> correctly.</p>
+<h3>Suggested fix</h3>
+<p>Apply the constraint natively for the schema types that accept it, mirroring #13659:</p>
+<pre><code class="lang-python"># Core schema types with native support for the `multiple_of` constraint:
+_MULTIPLE_OF_SCHEMA_TYPES = frozenset({&#39;int&#39;, &#39;float&#39;, &#39;decimal&#39;, &#39;date&#39;, &#39;time&#39;, &#39;datetime&#39;, &#39;timedelta&#39;})</code></pre>
+<p>This aligns the pipeline API with the non-experimental API, per the position in #13564 that the two should agree. Note that this makes <code>multiple_of</code> a silent no-op on temporal types, because <code>pydantic-core</code> accepts the key but does not enforce it there — which is exactly what <code>Field(multiple_of=...)</code> already does today. Enforcing it would be a <code>pydantic-core</code> change and a separate discussion; this issue is only about the pipeline API diverging from <code>Field()</code>.</p>
+<p>I have a fix and regression tests ready (the tests fail without the fix and pass with it, and <code>pyright</code> stays at its existing baseline). Happy to open a PR if I could be assigned.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">import datetime
+from typing import Annotated
+
+from pydantic import TypeAdapter
+from pydantic.experimental.pipeline import validate_as
+
+td = datetime.timedelta
+
+# 1. timedelta: an exact multiple is rejected.
+ta = TypeAdapter(Annotated[td, validate_as(td).multiple_of(td(seconds=5))])
+ta.validate_python(td(seconds=10))
+# ValidationError: Value error, Expected % 0:00:05 == 0
+# (timedelta(0) == 0 is False, so the predicate never holds)
+
+# 2. date/time/datetime: raw TypeError, not a ValidationError.
+ta = TypeAdapter(Annotated[datetime.date, validate_as(datetime.date).multiple_of(2)])
+ta.validate_python(datetime.date(2020, 1, 1))
+# TypeError: unsupported operand type(s) for %: &#39;datetime.date&#39; and &#39;int&#39;</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">             pydantic version: 2.14.0b1
+        pydantic-core version: 2.48.0
+          pydantic-core build: profile=debug pgo=false
+               python version: 3.13.15 (main, Sep  1 2026, 14:18:08) [Clang 22.1.3 ]
+                     platform: Linux-7.0.0-31-generic-x86_64-with-glibc2.43
+             related packages: typing_extensions-4.16.0
+                       commit: c23cb86e</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+71</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic/experimental/pipeline.py</span><span class="h">index 0fe40733..82ab917d 100644</span><span class="h">@@ -485,6 +485,8 @@ _ORDERING_SCHEMA_TYPES = frozenset({&#39;int&#39;, &#39;float&#39;, &#39;decimal&#39;, &#39;fraction&#39;, &#39;date</span><span class="c"> _LENGTH_SCHEMA_TYPES = frozenset(</span><span class="c">     {&#39;str&#39;, &#39;bytes&#39;, &#39;list&#39;, &#39;tuple&#39;, &#39;set&#39;, &#39;frozenset&#39;, &#39;dict&#39;, &#39;frozendict&#39;, &#39;generator&#39;}</span><span class="c"> )</span><span class="a">+# Core schema types with native support for the `multiple_of` constraint:</span><span class="a">+_MULTIPLE_OF_SCHEMA_TYPES = frozenset({&#39;int&#39;, &#39;float&#39;, &#39;decimal&#39;, &#39;date&#39;, &#39;time&#39;, &#39;datetime&#39;, &#39;timedelta&#39;})</span><span class="c"> </span><span class="c"> </span><span class="c"> def _apply_constraint(  # noqa: C901</span><span class="h">@@ -561,13 +563,14 @@ def _apply_constraint(  # noqa: C901</span><span class="c">             s = _check_func(check_len, predicate_err, s)</span><span class="c">     elif isinstance(constraint, annotated_types.MultipleOf):</span><span class="c">         multiple_of = constraint.multiple_of</span><span class="r">-        if s and s[&#39;type&#39;] in {&#39;int&#39;, &#39;float&#39;, &#39;decimal&#39;}:</span><span class="a">+        if s and s[&#39;type&#39;] in _MULTIPLE_OF_SCHEMA_TYPES:</span><span class="c">             s = s.copy()</span><span class="c">             s[&#39;multiple_of&#39;] = multiple_of  # pyright: ignore[reportGeneralTypeIssues]</span><span class="c">         else:</span><span class="c"> </span><span class="c">             def check_multiple_of(v: Any) -&gt; bool:</span><span class="r">-                return v % multiple_of == 0</span><span class="a">+                # Not `== 0`: e.g. `timedelta % timedelta` returns `timedelta(0)`, which does not compare equal to `0`</span><span class="a">+                return not (v % multiple_of)</span><span class="c"> </span><span class="c">             s = _check_func(check_multiple_of, f&#39;% {multiple_of} == 0&#39;, s)</span><span class="c">     elif isinstance(constraint, annotated_types.Timezone):</span><span class="f">tests/test_pipeline.py</span><span class="h">index 8abe5cb8..6b805375 100644</span><span class="h">@@ -13,7 +13,7 @@ import pytest</span><span class="c"> import pytz</span><span class="c"> from annotated_types import Interval, Len</span><span class="c"> </span><span class="r">-from pydantic import TypeAdapter, ValidationError</span><span class="a">+from pydantic import Field, TypeAdapter, ValidationError</span><span class="c"> from pydantic.experimental.pipeline import _Pipeline, transform, validate_as  # pyright: ignore[reportPrivateUsage]</span><span class="c"> </span><span class="c"> </span><span class="h">@@ -142,6 +142,51 @@ def test_parse_multipleOf(type_: Any, pipeline: Any, valid_cases: list[Any], inv</span><span class="c">             ta.validate_python(y)</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;type_, multiple_of, values&#39;,</span><span class="a">+    [</span><span class="a">+        (</span><span class="a">+            datetime.timedelta,</span><span class="a">+            datetime.timedelta(seconds=5),</span><span class="a">+            [datetime.timedelta(seconds=10), datetime.timedelta(seconds=5), datetime.timedelta(seconds=7)],</span><span class="a">+        ),</span><span class="a">+        (datetime.date, 2, [datetime.date(2020, 1, 1)]),</span><span class="a">+        (datetime.time, 2, [datetime.time(12, 0, 1)]),</span><span class="a">+        (datetime.datetime, 2, [datetime.datetime(2020, 1, 1, 0, 0, 1)]),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_multiple_of_temporal_matches_field(type_: Any, multiple_of: Any, values: list[Any]) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;The pipeline API should agree with `Field(multiple_of=...)` on temporal types,</span><span class="a">+    instead of rejecting every value (`timedelta`) or raising a bare `TypeError` (`date`/`time`/`datetime`).</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    ta_pipeline = TypeAdapter[Any](Annotated[type_, validate_as(type_).multiple_of(multiple_of)])</span><span class="a">+    ta_field = TypeAdapter[Any](Annotated[type_, Field(multiple_of=multiple_of)])</span><span class="a">+    for v in values:</span><span class="a">+        assert ta_pipeline.validate_python(v) == ta_field.validate_python(v) == v</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_multiple_of_fraction_uses_predicate() -&gt; None:</span><span class="a">+    ta = TypeAdapter[Fraction](Annotated[Fraction, validate_as(Fraction).multiple_of(Fraction(1, 2))])</span><span class="a">+    assert ta.validate_python(Fraction(3, 2)) == Fraction(3, 2)</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        ta.validate_python(Fraction(1, 3))</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_multiple_of_timedelta_predicate() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;When the schema isn&#39;t a native `timedelta` schema, the predicate fallback must handle `timedelta` remainders.&quot;&quot;&quot;</span><span class="a">+    ta = TypeAdapter[datetime.timedelta](</span><span class="a">+        Annotated[</span><span class="a">+            datetime.timedelta,</span><span class="a">+            validate_as(int)</span><span class="a">+            .transform(lambda x: datetime.timedelta(seconds=x))</span><span class="a">+            .multiple_of(datetime.timedelta(seconds=5)),</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+    assert ta.validate_python(10) == datetime.timedelta(seconds=10)</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        ta.validate_python(7)</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     &#39;type_, pipeline, valid_cases, invalid_cases&#39;,</span><span class="c">     [</span><span class="h">@@ -293,6 +338,26 @@ def test_len_constraint_on_generator() -&gt; None:</span><span class="c">             validate_as(datetime.timedelta).le(datetime.timedelta(hours=1)),</span><span class="c">             {&#39;type&#39;: &#39;timedelta&#39;, &#39;le&#39;: datetime.timedelta(hours=1)},</span><span class="c">         ),</span><span class="a">+        (</span><span class="a">+            datetime.date,</span><span class="a">+            validate_as(datetime.date).multiple_of(2),  # pyright: ignore[reportCallIssue, reportArgumentType]</span><span class="a">+            {&#39;type&#39;: &#39;date&#39;, &#39;multiple_of&#39;: 2},</span><span class="a">+        ),</span><span class="a">+        (</span><span class="a">+            datetime.time,</span><span class="a">+            validate_as(datetime.time).multiple_of(2),  # pyright: ignore[reportCallIssue, reportArgumentType]</span><span class="a">+            {&#39;type&#39;: &#39;time&#39;, &#39;multiple_of&#39;: 2},</span><span class="a">+        ),</span><span class="a">+        (</span><span class="a">+            datetime.datetime,</span><span class="a">+            validate_as(datetime.datetime).multiple_of(2),  # pyright: ignore[reportCallIssue, reportArgumentType]</span><span class="a">+            {&#39;type&#39;: &#39;datetime&#39;, &#39;multiple_of&#39;: 2},</span><span class="a">+        ),</span><span class="a">+        (</span><span class="a">+            datetime.timedelta,</span><span class="a">+            validate_as(datetime.timedelta).multiple_of(datetime.timedelta(seconds=5)),</span><span class="a">+            {&#39;type&#39;: &#39;timedelta&#39;, &#39;multiple_of&#39;: datetime.timedelta(seconds=5)},</span><span class="a">+        ),</span><span class="c">     ],</span><span class="c"> )</span><span class="c"> def test_constraints_applied_on_core_schema(type_: Any, pipeline: Any, expected_subset: dict[str, Any]) -&gt; None:</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13768" rel="noopener" target="_blank">PR #13768</a></span><span class="pm"><span class="a">+1</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_known_annotated_metadata.py</span><span class="h">index 56ae45aa3..e049d111e 100644</span><span class="h">@@ -48,9 +48,7 @@ INT_CONSTRAINTS = {*NUMERIC_CONSTRAINTS, *ALLOW_INF_NAN, *STRICT}</span><span class="c"> BOOL_CONSTRAINTS = STRICT</span><span class="c"> UUID_CONSTRAINTS = STRICT</span><span class="c"> </span><span class="r">-DATE_TIME_CONSTRAINTS = {*NUMERIC_CONSTRAINTS, *STRICT}</span><span class="r">-TIMEDELTA_CONSTRAINTS = {*NUMERIC_CONSTRAINTS, *STRICT}</span><span class="r">-TIME_CONSTRAINTS = {*NUMERIC_CONSTRAINTS, *STRICT}</span><span class="a">+DATE_TIME_CONSTRAINTS = {*INEQUALITY, *STRICT}</span><span class="c"> LAX_OR_STRICT_CONSTRAINTS = STRICT</span><span class="c"> ENUM_CONSTRAINTS = STRICT</span><span class="c"> COMPLEX_CONSTRAINTS = STRICT</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261009-110034/13713/">Previous · #13713</a>
+  <a class="mid" href="/backtests/pydantic/run-20261009-110034/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261009-110034/13771/">Next · #13771</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

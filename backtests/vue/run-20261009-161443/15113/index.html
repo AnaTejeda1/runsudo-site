@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15113 SSR memory leak - options API watchers are created and never stopped with async `setup()` — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15113 in vuejs/core, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261009-161443/15113/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261009-161443/">run-20261009-161443</a><span aria-hidden="true">/</span><span aria-current="page">#15113</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15113" rel="noopener" target="_blank">#15113</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15114" rel="noopener" target="_blank">PR #15114</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-161443</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">SSR memory leak - options API watchers are created and never stopped with async <code>setup()</code></h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The production code change is identical in both patches. Each wraps `handleSetupResult` in the async-setup `.then()` callback with `setInSSRSetupState(true)`, then resets it to false in a `finally`. This fixes the root cause: after the setup promise resolves, `finishComponentSetup`/`applyOptions` runs with `isInSSRComponentSetup` set, so `watch` options and `this.$watch` calls in `created()` follow SSR semantics. Non-immediate watchers become no-ops, and sync watchers are registered for SSR cleanup. Correctness is equal.
+
+The difference is in the tests. Both include the issue&#39;s reproduction test, which fails before the fix and passes after. Patch A adds a GC/WeakRef retention test. It targets the memory-leak symptom directly, but it sits in a suite marked `describe.skipIf(!global.gc)`, so it only runs when GC is exposed. Patch B adds two always-run tests covering other paths through the same fix. One checks `this.$watch` inside `created()`, confirming non-immediate watchers stay inert while immediate ones run exactly once. The other checks a `flush: &#39;sync&#39;` options watcher, which goes through the SSR cleanup-handle path rather than the NOOP path. These exercise distinct branches of the SSR watcher logic that the fix enables, so Patch B&#39;s regression coverage is broader and more reliably executed. Patch B also adds a short comment explaining why the SSR setup state is restored, which makes the intent clearer.
+
+With code parity, Patch B&#39;s broader always-running tests and clearer comment make it the slightly better patch.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 51s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">1,739 passed · 1 skipped · 1,740 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">85<small>vs 76 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15113" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.40</p>
+<h3>Steps to reproduce</h3>
+<p>originally reported in <a href="https://github.com/nuxt/nuxt/issues/30782" rel="noopener nofollow" target="_blank">https://github.com/nuxt/nuxt/issues/30782</a></p>
+<ol><li>create an options API component with an <code>async setup()</code>, a <code>computed</code> property that reads shared module-level state, and a <code>watch</code> on that</li><li>render it on the server and then mutate the shared state after the render is done</li><li>see that the watcher is still active on the server</li></ol>
+<p><strong>Reproduction</strong></p>
+<pre><code class="lang-ts">test(&#39;options-api watchers should not be created for async setup components&#39;, async () =&gt; {
+  const open = ref(true)
+  const spy = vi.fn()
+
+  const App = defineComponent({
+    setup: () =&gt; Promise.resolve({}),
+    computed: {
+      isOpen() {
+        return open.value
+      },
+    },
+    watch: {
+      isOpen: spy,
+    },
+    render() {
+      return h(&#39;div&#39;, String(this.isOpen))
+    },
+  })
+
+  const html = await renderToString(createSSRApp(App))
+  expect(html).toBe(&#39;&lt;div&gt;true&lt;/div&gt;&#39;)
+
+  // mutating the state after the request is done should not trigger the watcher
+  open.value = false
+  await nextTick()
+  expect(spy).not.toHaveBeenCalled()
+})</code></pre>
+<h3>What is expected?</h3>
+<p>the same behavior as with a synchronous setup: regular watchers declared via the <code>watch</code> option don&#39;t run during SSR and don&#39;t survive the render</p>
+<p>mutating the shared state after <code>renderToString</code> resolves should not trigger anything</p>
+<h3>What is actually happening?</h3>
+<p>when <code>setup()</code> returns a <code>Promise</code>, the <code>watch</code> option creates a live watcher on the server that is never stopped</p>
+<p>if this subscribes to state that <strong>outlives the request</strong>, it keeps the <strong>entire component instance (and app) reachable forever</strong></p>
+<h3>System Info</h3>
+<pre><code class="lang-shell"></code></pre>
+<h3>Any additional comments?</h3>
+<p>_No response_</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+84</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/runtime-core/src/component.ts</span><span class="h">index c46741bee..4156a9170 100644</span><span class="h">@@ -894,7 +894,14 @@ function setupStatefulComponent(</span><span class="c">         // return the promise so server-renderer can wait on it</span><span class="c">         return setupResult</span><span class="c">           .then((resolvedResult: unknown) =&gt; {</span><span class="r">-            handleSetupResult(instance, resolvedResult, isSSR)</span><span class="a">+            // restore SSR setup state so that options API (watch, computed,</span><span class="a">+            // lifecycle hooks) applied after async setup behave as in SSR</span><span class="a">+            setInSSRSetupState(true)</span><span class="a">+            try {</span><span class="a">+              handleSetupResult(instance, resolvedResult, isSSR)</span><span class="a">+            } finally {</span><span class="a">+              setInSSRSetupState(false)</span><span class="a">+            }</span><span class="c">           })</span><span class="c">           .catch(e =&gt; {</span><span class="c">             handleError(e, instance, ErrorCodes.SETUP_FUNCTION)</span><span class="f">packages/server-renderer/__tests__/ssrWatch.spec.ts</span><span class="h">index 2b1ad98d2..04a667a3a 100644</span><span class="h">@@ -212,6 +212,82 @@ describe(&#39;ssr: watch&#39;, () =&gt; {</span><span class="c">     expect(beforeAwaitTriggered).toBe(false)</span><span class="c">     expect(afterAwaitTriggered).toBe(false)</span><span class="c">   })</span><span class="a">+</span><span class="a">+  test(&#39;options-api watchers should not be created for async setup components&#39;, async () =&gt; {</span><span class="a">+    const open = ref(true)</span><span class="a">+    const spy = vi.fn()</span><span class="a">+</span><span class="a">+    const App = defineComponent({</span><span class="a">+      setup: () =&gt; Promise.resolve({}),</span><span class="a">+      computed: {</span><span class="a">+        isOpen() {</span><span class="a">+          return open.value</span><span class="a">+        },</span><span class="a">+      },</span><span class="a">+      watch: {</span><span class="a">+        isOpen: spy,</span><span class="a">+      },</span><span class="a">+      render() {</span><span class="a">+        return h(&#39;div&#39;, String(this.isOpen))</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    const html = await renderToString(createSSRApp(App))</span><span class="a">+    expect(html).toBe(&#39;&lt;div&gt;true&lt;/div&gt;&#39;)</span><span class="a">+</span><span class="a">+    // mutating the state after the request is done should not trigger the watcher</span><span class="a">+    open.value = false</span><span class="a">+    await nextTick()</span><span class="a">+    expect(spy).not.toHaveBeenCalled()</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  test(&#39;this.$watch in created() should not leak for async setup components&#39;, async () =&gt; {</span><span class="a">+    const open = ref(true)</span><span class="a">+    const spy = vi.fn()</span><span class="a">+    const immediateSpy = vi.fn()</span><span class="a">+</span><span class="a">+    const App = defineComponent({</span><span class="a">+      setup: () =&gt; Promise.resolve({}),</span><span class="a">+      created() {</span><span class="a">+        this.$watch(() =&gt; open.value, spy)</span><span class="a">+        this.$watch(() =&gt; open.value, immediateSpy, { immediate: true })</span><span class="a">+      },</span><span class="a">+      render() {</span><span class="a">+        return h(&#39;div&#39;, String(open.value))</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    const html = await renderToString(createSSRApp(App))</span><span class="a">+    expect(html).toBe(&#39;&lt;div&gt;true&lt;/div&gt;&#39;)</span><span class="a">+    expect(immediateSpy).toHaveBeenCalledTimes(1)</span><span class="a">+</span><span class="a">+    open.value = false</span><span class="a">+    await nextTick()</span><span class="a">+    expect(spy).not.toHaveBeenCalled()</span><span class="a">+    expect(immediateSpy).toHaveBeenCalledTimes(1)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  test(&#39;options-api flush:sync watchers should be cleaned up for async setup components&#39;, async () =&gt; {</span><span class="a">+    const open = ref(true)</span><span class="a">+    const spy = vi.fn()</span><span class="a">+</span><span class="a">+    const App = defineComponent({</span><span class="a">+      setup: () =&gt; Promise.resolve({}),</span><span class="a">+      watch: {</span><span class="a">+        open: { handler: spy, flush: &#39;sync&#39; },</span><span class="a">+      },</span><span class="a">+      data: () =&gt; ({ open }),</span><span class="a">+      render() {</span><span class="a">+        return h(&#39;div&#39;, String(open.value))</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    const html = await renderToString(createSSRApp(App))</span><span class="a">+    expect(html).toBe(&#39;&lt;div&gt;true&lt;/div&gt;&#39;)</span><span class="a">+</span><span class="a">+    open.value = false</span><span class="a">+    expect(spy).not.toHaveBeenCalled()</span><span class="a">+  })</span><span class="c"> })</span><span class="c"> </span><span class="c"> describe(&#39;ssr: watchEffect&#39;, () =&gt; {</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15114" rel="noopener" target="_blank">PR #15114</a></span><span class="pm"><span class="a">+75</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/runtime-core/src/component.ts</span><span class="h">index c46741bee..162a6ad44 100644</span><span class="h">@@ -894,7 +894,12 @@ function setupStatefulComponent(</span><span class="c">         // return the promise so server-renderer can wait on it</span><span class="c">         return setupResult</span><span class="c">           .then((resolvedResult: unknown) =&gt; {</span><span class="r">-            handleSetupResult(instance, resolvedResult, isSSR)</span><span class="a">+            setInSSRSetupState(true)</span><span class="a">+            try {</span><span class="a">+              handleSetupResult(instance, resolvedResult, isSSR)</span><span class="a">+            } finally {</span><span class="a">+              setInSSRSetupState(false)</span><span class="a">+            }</span><span class="c">           })</span><span class="c">           .catch(e =&gt; {</span><span class="c">             handleError(e, instance, ErrorCodes.SETUP_FUNCTION)</span><span class="f">packages/server-renderer/__tests__/ssrWatch.spec.ts</span><span class="h">index 2b1ad98d2..2dad83cd2 100644</span><span class="h">@@ -130,6 +130,35 @@ describe(&#39;ssr: watch&#39;, () =&gt; {</span><span class="c">     expect(msg).toBe(&#39;start&#39;)</span><span class="c">   })</span><span class="c"> </span><span class="a">+  // #15113</span><span class="a">+  test(&#39;options-api watchers should not be created for async setup components&#39;, async () =&gt; {</span><span class="a">+    const open = ref(true)</span><span class="a">+    const spy = vi.fn()</span><span class="a">+</span><span class="a">+    const App = defineComponent({</span><span class="a">+      setup: () =&gt; Promise.resolve({}),</span><span class="a">+      computed: {</span><span class="a">+        isOpen() {</span><span class="a">+          return open.value</span><span class="a">+        },</span><span class="a">+      },</span><span class="a">+      watch: {</span><span class="a">+        isOpen: spy,</span><span class="a">+      },</span><span class="a">+      render() {</span><span class="a">+        return h(&#39;div&#39;, String(this.isOpen))</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    const html = await renderToString(createSSRApp(App))</span><span class="a">+    expect(html).toBe(&#39;&lt;div&gt;true&lt;/div&gt;&#39;)</span><span class="a">+</span><span class="a">+    // mutating the state after the request is done should not trigger the watcher</span><span class="a">+    open.value = false</span><span class="a">+    await nextTick()</span><span class="a">+    expect(spy).not.toHaveBeenCalled()</span><span class="a">+  })</span><span class="a">+</span><span class="c">   test(&#39;should not run non-immediate watchers registered after async context restore&#39;, async () =&gt; {</span><span class="c">     const text = ref(&#39;start&#39;)</span><span class="c">     let beforeAwaitTriggered = false</span><span class="h">@@ -351,4 +380,44 @@ describe.skipIf(!global.gc)(&#39;ssr: watch gc&#39;, () =&gt; {</span><span class="c"> </span><span class="c">     expect(weakRefs.filter(ref =&gt; ref.deref()).length).toBe(0)</span><span class="c">   })</span><span class="a">+</span><span class="a">+  // #15113</span><span class="a">+  test(&#39;options-api should not retain apps with async setup + watcher on global state&#39;, async () =&gt; {</span><span class="a">+    const weakRefs: { deref(): unknown | undefined }[] = []</span><span class="a">+</span><span class="a">+    const open = ref(true)</span><span class="a">+</span><span class="a">+    const App = defineComponent({</span><span class="a">+      setup: () =&gt; Promise.resolve({}),</span><span class="a">+      computed: {</span><span class="a">+        isOpen() {</span><span class="a">+          return open.value</span><span class="a">+        },</span><span class="a">+      },</span><span class="a">+      watch: {</span><span class="a">+        isOpen() {},</span><span class="a">+      },</span><span class="a">+      render() {</span><span class="a">+        return h(&#39;div&#39;, String(this.isOpen))</span><span class="a">+      },</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    async function renderOnce() {</span><span class="a">+      const app = createSSRApp(App)</span><span class="a">+      // @ts-expect-error ES2021 API</span><span class="a">+      weakRefs.push(new WeakRef(app))</span><span class="a">+      const html = await renderToString(app)</span><span class="a">+      expect(html).toBe(&#39;&lt;div&gt;true&lt;/div&gt;&#39;)</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    for (let i = 0; i &lt; 10; i++) {</span><span class="a">+      await renderOnce()</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    for (let i = 0; i &lt; 5; i++) {</span><span class="a">+      await gc()</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    expect(weakRefs.filter(ref =&gt; ref.deref()).length).toBe(0)</span><span class="a">+  })</span><span class="c"> })</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261009-161443/15096/">Previous · #15096</a>
+  <a class="mid" href="/backtests/vue/run-20261009-161443/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261009-161443/15126/">Next · #15126</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

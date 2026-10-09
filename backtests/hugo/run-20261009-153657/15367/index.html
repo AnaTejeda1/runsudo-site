@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15367 Allow symlinks for mount source for the main project — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15367 in gohugoio/hugo, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261009-153657/15367/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261009-153657/">run-20261009-153657</a><span aria-hidden="true">/</span><span aria-current="page">#15367</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15367" rel="noopener" target="_blank">#15367</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15368" rel="noopener" target="_blank">PR #15368</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-153657</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Allow symlinks for mount source for the main project</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The production code change is effectively identical in both patches: each wraps the `isSymlinkOrHasSymlinkParent` check in `if !rm.IsProject`, so main-project mount roots may be symlinks while theme/module mounts are still dropped. Correctness is equal, and the difference lies in tests and comments. Patch A&#39;s tests are more thorough and track the issue more closely. It adds a content mount whose source is a symlinked directory (`projectcontentlink` -&gt; `projectcontentsrc`, mounted at `content/project-a`), which is the exact scenario in the issue, and asserts the page `p1/` is built. It also adds a nested symlink inside the symlinked project mount root (`rootdir/subdir/nestedsymlink.txt`) and verifies it is still excluded, both via `resources.Get` and via a `resources.Match` count of 3. This confirms the exemption only covers the mount root and does not weaken the per-file symlink filtering. Patch B covers only the assets mount root and parent cases, and does not test that nested symlinks remain blocked. A&#39;s code comment also states the security boundary more accurately (&#39;Symlinks below the mount root are still dropped, see statRoot&#39;). B&#39;s rationale, that absolute mount sources mean a symlink gains nothing, is reasonable but says less about what remains protected. Neither patch adds unrelated churn. A wins on test quality and clarity.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">19m 44s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">1,788 passed · 79 skipped · 1,867 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">51<small>vs 31 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15367" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Hugo 0.166.0 introduced commit <a href="https://github.com/gohugoio/hugo/commit/938c820626bd0a524dc1482cbe83b6c2e1171d20" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/commit/938c820626bd0a524dc1482cbe83b6c2e1171d20</a> (hugofs: Drop symlinked mount roots) that breaks a legit use-case of symlinks.</p>
+<p>In my case, I mount a directory in my <code>hugo.yaml</code>:</p>
+<pre><code class="lang-yaml">module:
+  mounts:
+    - source: &quot;content&quot;
+      target: &quot;content&quot;
+    # Mount content generated in another repository
+    - source: &quot;_build/includes/project-a&quot;
+      target: &quot;content/project-a&quot;</code></pre>
+<p><code>_build/includes/project-a</code> itself can be a symlink to another local directory, e.g. <code>../../../project-a</code>, which allows quick local debugging. In production, a CI workflow may clone the Git repo of project-a to this destination which does not trigger the problem.</p>
+<p>I am not familiar with the internals of hugofs and the security concept, but would appreciate if users could trust certain mounts, and therefore bypass the newly introduced hard drop of symlinks.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+42</span> <span class="r">−9</span></span></div><pre class="diff"><span class="f">hugofs/rootmapping_fs.go</span><span class="h">index 4b123bf21..56a44b0b9 100644</span><span class="h">@@ -63,12 +63,16 @@ func NewRootMappingFs(fs afero.Fs, rms ...*RootMapping) (*RootMappingFs, error)</span><span class="c"> </span><span class="c"> 		// Don&#39;t allow a symlinked mount root (or any directory between it and</span><span class="c"> 		// the module root) to escape the module.</span><span class="r">-		symlink, err := isSymlinkOrHasSymlinkParent(fs, rm.ToBase, rm.To)</span><span class="r">-		if err != nil {</span><span class="r">-			return nil, err</span><span class="r">-		}</span><span class="r">-		if symlink {</span><span class="r">-			continue</span><span class="a">+		// The main project is trusted, so its mount roots may be symlinks.</span><span class="a">+		// Symlinks below the mount root are still dropped, see statRoot.</span><span class="a">+		if !rm.IsProject {</span><span class="a">+			symlink, err := isSymlinkOrHasSymlinkParent(fs, rm.ToBase, rm.To)</span><span class="a">+			if err != nil {</span><span class="a">+				return nil, err</span><span class="a">+			}</span><span class="a">+			if symlink {</span><span class="a">+				continue</span><span class="a">+			}</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		fi, err := fs.Stat(rm.To)</span><span class="f">testscripts/commands/no_symlinks.txt</span><span class="h">index f62e608d9..37ac43604 100644</span><span class="h">@@ -5,6 +5,9 @@ ln ./rootfile.txt ./themes/mytheme/static/modstaticsymlink.txt</span><span class="c"> ln ./README.md ./content/pagesymlink.md</span><span class="c"> ln ./rootdir ./assets/myassets/symlinkdir</span><span class="c"> ln ./rootdir ./projectmountroot</span><span class="a">+ln ./rootdir ./projectmountparent</span><span class="a">+ln ./projectcontentsrc ./projectcontentlink</span><span class="a">+ln ./rootfile.txt ./rootdir/subdir/nestedsymlink.txt</span><span class="c"> ln ./rootdir ./themes/mytheme/thememountroot</span><span class="c"> ln ./rootdir ./themes/mytheme/thememountparent</span><span class="c"> </span><span class="h">@@ -21,7 +24,16 @@ stdout &#39;modstatictok&#39;</span><span class="c"> ! stdout &#39;modstaticsymlink&#39;</span><span class="c"> stdout pageok</span><span class="c"> ! stdout pagesymlink</span><span class="r">-! stdout rootdirfile</span><span class="a">+stdout &#39;projectmountroot/&#39;</span><span class="a">+stdout &#39;rootdirfile1.txt&#39;</span><span class="a">+stdout &#39;projectmountparent/&#39;</span><span class="a">+stdout &#39;rootdirfile3.txt&#39;</span><span class="a">+stdout &#39;project-a/&#39;</span><span class="a">+stdout &#39;p1/&#39;</span><span class="a">+! stdout &#39;nestedsymlink&#39;</span><span class="a">+! stdout &#39;thememountroot&#39;</span><span class="a">+! stdout &#39;thememountparent&#39;</span><span class="a">+! stdout &#39;symlinkdir&#39;</span><span class="c"> </span><span class="c"> -- hugo.toml --</span><span class="c"> disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;]</span><span class="h">@@ -33,6 +45,15 @@ target = &#39;assets&#39;</span><span class="c"> [[module.mounts]]</span><span class="c"> source = &#39;projectmountroot&#39;</span><span class="c"> target = &#39;assets/projectmountroot&#39;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &#39;projectmountparent/subdir&#39;</span><span class="a">+target = &#39;assets/projectmountparent&#39;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &#39;content&#39;</span><span class="a">+target = &#39;content&#39;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &#39;projectcontentlink&#39;</span><span class="a">+target = &#39;content/project-a&#39;</span><span class="c"> -- themes/mytheme/hugo.toml --</span><span class="c"> [[module.mounts]]</span><span class="c"> source = &#39;assets&#39;</span><span class="h">@@ -54,10 +75,14 @@ Read me.</span><span class="c"> {{ with resources.GetMatch &quot;modassetsymlink.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> {{ with resources.GetMatch &quot;myassets/symlinkdir/**&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> {{ with resources.Get &quot;myassets/symlinkdir/rootdirfile1.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="r">-{{ with resources.Get &quot;projectmountroot/rootdirfile1.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="a">+{{ with resources.Get &quot;projectmountroot/rootdirfile1.txt&quot;}}OK {{ .Publish }}{{ else }}FAIL{{ end }}</span><span class="a">+{{ with resources.Get &quot;projectmountroot/subdir/rootdirfile3.txt&quot;}}OK {{ .Publish }}{{ else }}FAIL{{ end }}</span><span class="a">+{{ with resources.Get &quot;projectmountroot/subdir/nestedsymlink.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="a">+{{ with resources.Get &quot;projectmountparent/rootdirfile3.txt&quot;}}OK {{ .Publish }}{{ else }}FAIL{{ end }}</span><span class="a">+{{ with resources.Match &quot;projectmountroot/**&quot;}}{{ if eq (len .) 3 }}OK{{ else }}FAIL {{ len . }}{{ end }}{{ else }}FAIL{{ end }}</span><span class="c"> {{ with resources.Get &quot;thememountroot/rootdirfile1.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> {{ with resources.Get &quot;thememountparent/rootdirfile3.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="r">-{{ with resources.GetMatch &quot;*mountroot/**&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="a">+{{ with resources.GetMatch &quot;thememount*/**&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> Page: {{ .RelPermalink }}|{{ .Content }}|</span><span class="c"> </span><span class="c"> {{/* os template package. */}}</span><span class="h">@@ -77,6 +102,10 @@ Page: {{ .RelPermalink }}|{{ .Content }}|</span><span class="c"> {{ end }}</span><span class="c"> </span><span class="c"> -- content/pageok.md --</span><span class="a">+-- projectcontentsrc/p1.md --</span><span class="a">+---</span><span class="a">+title: P1</span><span class="a">+---</span><span class="c"> -- themes/mytheme/assets/modassetok.txt --</span><span class="c"> Content.</span><span class="c"> -- themes/mytheme/static/modstatictok.txt --</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15368" rel="noopener" target="_blank">PR #15368</a></span><span class="pm"><span class="a">+21</span> <span class="r">−10</span></span></div><pre class="diff"><span class="f">hugofs/rootmapping_fs.go</span><span class="h">index 4b123bf21..e8c8e2804 100644</span><span class="h">@@ -62,13 +62,16 @@ func NewRootMappingFs(fs afero.Fs, rms ...*RootMapping) (*RootMappingFs, error)</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		// Don&#39;t allow a symlinked mount root (or any directory between it and</span><span class="r">-		// the module root) to escape the module.</span><span class="r">-		symlink, err := isSymlinkOrHasSymlinkParent(fs, rm.ToBase, rm.To)</span><span class="r">-		if err != nil {</span><span class="r">-			return nil, err</span><span class="r">-		}</span><span class="r">-		if symlink {</span><span class="r">-			continue</span><span class="a">+		// the module root) to escape the module. The main project is exempt;</span><span class="a">+		// its mount sources may be absolute, so a symlink gains nothing.</span><span class="a">+		if !rm.IsProject {</span><span class="a">+			symlink, err := isSymlinkOrHasSymlinkParent(fs, rm.ToBase, rm.To)</span><span class="a">+			if err != nil {</span><span class="a">+				return nil, err</span><span class="a">+			}</span><span class="a">+			if symlink {</span><span class="a">+				continue</span><span class="a">+			}</span><span class="c"> 		}</span><span class="c"> </span><span class="c"> 		fi, err := fs.Stat(rm.To)</span><span class="f">testscripts/commands/no_symlinks.txt</span><span class="h">index f62e608d9..cf8904d3e 100644</span><span class="h">@@ -5,6 +5,7 @@ ln ./rootfile.txt ./themes/mytheme/static/modstaticsymlink.txt</span><span class="c"> ln ./README.md ./content/pagesymlink.md</span><span class="c"> ln ./rootdir ./assets/myassets/symlinkdir</span><span class="c"> ln ./rootdir ./projectmountroot</span><span class="a">+ln ./rootdir ./projectmountparent</span><span class="c"> ln ./rootdir ./themes/mytheme/thememountroot</span><span class="c"> ln ./rootdir ./themes/mytheme/thememountparent</span><span class="c"> </span><span class="h">@@ -19,9 +20,11 @@ stdout modassetok</span><span class="c"> ! stdout modassetsymlink</span><span class="c"> stdout &#39;modstatictok&#39;</span><span class="c"> ! stdout &#39;modstaticsymlink&#39;</span><span class="a">+stdout projectmountroot</span><span class="a">+stdout projectmountparent</span><span class="c"> stdout pageok</span><span class="c"> ! stdout pagesymlink</span><span class="r">-! stdout rootdirfile</span><span class="a">+! stdout thememount</span><span class="c"> </span><span class="c"> -- hugo.toml --</span><span class="c"> disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;]</span><span class="h">@@ -33,6 +36,9 @@ target = &#39;assets&#39;</span><span class="c"> [[module.mounts]]</span><span class="c"> source = &#39;projectmountroot&#39;</span><span class="c"> target = &#39;assets/projectmountroot&#39;</span><span class="a">+[[module.mounts]]</span><span class="a">+source = &#39;projectmountparent/subdir&#39;</span><span class="a">+target = &#39;assets/projectmountparent&#39;</span><span class="c"> -- themes/mytheme/hugo.toml --</span><span class="c"> [[module.mounts]]</span><span class="c"> source = &#39;assets&#39;</span><span class="h">@@ -54,10 +60,12 @@ Read me.</span><span class="c"> {{ with resources.GetMatch &quot;modassetsymlink.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> {{ with resources.GetMatch &quot;myassets/symlinkdir/**&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> {{ with resources.Get &quot;myassets/symlinkdir/rootdirfile1.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="r">-{{ with resources.Get &quot;projectmountroot/rootdirfile1.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="a">+{{ with resources.Get &quot;projectmountroot/rootdirfile1.txt&quot;}}OK {{ .Publish }}{{ else }}FAIL{{ end }}</span><span class="a">+{{ with resources.Get &quot;projectmountparent/rootdirfile3.txt&quot;}}OK {{ .Publish }}{{ else }}FAIL{{ end }}</span><span class="a">+{{ with resources.Get &quot;projectmountroot/subdir/rootdirfile3.txt&quot;}}OK {{ .Publish }}{{ else }}FAIL{{ end }}</span><span class="c"> {{ with resources.Get &quot;thememountroot/rootdirfile1.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> {{ with resources.Get &quot;thememountparent/rootdirfile3.txt&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="r">-{{ with resources.GetMatch &quot;*mountroot/**&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="a">+{{ with resources.GetMatch &quot;thememount*/**&quot;}}FAIL {{ .Publish }}{{ else }}OK{{ end }}</span><span class="c"> Page: {{ .RelPermalink }}|{{ .Content }}|</span><span class="c"> </span><span class="c"> {{/* os template package. */}}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261009-153657/15355/">Previous · #15355</a>
+  <a class="mid" href="/backtests/hugo/run-20261009-153657/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261009-153657/15373/">Next · #15373</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

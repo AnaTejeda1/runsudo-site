@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15217 The Playground&#39;s TS version is set to 7 by default. — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15217 in vuejs/core, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261009-161443/15217/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261009-161443/">run-20261009-161443</a><span aria-hidden="true">/</span><span aria-current="page">#15217</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15217" rel="noopener" target="_blank">#15217</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15219" rel="noopener" target="_blank">PR #15219</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-161443</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">The Playground&#39;s TS version is set to 7 by default.</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way: they pass a `typescriptVersion` ref into `useStore` so the playground no longer defaults to @vue/repl&#39;s &#39;latest&#39;, which now resolves to TS 7.
+
+Patch A hardcodes the exact version &#39;6.0.3&#39;. It works today, but it will go stale as new 6.x patch releases ship, and someone has to remember to bump it. It adds no tests and does not explain why the pin exists.
+
+Patch B defaults to the major range &#39;6&#39;, which the CDN resolves to the newest stable 6.x release, so it keeps tracking TS 6 updates without maintenance. It also handles a consequence of using a range: the version dropdown would otherwise highlight no entry. The new `isActiveVersion` helper in VersionSelect.vue resolves &#39;6&#39; to the newest non-prerelease 6.x entry. It also keeps the existing &#39;latest&#39; and exact-match behaviour. A comment explains why TS 7 is avoided.
+
+Patch B adds a spec. It checks that the default is &#39;6&#39; and resolves to 6.0.3, not 7.0.0 or a 6.1 beta, and it covers the highlighting cases. The test on the default value would fail before the change.
+
+The small risk in B is that @vue/repl internals might not handle a range string as well as an exact version, but CDN URLs accept major ranges. The added module is small and focused. On balance, B is the more durable and better-tested fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 9s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2 passed · 0 skipped · 2 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">59<small>vs 3 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15217" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>commit(d2c458b)</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/" rel="noopener nofollow" target="_blank">https://play.vuejs.org/</a></p>
+<h3>Steps to reproduce</h3>
+<ol><li>open Playground: <a href="https://play.vuejs.org/" rel="noopener nofollow" target="_blank">https://play.vuejs.org/</a></li><li>TS version has been set latest and it&#39;s over 7. </li></ol>
+<h3>What is expected?</h3>
+<p>It&#39;s not friendly for someone new to Vue and they don&#39;t know that Vue doesn&#39;t support TS7 at this time.<br>I think this is temporary issue, but until Vue supports TS7, It is helpful to tell that.</p>
+<p>Or rather, the TS version should default to TS6, not the latest.</p>
+<h3>What is actually happening?</h3>
+<p>Broken type support if TS version is not changed.</p>
+<p>&lt;img width=&quot;470&quot; height=&quot;265&quot; alt=&quot;Image&quot; src=&quot;https://github.com/user-attachments/assets/a5f13371-1180-4c6f-8714-06f32f7c11c8&quot; /&gt;</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell"></code></pre>
+<h3>Any additional comments?</h3>
+<p>_No response_</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+55</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">packages-private/sfc-playground/__tests__/typescriptVersion.spec.ts</span><span class="h">new file mode 100644</span><span class="h">index 000000000..06163a339</span><span class="h">@@ -0,0 +1,23 @@</span><span class="a">+import {</span><span class="a">+  DEFAULT_TYPESCRIPT_VERSION,</span><span class="a">+  isActiveVersion,</span><span class="a">+} from &#39;../src/typescriptVersion&#39;</span><span class="a">+</span><span class="a">+describe(&#39;sfc-playground: TypeScript version&#39;, () =&gt; {</span><span class="a">+  const versions = [&#39;7.0.0&#39;, &#39;6.1.0-beta&#39;, &#39;6.0.3&#39;, &#39;6.0.2&#39;, &#39;5.9.3&#39;]</span><span class="a">+  const active = (v: unknown) =&gt;</span><span class="a">+    versions.filter(ver =&gt; isActiveVersion(ver, v, versions))</span><span class="a">+</span><span class="a">+  test(&#39;defaults to the latest TypeScript 6 release, not TS 7&#39;, () =&gt; {</span><span class="a">+    expect(DEFAULT_TYPESCRIPT_VERSION).toBe(&#39;6&#39;)</span><span class="a">+    expect(active(DEFAULT_TYPESCRIPT_VERSION)).toEqual([&#39;6.0.3&#39;])</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  test(&#39;highlights the active version in the version list&#39;, () =&gt; {</span><span class="a">+    expect(active(&#39;latest&#39;)).toEqual([&#39;7.0.0&#39;])</span><span class="a">+    expect(active(&#39;5.9.3&#39;)).toEqual([&#39;5.9.3&#39;])</span><span class="a">+    expect(active(&#39;6.1.0-beta&#39;)).toEqual([&#39;6.1.0-beta&#39;])</span><span class="a">+    expect(active(&#39;4&#39;)).toEqual([])</span><span class="a">+    expect(isActiveVersion(&#39;6.0.3&#39;, &#39;6&#39;, undefined)).toBe(false)</span><span class="a">+  })</span><span class="a">+})</span><span class="f">packages-private/sfc-playground/src/App.vue</span><span class="h">index 7020211f4..8254a5248 100644</span><span class="h">@@ -2,6 +2,7 @@</span><span class="c"> import Header from &#39;./Header.vue&#39;</span><span class="c"> import { Repl, useStore, SFCOptions, useVueImportMap } from &#39;@vue/repl&#39;</span><span class="c"> import Monaco from &#39;@vue/repl/monaco-editor&#39;</span><span class="a">+import { DEFAULT_TYPESCRIPT_VERSION } from &#39;./typescriptVersion&#39;</span><span class="c"> import { ref, watchEffect, onMounted, computed, watch } from &#39;vue&#39;</span><span class="c"> </span><span class="c"> const replRef = ref&lt;InstanceType&lt;typeof Repl&gt;&gt;()</span><span class="h">@@ -70,6 +71,7 @@ const store = useStore(</span><span class="c">     builtinImportMap: importMap,</span><span class="c">     vueVersion,</span><span class="c">     sfcOptions,</span><span class="a">+    typescriptVersion: ref(DEFAULT_TYPESCRIPT_VERSION),</span><span class="c">   },</span><span class="c">   hash,</span><span class="c"> )</span><span class="f">packages-private/sfc-playground/src/VersionSelect.vue</span><span class="h">index 57efdb5f6..660d6a892 100644</span><span class="h">@@ -1,6 +1,7 @@</span><span class="c"> &lt;script setup lang=&quot;ts&quot;&gt;</span><span class="c"> import { onMounted, ref } from &#39;vue&#39;</span><span class="c"> import Copy from &#39;./icons/Copy.vue&#39;</span><span class="a">+import { isActiveVersion } from &#39;./typescriptVersion&#39;</span><span class="c"> </span><span class="c"> const expanded = ref(false)</span><span class="c"> const versions = ref&lt;string[]&gt;()</span><span class="h">@@ -87,11 +88,9 @@ onMounted(() =&gt; {</span><span class="c">     &lt;ul class=&quot;versions&quot; :class=&quot;{ expanded }&quot;&gt;</span><span class="c">       &lt;li v-if=&quot;!versions&quot;&gt;&lt;a&gt;loading versions...&lt;/a&gt;&lt;/li&gt;</span><span class="c">       &lt;li</span><span class="r">-        v-for=&quot;(ver, index) of versions&quot;</span><span class="a">+        v-for=&quot;ver of versions&quot;</span><span class="c">         class=&quot;versions-item&quot;</span><span class="r">-        :class=&quot;{</span><span class="r">-          active: ver === version || (version === &#39;latest&#39; &amp;&amp; index === 0),</span><span class="r">-        }&quot;</span><span class="a">+        :class=&quot;{ active: isActiveVersion(ver, version, versions) }&quot;</span><span class="c">       &gt;</span><span class="c">         &lt;a @click=&quot;setVersion(ver)&quot;&gt;v{{ ver }}&lt;/a&gt;</span><span class="c">         &lt;button</span><span class="f">packages-private/sfc-playground/src/typescriptVersion.ts</span><span class="h">new file mode 100644</span><span class="h">index 000000000..49583bd82</span><span class="h">@@ -0,0 +1,27 @@</span><span class="a">+// TypeScript 7 (the native port) is not yet supported by Vue&#39;s language</span><span class="a">+// tooling, so default to the latest TypeScript 6.x release instead of</span><span class="a">+// @vue/repl&#39;s default of &#39;latest&#39;. The value is a semver range that the CDN</span><span class="a">+// resolves to the newest matching release.</span><span class="a">+export const DEFAULT_TYPESCRIPT_VERSION = &#39;6&#39;</span><span class="a">+</span><span class="a">+/**</span><span class="a">+ * Whether `ver` (an exact version from the version list, sorted newest first)</span><span class="a">+ * is the one currently in use given the selected `version`, which may be an</span><span class="a">+ * exact version, &#39;latest&#39;, or a major-version range like &#39;6&#39;.</span><span class="a">+ */</span><span class="a">+export function isActiveVersion(</span><span class="a">+  ver: string,</span><span class="a">+  version: unknown,</span><span class="a">+  versions: readonly string[] | undefined,</span><span class="a">+): boolean {</span><span class="a">+  if (ver === version) return true</span><span class="a">+  if (version === &#39;latest&#39;) return ver === versions?.[0]</span><span class="a">+  if (typeof version === &#39;string&#39; &amp;&amp; /^\d+$/.test(version)) {</span><span class="a">+    // same resolution as the CDN: newest stable release of that major</span><span class="a">+    const resolved = versions?.find(</span><span class="a">+      v =&gt; !v.includes(&#39;-&#39;) &amp;&amp; v.split(&#39;.&#39;)[0] === version,</span><span class="a">+    )</span><span class="a">+    return ver === resolved</span><span class="a">+  }</span><span class="a">+  return false</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15219" rel="noopener" target="_blank">PR #15219</a></span><span class="pm"><span class="a">+3</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">packages-private/sfc-playground/src/App.vue</span><span class="h">index 7020211f4..5a87a1d1d 100644</span><span class="h">@@ -14,6 +14,8 @@ setVH()</span><span class="c"> </span><span class="c"> const useSSRMode = ref(false)</span><span class="c"> </span><span class="a">+const DEFAULT_TYPESCRIPT_VERSION = &#39;6.0.3&#39;</span><span class="a">+</span><span class="c"> const AUTO_SAVE_STORAGE_KEY = &#39;vue-sfc-playground-auto-save&#39;</span><span class="c"> const initAutoSave: boolean = JSON.parse(</span><span class="c">   localStorage.getItem(AUTO_SAVE_STORAGE_KEY) ?? &#39;true&#39;,</span><span class="h">@@ -69,6 +71,7 @@ const store = useStore(</span><span class="c">   {</span><span class="c">     builtinImportMap: importMap,</span><span class="c">     vueVersion,</span><span class="a">+    typescriptVersion: ref(DEFAULT_TYPESCRIPT_VERSION),</span><span class="c">     sfcOptions,</span><span class="c">   },</span><span class="c">   hash,</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261009-161443/15153/">Previous · #15153</a>
+  <a class="mid" href="/backtests/vue/run-20261009-161443/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261009-161443/15288/">Next · #15288</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

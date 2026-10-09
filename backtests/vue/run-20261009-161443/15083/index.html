@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15083 EffectScope stop() causes runtime crash (Cannot read properties of undefined) when dynamic scope cleanup mutates parent.scopes array during traversal — vuejs/core backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15083 in vuejs/core, run 9 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261009-161443/15083/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/vue/">vue</a><span aria-hidden="true">/</span><a href="/backtests/vue/run-20261009-161443/">run-20261009-161443</a><span aria-hidden="true">/</span><span aria-current="page">#15083</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/vuejs/core/issues/15083" rel="noopener" target="_blank">#15083</a></span>
+  <span>Merged fix <a href="https://github.com/vuejs/core/pull/15084" rel="noopener" target="_blank">PR #15084</a></span>
+  <span>Run 9 Oct 2026 · <span class="runid">run-20261009-161443</span></span>
+  <span>vuejs/core</span>
+</div>
+<h1 class="ticket-title">EffectScope stop() causes runtime crash (Cannot read properties of undefined) when dynamic scope cleanup mutates parent.scopes array during traversal</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The source changes are functionally identical. Both patches copy `this.scopes` with `slice()` before iterating in `pause()`, `resume()` and `stop()`, and both also copy `this.effects` in `resume()`. That fixes the root cause the issue describes: the parent loop used a cached length while a child&#39;s cleanup removed a sibling from `parent.scopes`. The only source difference is that Patch B adds brief comments explaining why the copies are needed, which helps future readers.
+
+On correctness, they tie.
+
+The tests are where the patches differ.
+
+Patch A adds two tests, and both would fail before the fix:
+- A child&#39;s cleanup stops a sibling scope, which hits the undefined `.stop` crash in `stop()`.
+- A sync watcher stops a sibling watcher during `resume()`, which hits the undefined `.resume` crash on effects.
+
+Patch B covers the same core scenario with stronger assertions:
+- It checks that both children&#39;s dispose callbacks ran exactly once.
+- It checks that all scopes are inactive and that `parent.scopes` is emptied.
+
+Patch B also adds `resume()` scenarios Patch A does not cover:
+- A resumed effect stops a sibling child scope. This exercises the scopes loop in `resume()` and verifies that a later sibling, `child3`, is still resumed and runs its queued effect.
+- A resumed effect stops its own scope.
+- A `once` watcher stops itself during resume. This verifies that the remaining effects are still resumed and stay reactive afterwards.
+
+These tests exercise each changed loop more thoroughly. They also assert that no sibling is skipped, not just that nothing throws.
+
+Scope is equivalent. Patch B wins on test thoroughness and slightly on craft (explanatory comments).</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 5s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,167 passed · 5 skipped · 2,174 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">134<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/vuejs/core/issues/15083" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Vue version</h3>
+<p>3.5.28</p>
+<h3>Link to minimal reproduction</h3>
+<p><a href="https://play.vuejs.org/#eNqFVN1u0zAUfpUjCymdtKVsBYRCW37GLuAC0DrBTS6WOaeJN9e2bKftVPWCR+SNOHaStmzTkNrY8fnOd36+E2/YR2PSZYMsY2PHrTAeHPrGTHMlFkZbDxvA+Ry5n3Ft8Bi0ipvPwhnt6N3iHLYwt3oBCfEkucoV18oRjy9842ASIIPkXAp+B96KqkILf37bwtXgNdhGga8RPDqfJkd79w56HoETGBzBZAqbXEFHnC4L2SBZkstGKaGqSEHxAcK/JTGFReUJdFDDIAaBzpZSAoMD8t6T10KWp489HyDO/osYPR2dMDHC4/itt5aYSl0NdtW18NChFvSvED1FrL1jifmlzmtDxuGQ2iwcrISUsemrGlXfgxbTu267XbuGZ1i9ve8zfMLroSazhnN0LsqxBV54XsMArT3qOR44XPOoc4meGoVlBi82hE4XxFFUuL3etzU0hkzaRrrInyv6jYft/NLk0ovHhZGFR3oDGJdiSQHvJU5yZoqypH5mcPbSrN/lLCIIU4+mPymVEVzsxaKiiyVaV0ho87NorC4b7oWmgOTSOd803msFH3iYcgpyOLw5exz7rVnD6RuKD7yxTtsMjBbKo90nBHDVfSwtSxto2Ebq45od9aKwlVAnJEkGp68D81wrf7JCUdU+gxsty0PuWWx/BmNnCgVZz7KhFsuQTicPLda7X8LXgyR2IDmC95BYLBPIIKksokpIADbdbPoPfrslKYi1z3EYLpOwkgq0Gw932rBj5h1pOhdVeuu0oksoTkfOuF4YIdF+N6HTLmdZPzc5K6TUq6/xzNsGj/tzXiO/e+L81q3DWc5+WHRol5iznY3Kq9C35ovZN1zTfmdckNKS0M8YL5HmsQk5trBPjSop7QNczPZLvEpJ+St3sfaoXF9USDSOcMTnjG7Q82dK36c7Sl/1o8+2fwEpfeZ+" rel="noopener nofollow" target="_blank">https://play.vuejs.org/#eNqFVN1u0zAUfpUjCymdtKVsBYRCW37GLuAC0DrBTS6WOaeJN9e2bKftVPWCR+SNOHaStmzTkNrY8fnOd36+E2/YR2PSZYMsY2PHrTAeHPrGTHMlFkZbDxvA+Ry5n3Ft8Bi0ipvPwhnt6N3iHLYwt3oBCfEkucoV18oRjy9842ASIIPkXAp+B96KqkILf37bwtXgNdhGga8RPDqfJkd79w56HoETGBzBZAqbXEFHnC4L2SBZkstGKaGqSEHxAcK/JTGFReUJdFDDIAaBzpZSAoMD8t6T10KWp489HyDO/osYPR2dMDHC4/itt5aYSl0NdtW18NChFvSvED1FrL1jifmlzmtDxuGQ2iwcrISUsemrGlXfgxbTu267XbuGZ1i9ve8zfMLroSazhnN0LsqxBV54XsMArT3qOR44XPOoc4meGoVlBi82hE4XxFFUuL3etzU0hkzaRrrInyv6jYft/NLk0ovHhZGFR3oDGJdiSQHvJU5yZoqypH5mcPbSrN/lLCIIU4+mPymVEVzsxaKiiyVaV0ho87NorC4b7oWmgOTSOd803msFH3iYcgpyOLw5exz7rVnD6RuKD7yxTtsMjBbKo90nBHDVfSwtSxto2Ebq45od9aKwlVAnJEkGp68D81wrf7JCUdU+gxsty0PuWWx/BmNnCgVZz7KhFsuQTicPLda7X8LXgyR2IDmC95BYLBPIIKksokpIADbdbPoPfrslKYi1z3EYLpOwkgq0Gw932rBj5h1pOhdVeuu0oksoTkfOuF4YIdF+N6HTLmdZPzc5K6TUq6/xzNsGj/tzXiO/e+L81q3DWc5+WHRol5iznY3Kq9C35ovZN1zTfmdckNKS0M8YL5HmsQk5trBPjSop7QNczPZLvEpJ+St3sfaoXF9USDSOcMTnjG7Q82dK36c7Sl/1o8+2fwEpfeZ+</a></p>
+<h3>Steps to reproduce</h3>
+<p>Open the reproduction link.<br>Click the &quot;Trigger сrash&quot; button.<br>Observe the output status on the screen or check the browser console.</p>
+<h3>What is expected?</h3>
+<p>The parent scope should stop all its children successfully. When a child scope stops a sibling scope during the cleanup phase, the parent traversal loop should handle the array mutation gracefully without throwing errors.</p>
+<h3>What is actually happening?</h3>
+<p>The application crashes with the following error: TypeError: Cannot read properties of undefined (reading &#39;stop&#39;)</p>
+<p>This happens because EffectScope.stop loops over this.scopes using a cached length l. During iteration, one child&#39;s onScopeDispose calls stop() on its sibling. The sibling removes itself from the parent&#39;s scopes array, reducing the array size. When the parent loop continues to the cached index l, it tries to access an element out of bounds (which is undefined), causing the runtime crash.</p>
+<h3>System Info</h3>
+<pre><code class="lang-shell">System: OS: macOS, Browser: Chrome, Node: v20.19.5</code></pre>
+<h3>Any additional comments?</h3>
+<p>The bug lies in packages/reactivity/src/effectScope.ts.</p>
+<p>Inside EffectScope, the methods pause(), resume(), and stop() loop over this.scopes using a cached length without accounting for array mutations. Creating a shallow copy of the array before iterating (e.g. const scopes = this.scopes.slice()) safely resolves the issue.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+126</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">packages/reactivity/__tests__/effectScope.spec.ts</span><span class="h">index 071c8286c..912b7fe35 100644</span><span class="h">@@ -342,6 +342,116 @@ describe(&#39;reactivity/effect/scope&#39;, () =&gt; {</span><span class="c">     expect(fnSpy).toHaveBeenCalledTimes(3)</span><span class="c">   })</span><span class="c"> </span><span class="a">+  it(&#39;should stop all children when a child cleanup stops a sibling scope&#39;, () =&gt; {</span><span class="a">+    const parent = effectScope()</span><span class="a">+    let child1!: EffectScope</span><span class="a">+    let child2!: EffectScope</span><span class="a">+    const dispose1 = vi.fn()</span><span class="a">+    const dispose2 = vi.fn()</span><span class="a">+    parent.run(() =&gt; {</span><span class="a">+      child1 = effectScope()</span><span class="a">+      child1.run(() =&gt; {</span><span class="a">+        onScopeDispose(() =&gt; {</span><span class="a">+          dispose1()</span><span class="a">+          child2.stop()</span><span class="a">+        })</span><span class="a">+      })</span><span class="a">+      child2 = effectScope()</span><span class="a">+      child2.run(() =&gt; {</span><span class="a">+        onScopeDispose(dispose2)</span><span class="a">+      })</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    expect(() =&gt; parent.stop()).not.toThrow()</span><span class="a">+    expect(parent.active).toBe(false)</span><span class="a">+    expect(child1.active).toBe(false)</span><span class="a">+    expect(child2.active).toBe(false)</span><span class="a">+    expect(dispose1).toHaveBeenCalledTimes(1)</span><span class="a">+    expect(dispose2).toHaveBeenCalledTimes(1)</span><span class="a">+    expect(parent.scopes!.length).toBe(0)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  it(&#39;should resume all children when a resumed effect stops a sibling scope&#39;, () =&gt; {</span><span class="a">+    const counter = ref(0)</span><span class="a">+    const parent = effectScope()</span><span class="a">+    let child1!: EffectScope</span><span class="a">+    let child2!: EffectScope</span><span class="a">+    let child3!: EffectScope</span><span class="a">+    const spy3 = vi.fn(() =&gt; counter.value)</span><span class="a">+    parent.run(() =&gt; {</span><span class="a">+      child1 = effectScope()</span><span class="a">+      child1.run(() =&gt; {</span><span class="a">+        effect(() =&gt; {</span><span class="a">+          if (counter.value &gt; 0) child2.stop()</span><span class="a">+        })</span><span class="a">+      })</span><span class="a">+      child2 = effectScope()</span><span class="a">+      child3 = effectScope()</span><span class="a">+      child3.run(() =&gt; {</span><span class="a">+        effect(spy3)</span><span class="a">+      })</span><span class="a">+    })</span><span class="a">+    expect(spy3).toHaveBeenCalledTimes(1)</span><span class="a">+</span><span class="a">+    parent.pause()</span><span class="a">+    counter.value++</span><span class="a">+    expect(spy3).toHaveBeenCalledTimes(1)</span><span class="a">+</span><span class="a">+    expect(() =&gt; parent.resume()).not.toThrow()</span><span class="a">+    expect(child2.active).toBe(false)</span><span class="a">+    expect(child3.active).toBe(true)</span><span class="a">+    // child3 must still be resumed and run its queued effect</span><span class="a">+    expect(spy3).toHaveBeenCalledTimes(2)</span><span class="a">+    counter.value++</span><span class="a">+    expect(spy3).toHaveBeenCalledTimes(3)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  it(&#39;should not throw when a resumed effect stops its own scope&#39;, () =&gt; {</span><span class="a">+    const counter = ref(0)</span><span class="a">+    const scope = effectScope()</span><span class="a">+    const spy2 = vi.fn(() =&gt; counter.value)</span><span class="a">+    scope.run(() =&gt; {</span><span class="a">+      effect(() =&gt; {</span><span class="a">+        if (counter.value &gt; 0) scope.stop()</span><span class="a">+      })</span><span class="a">+      effect(spy2)</span><span class="a">+    })</span><span class="a">+    expect(spy2).toHaveBeenCalledTimes(1)</span><span class="a">+</span><span class="a">+    scope.pause()</span><span class="a">+    counter.value++</span><span class="a">+    expect(() =&gt; scope.resume()).not.toThrow()</span><span class="a">+    expect(scope.active).toBe(false)</span><span class="a">+    // the stopped sibling effect must not re-run</span><span class="a">+    expect(spy2).toHaveBeenCalledTimes(1)</span><span class="a">+    counter.value++</span><span class="a">+    expect(spy2).toHaveBeenCalledTimes(1)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  it(&#39;should resume all effects when a resumed watcher stops itself&#39;, () =&gt; {</span><span class="a">+    const counter = ref(0)</span><span class="a">+    const scope = effectScope()</span><span class="a">+    const cb = vi.fn()</span><span class="a">+    const spy2 = vi.fn(() =&gt; counter.value)</span><span class="a">+    const spy3 = vi.fn(() =&gt; counter.value)</span><span class="a">+    scope.run(() =&gt; {</span><span class="a">+      watch(counter, cb, { flush: &#39;sync&#39;, once: true })</span><span class="a">+      effect(spy2)</span><span class="a">+      effect(spy3)</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    scope.pause()</span><span class="a">+    counter.value++</span><span class="a">+    expect(() =&gt; scope.resume()).not.toThrow()</span><span class="a">+    expect(cb).toHaveBeenCalledTimes(1)</span><span class="a">+    expect(spy2).toHaveBeenCalledTimes(2)</span><span class="a">+    expect(spy3).toHaveBeenCalledTimes(2)</span><span class="a">+    counter.value++</span><span class="a">+    expect(cb).toHaveBeenCalledTimes(1)</span><span class="a">+    expect(spy2).toHaveBeenCalledTimes(3)</span><span class="a">+    expect(spy3).toHaveBeenCalledTimes(3)</span><span class="a">+  })</span><span class="a">+</span><span class="c">   test(&#39;removing a watcher while stopping its effectScope&#39;, async () =&gt; {</span><span class="c">     const count = ref(0)</span><span class="c">     const scope = effectScope()</span><span class="f">packages/reactivity/src/effectScope.ts</span><span class="h">index 03c15ed2f..aaa1ae6b7 100644</span><span class="h">@@ -70,8 +70,9 @@ export class EffectScope {</span><span class="c">       this._isPaused = true</span><span class="c">       let i, l</span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].pause()</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].pause()</span><span class="c">         }</span><span class="c">       }</span><span class="c">       for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="h">@@ -89,12 +90,16 @@ export class EffectScope {</span><span class="c">         this._isPaused = false</span><span class="c">         let i, l</span><span class="c">         if (this.scopes) {</span><span class="r">-          for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-            this.scopes[i].resume()</span><span class="a">+          const scopes = this.scopes.slice()</span><span class="a">+          for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+            scopes[i].resume()</span><span class="c">           }</span><span class="c">         }</span><span class="r">-        for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="r">-          this.effects[i].resume()</span><span class="a">+        // resumed effects may run user code that stops this scope or its</span><span class="a">+        // effects, mutating this.effects during traversal</span><span class="a">+        const effects = this.effects.slice()</span><span class="a">+        for (i = 0, l = effects.length; i &lt; l; i++) {</span><span class="a">+          effects[i].resume()</span><span class="c">         }</span><span class="c">       }</span><span class="c">     }</span><span class="h">@@ -171,8 +176,11 @@ export class EffectScope {</span><span class="c">       this.cleanups.length = 0</span><span class="c"> </span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].stop(true)</span><span class="a">+        // iterate over a copy: a child&#39;s cleanup may stop a sibling scope,</span><span class="a">+        // which removes the sibling from this.scopes during traversal</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].stop(true)</span><span class="c">         }</span><span class="c">         this.scopes.length = 0</span><span class="c">       }</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/vuejs/core/pull/15084" rel="noopener" target="_blank">PR #15084</a></span><span class="pm"><span class="a">+48</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">packages/reactivity/__tests__/effectScope.spec.ts</span><span class="h">index 071c8286c..0bb752659 100644</span><span class="h">@@ -435,4 +435,40 @@ describe(&#39;reactivity/effect/scope&#39;, () =&gt; {</span><span class="c">     expect(rs.value.stage).toBe(1)</span><span class="c">     expect(renderCount).toBe(5)</span><span class="c">   })</span><span class="a">+</span><span class="a">+  it(&#39;should stop child scopes when cleanup stops a sibling scope&#39;, () =&gt; {</span><span class="a">+    const parent = effectScope()</span><span class="a">+    let sibling!: EffectScope</span><span class="a">+</span><span class="a">+    parent.run(() =&gt; {</span><span class="a">+      effectScope().run(() =&gt; {</span><span class="a">+        onScopeDispose(() =&gt; sibling.stop())</span><span class="a">+      })</span><span class="a">+      sibling = effectScope()</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    expect(() =&gt; parent.stop()).not.toThrow()</span><span class="a">+    expect(sibling.active).toBe(false)</span><span class="a">+  })</span><span class="a">+</span><span class="a">+  it(&#39;should resume effects when a watcher stops a sibling watcher&#39;, () =&gt; {</span><span class="a">+    const count = ref(0)</span><span class="a">+    const scope = effectScope()</span><span class="a">+    let stopSecond = () =&gt; {}</span><span class="a">+    const firstSpy = vi.fn(() =&gt; stopSecond())</span><span class="a">+    const secondSpy = vi.fn()</span><span class="a">+</span><span class="a">+    scope.run(() =&gt; {</span><span class="a">+      watch(count, firstSpy, { flush: &#39;sync&#39; })</span><span class="a">+      stopSecond = watch(count, secondSpy, { flush: &#39;sync&#39; })</span><span class="a">+    })</span><span class="a">+</span><span class="a">+    scope.pause()</span><span class="a">+    count.value++</span><span class="a">+</span><span class="a">+    expect(() =&gt; scope.resume()).not.toThrow()</span><span class="a">+    expect(firstSpy).toHaveBeenCalledTimes(1)</span><span class="a">+    expect(secondSpy).not.toHaveBeenCalled()</span><span class="a">+    expect(scope.effects).toHaveLength(1)</span><span class="a">+  })</span><span class="c"> })</span><span class="f">packages/reactivity/src/effectScope.ts</span><span class="h">index 03c15ed2f..6fc587de1 100644</span><span class="h">@@ -70,8 +70,9 @@ export class EffectScope {</span><span class="c">       this._isPaused = true</span><span class="c">       let i, l</span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].pause()</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].pause()</span><span class="c">         }</span><span class="c">       }</span><span class="c">       for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="h">@@ -89,12 +90,14 @@ export class EffectScope {</span><span class="c">         this._isPaused = false</span><span class="c">         let i, l</span><span class="c">         if (this.scopes) {</span><span class="r">-          for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-            this.scopes[i].resume()</span><span class="a">+          const scopes = this.scopes.slice()</span><span class="a">+          for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+            scopes[i].resume()</span><span class="c">           }</span><span class="c">         }</span><span class="r">-        for (i = 0, l = this.effects.length; i &lt; l; i++) {</span><span class="r">-          this.effects[i].resume()</span><span class="a">+        const effects = this.effects.slice()</span><span class="a">+        for (i = 0, l = effects.length; i &lt; l; i++) {</span><span class="a">+          effects[i].resume()</span><span class="c">         }</span><span class="c">       }</span><span class="c">     }</span><span class="h">@@ -171,8 +174,9 @@ export class EffectScope {</span><span class="c">       this.cleanups.length = 0</span><span class="c"> </span><span class="c">       if (this.scopes) {</span><span class="r">-        for (i = 0, l = this.scopes.length; i &lt; l; i++) {</span><span class="r">-          this.scopes[i].stop(true)</span><span class="a">+        const scopes = this.scopes.slice()</span><span class="a">+        for (i = 0, l = scopes.length; i &lt; l; i++) {</span><span class="a">+          scopes[i].stop(true)</span><span class="c">         }</span><span class="c">         this.scopes.length = 0</span><span class="c">       }</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/vue/run-20261009-161443/15081/">Previous · #15081</a>
+  <a class="mid" href="/backtests/vue/run-20261009-161443/">All tickets in this run</a>
+  <a href="/backtests/vue/run-20261009-161443/15091/">Next · #15091</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

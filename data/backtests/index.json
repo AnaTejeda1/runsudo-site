@@ -11,6 +11,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-09",
+          "id": "run-20261009-110034",
+          "source_runs": [
+            "run-20261009-110034"
+          ],
+          "tickets": 30,
+          "better": 26,
+          "par": 0,
+          "worse": 3,
+          "error": 1,
+          "notes": "Tests now run only the tests related to each change, on the code before and after the patch, plus a generated acceptance test. Ticket 13786 is shown as an error: its upstream fix commit is empty.",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-07",
           "id": "run-20261007-130130",
           "source_runs": [
@@ -160,6 +174,21 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-09",
+          "id": "run-20261009-153657",
+          "source_runs": [
+            "run-20261009-025748",
+            "run-20261009-153657"
+          ],
+          "tickets": 30,
+          "better": 27,
+          "par": 0,
+          "worse": 3,
+          "error": 0,
+          "notes": "Tests now run only the tests related to each change, on the code before and after the patch, plus a generated acceptance test. Ticket 15174 was rerun after a harness fix.",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-07",
           "id": "run-20261007-020926",
           "source_runs": [
@@ -256,6 +285,21 @@
       ],
       "status": "active",
       "runs": [
+        {
+          "date": "2026-10-09",
+          "id": "run-20261009-161443",
+          "source_runs": [
+            "run-20261009-124156",
+            "run-20261009-161443"
+          ],
+          "tickets": 30,
+          "better": 24,
+          "par": 0,
+          "worse": 5,
+          "error": 1,
+          "notes": "Tests now run only the tests related to each change, on the code before and after the patch, plus a generated acceptance test. Ticket 15217 was rerun after a harness fix.",
+          "footnote": ""
+        },
         {
           "date": "2026-10-07",
           "id": "run-20261007-145226",
