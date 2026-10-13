@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15261 github: Fix workflow for stale issues — gohugoio/hugo backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #15261 in gohugoio/hugo, run 13 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261013-011256/15261/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261013-011256/">run-20261013-011256</a><span aria-hidden="true">/</span><span aria-current="page">#15261</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15261" rel="noopener" target="_blank">#15261</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15262" rel="noopener" target="_blank">PR #15262</a></span>
+  <span>Run 13 Oct 2026 · <span class="runid">run-20261013-011256</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">github: Fix workflow for stale issues</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches target the root cause: dessant/lock-threads v6.0.0 validates github-token length at ≤100 characters, and GitHub began issuing longer tokens. Patch A bumps to v6.0.2, presumably the upstream release that relaxes that validation, with a pinned SHA. It is a minimal one-line change that keeps the existing configuration (inactive days, labels, comments) intact. I can&#39;t verify from the diff alone that v6.0.2 contains the fix, which limits confidence somewhat, but a patch-level bump right after this breakage is the conventional fix. Patch B replaces the action with a hand-written gh CLI shell script. That removes the dependency on the bug, but it adds real risk and behavioral drift. The search returns at most 50 items per type, with no pagination. It invents a PR_INACTIVE_DAYS of 365, which the original config didn&#39;t specify; lock-threads&#39; default is 365, so this happens to match, but it is guessed. It does label, comment and lock as separate non-atomic steps, so a mid-loop failure under set -e leaves threads half-processed. It relies on search API semantics (&#39;updated:&lt;&#39;), which differ from lock-threads&#39; logic. And it introduces about 40 lines of custom code to maintain. Neither patch adds tests, which is appropriate for a workflow file. On correctness-with-least-risk, scope, and craft, Patch A is the better fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2m 45s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">48<small>vs 2 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15261" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>The workflow began failing on 26 May 2026:</p>
+<p>&lt;https://github.com/gohugoio/hugo/actions/runs/26486945788&gt;</p>
+<blockquote><p>&quot;github-token&quot; length must be less than or equal to 100 characters long</p></blockquote></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+42</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">.github/workflows/stale.yml</span><span class="h">index 89dbdde7d..748fbc7ca 100644</span><span class="h">@@ -12,18 +12,54 @@ jobs:</span><span class="c">       pull-requests: write</span><span class="c">     runs-on: ubuntu-latest</span><span class="c">     steps:</span><span class="r">-      - uses: dessant/lock-threads@f5f995c727ac99a91dec92781a8e34e7c839a65e # v6.0.0</span><span class="r">-        with:</span><span class="r">-          issue-inactive-days: 21</span><span class="r">-          add-issue-labels: &#39;Outdated&#39;</span><span class="r">-          issue-comment: &gt;</span><span class="a">+      # Lock closed issues and PRs using the gh CLI.</span><span class="a">+      # dessant/lock-threads v6.0.0 rejects GitHub tokens longer than 100 characters,</span><span class="a">+      # which broke this workflow when GitHub started issuing longer tokens.</span><span class="a">+      - name: Lock closed issues and PRs</span><span class="a">+        env:</span><span class="a">+          GH_TOKEN: ${{ github.token }}</span><span class="a">+          ISSUE_INACTIVE_DAYS: 21</span><span class="a">+          PR_INACTIVE_DAYS: 365</span><span class="a">+          ISSUE_LABELS: &#39;Outdated&#39;</span><span class="a">+          ISSUE_COMMENT: &gt;</span><span class="c">             This issue has been automatically locked since there</span><span class="c">             has not been any recent activity after it was closed.</span><span class="c">             Please open a new issue for related bugs.</span><span class="r">-          pr-comment: &gt;</span><span class="a">+          PR_COMMENT: &gt;</span><span class="c">             This pull request has been automatically locked since there</span><span class="c">             has not been any recent activity after it was closed.</span><span class="c">             Please open a new issue for related bugs.</span><span class="a">+        run: |</span><span class="a">+          set -euo pipefail</span><span class="a">+</span><span class="a">+          find_threads() {</span><span class="a">+            local kind=&quot;$1&quot; days=&quot;$2&quot; before</span><span class="a">+            before=&quot;$(date -u -d &quot;${days} days ago&quot; +%Y-%m-%d)&quot;</span><span class="a">+            gh api -X GET search/issues \</span><span class="a">+              -f q=&quot;repo:${GITHUB_REPOSITORY} is:${kind} is:closed is:unlocked updated:&lt;${before}&quot; \</span><span class="a">+              -f sort=updated -f order=asc -f per_page=50 \</span><span class="a">+              --jq &#39;.items[].number&#39;</span><span class="a">+          }</span><span class="a">+</span><span class="a">+          # Assign before looping so a failed search fails the step (set -e ignores</span><span class="a">+          # failures inside a for loop&#39;s word list). Sleep between threads to stay</span><span class="a">+          # under GitHub&#39;s secondary rate limit for content-creating requests.</span><span class="a">+          issues=&quot;$(find_threads issue &quot;$ISSUE_INACTIVE_DAYS&quot;)&quot;</span><span class="a">+          for n in $issues; do</span><span class="a">+            echo &quot;Locking issue #$n&quot;</span><span class="a">+            gh issue edit &quot;$n&quot; --repo &quot;$GITHUB_REPOSITORY&quot; --add-label &quot;$ISSUE_LABELS&quot;</span><span class="a">+            gh issue comment &quot;$n&quot; --repo &quot;$GITHUB_REPOSITORY&quot; --body &quot;$ISSUE_COMMENT&quot;</span><span class="a">+            gh issue lock &quot;$n&quot; --repo &quot;$GITHUB_REPOSITORY&quot; --reason resolved</span><span class="a">+            sleep 2</span><span class="a">+          done</span><span class="a">+</span><span class="a">+          prs=&quot;$(find_threads pr &quot;$PR_INACTIVE_DAYS&quot;)&quot;</span><span class="a">+          for n in $prs; do</span><span class="a">+            echo &quot;Locking PR #$n&quot;</span><span class="a">+            gh pr comment &quot;$n&quot; --repo &quot;$GITHUB_REPOSITORY&quot; --body &quot;$PR_COMMENT&quot;</span><span class="a">+            gh pr lock &quot;$n&quot; --repo &quot;$GITHUB_REPOSITORY&quot; --reason resolved</span><span class="a">+            sleep 2</span><span class="a">+          done</span><span class="c">       - uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10.2.0</span><span class="c">         with:</span><span class="c">           operations-per-run: 999</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15262" rel="noopener" target="_blank">PR #15262</a></span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">.github/workflows/stale.yml</span><span class="h">index 89dbdde7d..73e31f024 100644</span><span class="h">@@ -12,7 +12,7 @@ jobs:</span><span class="c">       pull-requests: write</span><span class="c">     runs-on: ubuntu-latest</span><span class="c">     steps:</span><span class="r">-      - uses: dessant/lock-threads@f5f995c727ac99a91dec92781a8e34e7c839a65e # v6.0.0</span><span class="a">+      - uses: dessant/lock-threads@89ae32b08ed1a541efecbab17912962a5e38981c # v6.0.2</span><span class="c">         with:</span><span class="c">           issue-inactive-days: 21</span><span class="c">           add-issue-labels: &#39;Outdated&#39;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261013-011256/15245/">Previous · #15245</a>
+  <a class="mid" href="/backtests/hugo/run-20261013-011256/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261013-011256/15266/">Next · #15266</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

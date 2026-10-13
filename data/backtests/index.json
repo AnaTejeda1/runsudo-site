@@ -11,6 +11,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-13",
+          "id": "run-20261013-104308",
+          "source_runs": [
+            "run-20261013-104308"
+          ],
+          "tickets": 30,
+          "better": 27,
+          "par": 0,
+          "worse": 3,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1. Test suite changes: the tests related to each changed file run on the code before and after the patch, and a file no rule maps gets up to 10 nearby tests instead of none. No generated acceptance test.",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-09",
           "id": "run-20261009-110034",
           "source_runs": [
@@ -174,6 +188,20 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-13",
+          "id": "run-20261013-011256",
+          "source_runs": [
+            "run-20261013-011256"
+          ],
+          "tickets": 30,
+          "better": 28,
+          "par": 0,
+          "worse": 2,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1. Test suite changes: the tests related to each changed file run on the code before and after the patch, and a file no rule maps gets up to 10 nearby tests instead of none. No generated acceptance test.",
+          "footnote": ""
+        },
+        {
           "date": "2026-10-09",
           "id": "run-20261009-153657",
           "source_runs": [
@@ -285,6 +313,20 @@
       ],
       "status": "active",
       "runs": [
+        {
+          "date": "2026-10-13",
+          "id": "run-20261013-093701",
+          "source_runs": [
+            "run-20261013-093701"
+          ],
+          "tickets": 30,
+          "better": 24,
+          "par": 0,
+          "worse": 6,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1. Test suite changes: the tests related to each changed file run on the code before and after the patch, and a file no rule maps gets up to 10 nearby tests instead of none. No generated acceptance test.",
+          "footnote": ""
+        },
         {
           "date": "2026-10-09",
           "id": "run-20261009-161443",
