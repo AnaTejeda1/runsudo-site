@@ -1,0 +1,7 @@
+/* /harness/scenes/10-publish.css — STUB styles. Scope everything to [data-scene="10-publish"]. */
+[data-scene="10-publish"] .stub-card .stub-h{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:4px 0 16px}
+[data-scene="10-publish"] .stub-bar{height:4px;border-radius:2px;background:#1a1a1a;overflow:hidden;margin:0 0 8px}
+[data-scene="10-publish"] .stub-bar i{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
+[data-scene="10-publish"] .stub-bar.is-hold i{background:var(--good)}
+[data-scene="10-publish"] .stub-l{margin:10px 0 0}
+[data-scene="10-publish"] .stub-back{background:repeating-linear-gradient(135deg,#0d0d0d 0 10px,#111 10px 20px);opacity:.6}

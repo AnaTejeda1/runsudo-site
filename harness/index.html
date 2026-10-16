@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside one backtest — sudo</title>
+<meta name="description" content="How a sudo backtest runs, step by step: a bare clone, a rewind to before each fix, a blind solve in a sealed container, the repo's own tests, a blind A/B judge and a public count.">
+<link rel="canonical" href="https://runsudo.dev/harness/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/harness/harness.css">
+<link rel="stylesheet" href="/harness/scenes/00-intro.css">
+<link rel="stylesheet" href="/harness/scenes/01-clone.css">
+<link rel="stylesheet" href="/harness/scenes/02-recipe.css">
+<link rel="stylesheet" href="/harness/scenes/03-funnel.css">
+<link rel="stylesheet" href="/harness/scenes/04-rewind.css">
+<link rel="stylesheet" href="/harness/scenes/05-baseline.css">
+<link rel="stylesheet" href="/harness/scenes/06-sandbox.css">
+<link rel="stylesheet" href="/harness/scenes/07-audit.css">
+<link rel="stylesheet" href="/harness/scenes/08-verify.css">
+<link rel="stylesheet" href="/harness/scenes/09-judge.css">
+<link rel="stylesheet" href="/harness/scenes/10-publish.css">
+<link rel="stylesheet" href="/harness/scenes/11-outro.css">
+<script>(function(d){d.classList.add('js');try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]static=1/.test(location.search))d.classList.add('h-motion')}catch(e){}setTimeout(function(){if(!(window.Harness&&window.Harness.ready))d.classList.remove('h-motion')},8000)})(document.documentElement)</script>
+<script src="/harness/engine.js" defer></script>
+<script src="/harness/scenes/00-intro.js" defer></script>
+<script src="/harness/scenes/01-clone.js" defer></script>
+<script src="/harness/scenes/02-recipe.js" defer></script>
+<script src="/harness/scenes/03-funnel.js" defer></script>
+<script src="/harness/scenes/04-rewind.js" defer></script>
+<script src="/harness/scenes/05-baseline.js" defer></script>
+<script src="/harness/scenes/06-sandbox.js" defer></script>
+<script src="/harness/scenes/07-audit.js" defer></script>
+<script src="/harness/scenes/08-verify.js" defer></script>
+<script src="/harness/scenes/09-judge.js" defer></script>
+<script src="/harness/scenes/10-publish.js" defer></script>
+<script src="/harness/scenes/11-outro.js" defer></script>
+</head>
+<body class="bt harness-page">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep">Backtests</a><a href="/harness/" class="keep" aria-current="page">Harness</a><a href="/#how">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+</div>
+<main>
+  <div class="wrap">
+    <header class="h-hero" id="top">
+      <p class="eyebrow">Harness · how a backtest runs</p>
+      <h1>One backtest, from bare clone to public verdict.</h1>
+      <p class="lead">Every number on our backtest pages comes out of the same harness. Follow one Hugo run through it: the commands, the functions, the files it freezes to disk, and the one ticket that went from blind solve to a judge's verdict.</p>
+      <p class="meta">Ten steps · gohugoio/hugo · ticket #15169</p>
+      <p class="h-cue" aria-hidden="true"><i></i>Scroll</p>
+    </header>
+  </div>
+
+  <div class="h-track" id="h-track">
+    <div class="h-stage">
+      <div class="h-viewport">
+        <div class="h-camera">
+          <div class="h-world">
+
+<!-- ===================================================================== 00-intro -->
+<section class="scene" data-scene="00-intro" id="s-00-intro" aria-labelledby="cap-00">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">gohugoio/hugo</span> · one run</p>
+      <h2 class="cap-h" id="cap-00">Thirty closed Hugo issues, replayed blind.</h2>
+      <p class="cap-b">This is the path every ticket takes through our backtest harness, from a bare clone to a public verdict. The function names, files and numbers are real.</p>
+    </header>
+    <div class="still">
+      <div class="chips"><span class="chip is-accent">gohugoio/hugo</span><span class="chip">30 closed issues</span><span class="chip">lane foreman</span><span class="chip">sealed container</span><span class="chip">blind A/B judge</span></div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /00-intro -->
+
+<!-- ===================================================================== 01-clone -->
+<section class="scene" data-scene="01-clone" id="s-01-clone" aria-labelledby="cap-01">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 01</span> · Clone</p>
+      <h2 class="cap-h" id="cap-01">A bare copy, full history.</h2>
+      <p class="cap-b">We take a bare copy of the repo with its whole history. Every checkout after this one is cloned from it.</p>
+    </header>
+    <div class="still">
+      <div class="h-card term-card">
+        <div class="h-card-head"><span class="dots"><i></i><i></i><i></i></span>bt</div>
+<pre><span class="pr">$</span> bt run gohugoio/hugo --count 30 --lane foreman
+<span class="out">run.ensure_cache()  → data/gohugoio-hugo/cache.git</span></pre>
+      </div>
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">run-status.json</span><span class="kind">artifact</span></div>
+<pre>{ <span class="tk-p">"stage"</span>: <span class="tk-s">"clone"</span>, <span class="tk-p">"started_at"</span>: <span class="tk-s">"08:17:56Z"</span>, <span class="tk-p">"ended_at"</span>: <span class="tk-s">"08:17:58Z"</span> }</pre>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /01-clone -->
+
+<!-- ===================================================================== 02-recipe -->
+<section class="scene" data-scene="02-recipe" id="s-02-recipe" aria-labelledby="cap-02">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 02</span> · Learn to build</p>
+      <h2 class="cap-h" id="cap-02">An agent writes the recipe. Code proves it.</h2>
+      <p class="cap-b">Once per repo, an agent works out how to install and test it. Then code runs the full suite, 3,778 tests, before a single ticket is scored.</p>
+    </header>
+    <div class="still">
+      <div class="h-card fn-card">
+        <div class="h-card-head"><span class="path">bt/setup_agent.py</span><span>once per repo</span></div>
+<pre><span class="tk-k">def</span> <span class="tk-f">setup_repo</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">verify_recipe</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">ensure_image</span><span class="tk-o">(…)</span></pre>
+      </div>
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">setup/recipe.json</span><span class="kind">artifact</span></div>
+<pre>{
+  <span class="tk-p">"install_cmd"</span>: <span class="tk-s">"go mod download"</span>,
+  <span class="tk-p">"test_all_cmd"</span>: <span class="tk-s">"go test -json -timeout 40m ./... &gt; test-report.json"</span>,
+  <span class="tk-p">"test_report"</span>: { <span class="tk-p">"kind"</span>: <span class="tk-s">"go-test-json"</span> }
+}</pre>
+      </div>
+      <div class="row2">
+        <div class="h-card fn-card">
+          <div class="h-card-head"><span class="path">Dockerfile</span></div>
+<pre><span class="tk-k">FROM</span> --platform=linux/amd64 golang:1.27-bookworm</pre>
+        </div>
+        <div class="h-card json-card">
+          <div class="h-card-head"><span class="path">verified.json</span></div>
+<pre>{ <span class="tk-p">"attempts"</span>: <span class="tk-n">2</span>, <span class="tk-p">"tests_ran"</span>: <span class="tk-n">3778</span> }</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /02-recipe -->
+
+<!-- ===================================================================== 03-funnel -->
+<section class="scene" data-scene="03-funnel" id="s-03-funnel" aria-labelledby="cap-03">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 03</span> · Discover</p>
+      <h2 class="cap-h" id="cap-03">186 issues listed. 62 scoreable. 30 drawn.</h2>
+      <p class="cap-b">We keep only issues whose real fix we can identify, and count every one we drop with its reason. The 30 are drawn with a recorded seed, so anyone can replay the draw.</p>
+    </header>
+    <div class="still">
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">run.json</span><span class="kind">funnel</span></div>
+<pre>{
+  <span class="tk-p">"listed"</span>: <span class="tk-n">186</span>,
+  <span class="tk-p">"out_of_window"</span>: <span class="tk-n">93</span>,
+  <span class="tk-p">"excluded"</span>: <span class="tk-n">31</span>,
+<span class="ln hl">  <span class="tk-p">"scoreable"</span>: <span class="tk-n">62</span>,</span>  <span class="tk-p">"seed"</span>: <span class="tk-n">3676299815</span>
+}</pre>
+      </div>
+      <div class="row2">
+        <div class="h-card json-card">
+          <div class="h-card-head"><span class="path">exclusion</span><span class="kind">counted</span></div>
+<pre>{ <span class="tk-p">"number"</span>: <span class="tk-n">15360</span>,
+  <span class="tk-p">"reason"</span>: <span class="tk-s">"unresolved"</span>,
+  <span class="tk-p">"detail"</span>: <span class="tk-s">"no usable linked fix"</span> }</pre>
+        </div>
+        <div class="h-card fn-card">
+          <div class="h-card-head"><span class="path">bt/gh.py</span></div>
+<pre><span class="tk-k">def</span> <span class="tk-f">resolve_fix</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">closing_commit</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">closes_issue</span><span class="tk-o">(…)</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /03-funnel -->
+
+<!-- ===================================================================== 04-rewind -->
+<section class="scene" data-scene="04-rewind" id="s-04-rewind" aria-labelledby="cap-04">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 04</span> · Rewind</p>
+      <h2 class="cap-h" id="cap-04">The fix doesn't exist yet.</h2>
+      <p class="cap-b">Each ticket gets a checkout from just before the fix landed. Not hidden: absent. The agent reads the title and body, never the comments or anything that came after.</p>
+    </header>
+    <div class="still">
+      <div class="h-card ticket-card">
+        <p class="t-top"><span>gohugoio/hugo</span><span class="t-state">Closed</span></p>
+        <p class="t-title">resources/jsconfig: Address VS Code linting notice in jsconfig.json <span class="num">#15169</span></p>
+        <p class="t-meta">ticket.md: title and body only, never comments</p>
+        <div class="t-labels"><span class="gh-label is-accent">sampled</span><span class="gh-label is-add">fix identified</span></div>
+      </div>
+      <div class="row2">
+        <div class="h-card json-card">
+          <div class="h-card-head"><span class="path">run-status.json</span></div>
+<pre>{ <span class="tk-p">"stage"</span>: <span class="tk-s">"snapshot"</span>,
+  <span class="tk-p">"base_sha"</span>: <span class="tk-s">"dd3f2731…"</span>,
+  <span class="tk-p">"ticket"</span>: <span class="tk-s">"15169"</span> }</pre>
+        </div>
+        <div class="h-card fn-card">
+          <div class="h-card-head"><span class="path">bt/snapshot.py</span></div>
+<pre><span class="tk-k">def</span> <span class="tk-f">snapshot_ticket</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">first_parent</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">write_ticket_md</span><span class="tk-o">(…)</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /04-rewind -->
+
+<!-- ===================================================================== 05-baseline -->
+<section class="scene" data-scene="05-baseline" id="s-05-baseline" aria-labelledby="cap-05">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 05</span> · Baseline</p>
+      <h2 class="cap-h" id="cap-05">Tests on untouched code. Command frozen.</h2>
+      <p class="cap-b">3,803 tests run on the base commit, 11 of them already failing. The exact command is frozen, so the after run is identical.</p>
+    </header>
+    <div class="still">
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">baseline.json</span><span class="kind">artifact</span></div>
+<pre>{ <span class="tk-p">"kind"</span>: <span class="tk-s">"go-test-json"</span>, <span class="tk-p">"total"</span>: <span class="tk-n">3803</span>, <span class="tk-p">"passed"</span>: <span class="tk-n">3693</span> }</pre>
+      </div>
+      <div class="h-card fn-card">
+        <div class="h-card-head"><span class="path">bt/prepare.py · bt/selection.py</span></div>
+<pre><span class="tk-k">def</span> <span class="tk-f">run_prepare</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">select_tests</span><span class="tk-o">(…)</span>  <span class="tk-c"># chosen by a script, not a model</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /05-baseline -->
+
+<!-- ===================================================================== 06-sandbox -->
+<section class="scene" data-scene="06-sandbox" id="s-06-sandbox" aria-labelledby="cap-06">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 06</span> · Solve blind</p>
+      <h2 class="cap-h" id="cap-06">Alone in a locked box.</h2>
+      <p class="cap-b">The agent works in a sealed container that can reach the model API and nothing else: no GitHub, no web, no fix. Its prompt is frozen to disk before it starts.</p>
+    </header>
+    <div class="still">
+      <div class="h-card fn-card">
+        <div class="h-card-head"><span class="path">bt/egress.py</span><span>fail-closed</span></div>
+<pre><span class="tk-b">ALLOWED_HOSTS</span> <span class="tk-o">=</span> {<span class="tk-s">"api.anthropic.com"</span>, <span class="tk-s">"platform.claude.com"</span>}</pre>
+      </div>
+      <div class="chips"><span class="chip is-good">✓ api.anthropic.com</span><span class="chip is-good">✓ platform.claude.com</span><span class="chip is-bad">✕ github.com</span><span class="chip is-bad">✕ the web</span></div>
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">foreman record</span><span class="kind">#15169</span></div>
+<pre>{ <span class="tk-p">"stage"</span>: <span class="tk-s">"foreman"</span>, <span class="tk-p">"state"</span>: <span class="tk-s">"done"</span>, <span class="tk-p">"steps"</span>: <span class="tk-n">1</span>,
+  <span class="tk-p">"verdicts"</span>: [<span class="tk-s">"continue"</span>], <span class="tk-p">"patch_bytes"</span>: <span class="tk-n">2070</span>, <span class="tk-p">"duration_s"</span>: <span class="tk-n">625.0</span> }</pre>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /06-sandbox -->
+
+<!-- ===================================================================== 07-audit -->
+<section class="scene" data-scene="07-audit" id="s-07-audit" aria-labelledby="cap-07">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 07</span> · Audit</p>
+      <h2 class="cap-h" id="cap-07">Stamped clean or contaminated, by code.</h2>
+      <p class="cap-b">Code reads everything the agent did. A contaminated ticket stays in the total and is never scored.</p>
+    </header>
+    <div class="still">
+      <div class="h-card fn-card">
+        <div class="h-card-head"><span class="path">bt/audit.py</span></div>
+<pre><span class="tk-k">def</span> <span class="tk-f">path_findings</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">egress_findings</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">mention_findings</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">write_fix_record</span><span class="tk-o">(…)</span></pre>
+      </div>
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">audit.json</span></div>
+<pre>{ <span class="tk-p">"audit"</span>: { <span class="tk-p">"verdict"</span>: <span class="tk-s">"clean"</span> } }</pre>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /07-audit -->
+
+<!-- ===================================================================== 08-verify -->
+<section class="scene" data-scene="08-verify" id="s-08-verify" aria-labelledby="cap-08">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 08</span> · Verify</p>
+      <h2 class="cap-h" id="cap-08">Same tests, now with our patch.</h2>
+      <p class="cap-b">3,803 tests before, 3,804 after, nothing newly broken. A new failure is re-run twice to rule out flakiness, and a confirmed one is an automatic loss, before any model gives an opinion.</p>
+    </header>
+    <div class="still">
+      <div class="row2">
+        <div class="h-card h-card-body"><div class="counter"><span class="lbl">Before · base commit</span><span class="num">3,803</span><span class="lbl">3,693 passed</span></div></div>
+        <div class="h-card h-card-body"><div class="counter is-good"><span class="lbl">After · our patch</span><span class="num">3,804</span><span class="lbl">3,696 passed · 0 new failures</span></div></div>
+      </div>
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">verify/verify.json</span><span class="kind">artifact</span></div>
+<pre>{ <span class="tk-p">"verdict"</span>: <span class="tk-s">"clean"</span>,
+  <span class="tk-p">"report"</span>: { <span class="tk-p">"total"</span>: <span class="tk-n">3804</span>, <span class="tk-p">"passed"</span>: <span class="tk-n">3696</span>, <span class="tk-p">"skipped"</span>: <span class="tk-n">99</span>, <span class="tk-p">"duration_s"</span>: <span class="tk-n">74.3</span> } }</pre>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /08-verify -->
+
+<!-- ===================================================================== 09-judge -->
+<section class="scene" data-scene="09-judge" id="s-09-judge" aria-labelledby="cap-09">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 09</span> · Blind judge</p>
+      <h2 class="cap-h" id="cap-09">Patch A or patch B. Then the reveal.</h2>
+      <p class="cap-b">The judge sees two patches in random order with the tells scrubbed, and picks one without knowing which is ours. On #15169 it picked A. A was ours.</p>
+    </header>
+    <div class="still">
+      <div class="row2">
+        <div class="h-card ab-card is-lit-good"><div class="ab-top"><span class="ab-letter">A</span><span class="ab-meta">2,070 B<br>ours</span></div><div class="h-card-body"><span class="pill better">better</span></div></div>
+        <div class="h-card ab-card"><div class="ab-top"><span class="ab-letter">B</span><span class="ab-meta">1,095 B<br>merged fix</span></div><div class="h-card-body"><span class="pill par">not chosen</span></div></div>
+      </div>
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">judge.json</span><span class="kind">claude-opus-5-5</span></div>
+<pre>{ <span class="tk-p">"verdict"</span>: <span class="tk-s">"better"</span>, <span class="tk-p">"agent_is"</span>: <span class="tk-s">"A"</span> }</pre>
+        <div class="h-card-body"><p class="cap-b">“Patch A fixes the root cause exactly as VS Code's message suggests (‘Did you forget a leading ./?’)… Patch B instead just skips the root==dir entry… only masks the reported single-* symptom.”</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /09-judge -->
+
+<!-- ===================================================================== 10-publish -->
+<section class="scene" data-scene="10-publish" id="s-10-publish" aria-labelledby="cap-10">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Step 10</span> · Publish</p>
+      <h2 class="cap-h" id="cap-10">Hugo went from 9 better of 30 to 28.</h2>
+      <p class="cap-b">Code does the counting; a model only writes the prose. The 2 worse verdicts are published too, each linked to both patches and the judge's exact words.</p>
+    </header>
+    <div class="still">
+      <div class="h-card h-card-body">
+        <p class="cap-eyebrow">run-20260917-015623</p>
+        <div class="bar"><span class="b-better" style="width:30%"></span><span class="b-par" style="width:10%"></span><span class="b-worse" style="width:53.33%"></span><span class="b-error" style="width:6.67%"></span></div>
+        <div class="counts"><span class="better"><i></i>9 better</span><span class="par"><i></i>3 par</span><span class="worse"><i></i>16 worse</span><span class="error"><i></i>2 no scorable attempt</span></div>
+        <p class="cap-eyebrow" style="margin-top:22px">run-20261013-011256</p>
+        <div class="bar"><span class="b-better" style="width:93.33%"></span><span class="b-worse" style="width:6.67%"></span></div>
+        <div class="counts"><span class="better"><i></i>28 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>2 worse</span><span class="error"><i></i>0 no scorable attempt</span></div>
+      </div>
+      <div class="h-card json-card">
+        <div class="h-card-head"><span class="path">data/backtests/index.json</span></div>
+<pre>{ <span class="tk-p">"id"</span>: <span class="tk-s">"run-20261013-011256"</span>, <span class="tk-p">"tickets"</span>: <span class="tk-n">30</span>,
+  <span class="tk-p">"better"</span>: <span class="tk-n">28</span>, <span class="tk-p">"par"</span>: <span class="tk-n">0</span>, <span class="tk-p">"worse"</span>: <span class="tk-n">2</span>, <span class="tk-p">"error"</span>: <span class="tk-n">0</span> }</pre>
+      </div>
+      <p class="cap-b"><a href="/backtests/hugo/" style="text-decoration:underline;text-decoration-color:#444;text-underline-offset:3px">See every Hugo ticket</a></p>
+    </div>
+  </div>
+</section>
+<!-- ===================================================================== /10-publish -->
+
+<!-- ===================================================================== 11-outro -->
+<section class="scene" data-scene="11-outro" id="s-11-outro" aria-labelledby="cap-11">
+  <div class="scene-fallback">
+    <header class="cap">
+      <p class="cap-eyebrow"><span class="n">Your repo</span> · next</p>
+      <h2 class="cap-h" id="cap-11">Run a backtest on your repo.</h2>
+      <p class="cap-b">Same harness, your last 90 days of closed tickets, failures on page one. You pay per merged PR, after the backtest.</p>
+      <p class="cap-actions"><a class="primary" href="/#backtest">Request a backtest</a><a href="/backtests/">See our backtests</a></p>
+    </header>
+  </div>
+</section>
+<!-- ===================================================================== /11-outro -->
+
+          </div>
+        </div>
+      </div>
+      <div class="h-fx" aria-hidden="true">
+        <div class="h-lightrig"></div>
+        <div class="h-fog"></div>
+        <div class="h-vignette"></div>
+        <div class="h-grain"></div>
+      </div>
+      <div class="h-scrim" aria-hidden="true"></div>
+      <div class="h-captions"></div>
+      <nav class="h-rail" aria-label="Harness steps"></nav>
+    </div>
+  </div>
+</main>
+<div class="wrap">
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
