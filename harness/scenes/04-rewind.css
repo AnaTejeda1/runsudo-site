@@ -1,7 +1,79 @@
-/* /harness/scenes/04-rewind.css — STUB styles. Scope everything to [data-scene="04-rewind"]. */
-[data-scene="04-rewind"] .stub-card .stub-h{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:4px 0 16px}
-[data-scene="04-rewind"] .stub-bar{height:4px;border-radius:2px;background:#1a1a1a;overflow:hidden;margin:0 0 8px}
-[data-scene="04-rewind"] .stub-bar i{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
-[data-scene="04-rewind"] .stub-bar.is-hold i{background:var(--good)}
-[data-scene="04-rewind"] .stub-l{margin:10px 0 0}
-[data-scene="04-rewind"] .stub-back{background:repeating-linear-gradient(135deg,#0d0d0d 0 10px,#111 10px 20px);opacity:.6}
+/* /harness/scenes/04-rewind.css — commit rail in depth, dissolving fix, ticket.md. */
+[data-scene="04-rewind"] .rw-rail-in{position:absolute;inset:0;display:block}
+[data-scene="04-rewind"] .rw-rail-in i{position:absolute;top:0;bottom:0;display:block}
+[data-scene="04-rewind"] .rw-rail-past{left:0;width:100%;
+  background:linear-gradient(90deg,rgba(var(--add-rgb),0),rgba(var(--add-rgb),.55) 30%,rgba(var(--add-rgb),.55) 32%,rgba(var(--add-rgb),0) 34%)}
+[data-scene="04-rewind"] .rw-rail-future{right:0;
+  background:linear-gradient(90deg,rgba(var(--add-rgb),.75),rgba(var(--add-rgb),.35) 50%,rgba(var(--add-rgb),.08));
+  box-shadow:0 0 10px rgba(var(--add-rgb),.45)}
+
+/* commits */
+[data-scene="04-rewind"] .rw-commit{padding:10px 14px 11px;border-radius:10px;font-family:var(--mono)}
+[data-scene="04-rewind"] .rw-c-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fg)}
+[data-scene="04-rewind"] .rw-node{width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(var(--add-rgb),.8);flex:none;background:#0a0a0a}
+[data-scene="04-rewind"] .rw-sha{letter-spacing:.02em}
+[data-scene="04-rewind"] .rw-c-sub{font-size:11.5px;color:var(--muted);margin-top:4px;padding-left:19px;white-space:nowrap}
+[data-scene="04-rewind"] .rw-tag{margin-left:auto;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:1px solid #2a2a2a;border-radius:999px;padding:1px 8px}
+[data-scene="04-rewind"] .rw-tag.is-add{color:var(--add);border-color:rgba(var(--add-rgb),.4)}
+[data-scene="04-rewind"] .rw-tag.is-del{color:var(--del);border-color:rgba(var(--del-rgb),.4)}
+[data-scene="04-rewind"] .rw-tag.is-dim{color:#6a6a6a}
+[data-scene="04-rewind"] .rw-commit.is-future .rw-sha,[data-scene="04-rewind"] .rw-commit.is-head .rw-sha,[data-scene="04-rewind"] .rw-commit.is-old .rw-sha{color:#7a7a7a}
+[data-scene="04-rewind"] .rw-commit.is-old{opacity:.8}
+[data-scene="04-rewind"] .rw-commit.is-ghost{background:transparent;border-style:dashed;border-color:#262626;box-shadow:none}
+[data-scene="04-rewind"] .rw-commit.is-base .rw-node{background:var(--add);border-color:var(--add);box-shadow:0 0 8px rgba(var(--add-rgb),.8)}
+[data-scene="04-rewind"] .rw-commit.is-base .rw-sha{font-size:14px;color:var(--fg)}
+[data-scene="04-rewind"] .rw-commit.is-base.is-on .rw-sha{color:var(--add);text-shadow:0 0 10px rgba(var(--add-rgb),.5),0 0 26px rgba(var(--add-rgb),.25)}
+[data-scene="04-rewind"] .rw-commit.is-base.is-on{border-color:rgba(var(--add-rgb),.4)}
+
+/* the fix commit and its empty slot */
+[data-scene="04-rewind"] .rw-commit.is-fix .rw-node{border-color:var(--del)}
+[data-scene="04-rewind"] .rw-commit.is-fix .rw-sha{color:var(--del)}
+[data-scene="04-rewind"] .rw-commit.is-fix.is-lit-del{border-color:rgba(var(--del-rgb),.55);
+  box-shadow:var(--h-shadow),0 0 0 1px rgba(var(--del-rgb),.25),0 0 40px rgba(var(--del-rgb),.18)}
+[data-scene="04-rewind"] .rw-commit.is-fix.is-gone{background:transparent;border-color:transparent;box-shadow:none}
+[data-scene="04-rewind"] .rw-commit.is-fix.is-gone::before{display:none}
+[data-scene="04-rewind"] .rw-slot{position:absolute;inset:0;border:1px dashed rgba(var(--del-rgb),.38);border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;color:rgba(var(--del-rgb),.85);letter-spacing:.04em;text-transform:uppercase;opacity:0}
+[data-scene="04-rewind"] .rw-bit{position:absolute;left:0;top:0;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;background:rgba(255,255,255,.7);opacity:0;
+  box-shadow:0 0 6px rgba(255,255,255,.4)}
+[data-scene="04-rewind"] .rw-bit.is-del{background:var(--del);box-shadow:0 0 8px rgba(var(--del-rgb),.7)}
+[data-scene="04-rewind"] .rw-bit.is-add{background:var(--add);box-shadow:0 0 8px rgba(var(--add-rgb),.7)}
+
+/* issue card (what exists on GitHub) */
+[data-scene="04-rewind"] .rw-issue{padding:14px 16px}
+[data-scene="04-rewind"] .rw-issue .t-title{font-size:15.5px}
+[data-scene="04-rewind"] .rw-issue .t-meta{font-size:12px;margin-bottom:10px}
+
+/* ticket.md (what the agent gets) */
+[data-scene="04-rewind"] .rw-md-body{padding:14px 16px 16px}
+[data-scene="04-rewind"] .rw-md-h{font-family:var(--mono);font-size:13.5px;line-height:1.45;color:var(--fg);margin:0 0 12px;font-weight:600}
+[data-scene="04-rewind"] .rw-md-lbl{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+[data-scene="04-rewind"] .rw-md-lbl i{width:7px;height:7px;transform:rotate(45deg);background:var(--add);flex:none}
+[data-scene="04-rewind"] .rw-md-lbl.is-no i{background:var(--bad)}
+[data-scene="04-rewind"] .rw-never{margin-left:auto;color:var(--bad);border:1px solid rgba(var(--bad-rgb),.4);border-radius:999px;padding:1px 8px;font-size:10.5px;opacity:0}
+[data-scene="04-rewind"] .rw-sk{display:grid;gap:7px;margin:8px 0 14px}
+[data-scene="04-rewind"] .rw-sk i{display:block;height:7px;border-radius:4px;background:#232323}
+[data-scene="04-rewind"] .rw-sk.is-cmt{margin-bottom:0}
+[data-scene="04-rewind"] .rw-sk.is-cmt i{background:#1e1e1e}
+[data-scene="04-rewind"] .rw-cmts{position:relative;border-top:1px solid var(--line);padding-top:12px}
+[data-scene="04-rewind"] .rw-strike{position:absolute;left:-4px;right:-4px;top:58%;height:2px;background:var(--bad);transform-origin:0 50%;transform:scaleX(0);
+  box-shadow:0 0 8px rgba(var(--bad-rgb),.7),0 0 20px rgba(var(--bad-rgb),.3)}
+
+/* json */
+[data-scene="04-rewind"] .rw-json pre{font-size:12.5px}
+
+/* chips */
+[data-scene="04-rewind"] .rw-chip{display:flex;align-items:center;gap:10px;white-space:nowrap;font-family:var(--mono);font-size:12px;color:var(--fg);
+  background:#0e0e0e;border:1px solid var(--line);border-radius:999px;padding:6px 14px;box-shadow:0 10px 30px -12px rgba(0,0,0,.9)}
+[data-scene="04-rewind"] .rw-chip b{font-weight:400;color:var(--muted)}
+[data-scene="04-rewind"] .rw-chip .h-diamond{background:var(--add)}
+[data-scene="04-rewind"] .rw-chip.is-ghost{background:transparent;border-style:dashed;border-color:#3a3a3a;color:#bdbdbd}
+[data-scene="04-rewind"] .rw-c-vol{display:flex;align-items:center;gap:8px;margin:9px 0 0;padding-top:8px;border-top:1px solid var(--line);font-size:11.5px;color:#cfcfcf;white-space:nowrap}
+[data-scene="04-rewind"] .rw-c-vol .h-diamond{background:var(--add);width:6px;height:6px}
+[data-scene="04-rewind"] .rw-c-vol b{font-weight:400;color:var(--muted)}
+[data-scene="04-rewind"] .rw-chip.is-2{flex-direction:column;align-items:flex-start;gap:2px;border-radius:10px;padding:8px 14px}
+[data-scene="04-rewind"] .rw-rail-in{transform-origin:0 50%;height:3px;top:-1.5px;right:auto}
+[data-scene="04-rewind"] .rw-scan{position:absolute;top:-6px;bottom:-6px;left:0;width:2px;background:var(--del);opacity:0;
+  box-shadow:0 0 10px rgba(var(--del-rgb),.9),0 0 30px rgba(var(--del-rgb),.5)}
+[data-scene="04-rewind"] .rw-chip.is-ghost{background:#0b0b0b}
+[data-scene="04-rewind"] .h-plane.rw-rail,[data-scene="04-rewind"] .rw-rail-in{transform-style:preserve-3d}

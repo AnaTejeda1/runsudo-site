@@ -1,7 +1,40 @@
-/* /harness/scenes/11-outro.css — STUB styles. Scope everything to [data-scene="11-outro"]. */
-[data-scene="11-outro"] .stub-card .stub-h{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:4px 0 16px}
-[data-scene="11-outro"] .stub-bar{height:4px;border-radius:2px;background:#1a1a1a;overflow:hidden;margin:0 0 8px}
-[data-scene="11-outro"] .stub-bar i{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
-[data-scene="11-outro"] .stub-bar.is-hold i{background:var(--good)}
-[data-scene="11-outro"] .stub-l{margin:10px 0 0}
-[data-scene="11-outro"] .stub-back{background:repeating-linear-gradient(135deg,#0d0d0d 0 10px,#111 10px 20px);opacity:.6}
+/* /harness/scenes/11-outro.css — "Your repo · next". Scoped to [data-scene="11-outro"]. */
+[data-scene="11-outro"] .ot-car{pointer-events:none}
+[data-scene="11-outro"] .ot-node{position:absolute;left:0;top:0;width:0;height:0;opacity:0}
+[data-scene="11-outro"] .ot-dia{position:absolute;left:-5px;top:-5px;width:10px;height:10px;background:#1a1a1a;border:1px solid #4a4a4a;transform:rotate(45deg);
+  transition:none}
+[data-scene="11-outro"] .ot-dia.is-pause{left:-7px;top:-7px;width:14px;height:14px}
+[data-scene="11-outro"] .ot-lbl{position:absolute;left:18px;top:-9px;display:flex;align-items:baseline;gap:8px;white-space:nowrap;font-family:var(--mono);font-size:12px;color:var(--muted)}
+[data-scene="11-outro"] .is-left .ot-lbl{left:auto;right:18px;flex-direction:row-reverse}
+[data-scene="11-outro"] .ot-lbl em{font-style:normal;color:#6a6a6a}
+[data-scene="11-outro"] .ot-lbl b{font-family:var(--sans);font-size:14px;font-weight:600;letter-spacing:-.01em;color:#9a9a9a}
+[data-scene="11-outro"] .ot-lbl span{color:#6f6f6f}
+[data-scene="11-outro"] .ot-node.is-lit .ot-dia{background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px rgba(var(--accent-rgb),.7),0 0 22px rgba(var(--accent-rgb),.3)}
+[data-scene="11-outro"] .ot-node.is-lit .ot-lbl em{color:var(--accent)}
+[data-scene="11-outro"] .ot-node.is-lit .ot-lbl b{color:var(--fg)}
+[data-scene="11-outro"] .ot-node.is-lit .ot-lbl span{color:var(--muted)}
+[data-scene="11-outro"] .ot-node.is-pause.is-lit .ot-dia{box-shadow:0 0 10px rgba(var(--accent-rgb),.85),0 0 30px rgba(var(--accent-rgb),.4),0 0 0 5px rgba(var(--accent-rgb),.08)}
+
+/* the next stage: your repo */
+[data-scene="11-outro"] .ot-dia.is-you{left:-11px;top:-11px;width:22px;height:22px;background:transparent;border:1px dashed rgba(var(--accent-rgb),.5)}
+[data-scene="11-outro"] .ot-node.is-you .ot-lbl{left:28px;top:-13px}
+[data-scene="11-outro"] .ot-node.is-you .ot-lbl b{font-size:19px;color:var(--fg)}
+[data-scene="11-outro"] .ot-node.is-you .ot-lbl span{font-size:12px;color:var(--accent);letter-spacing:.04em;text-transform:uppercase}
+[data-scene="11-outro"] .ot-node.is-you.is-lit .ot-dia{background:var(--accent);border:1px solid var(--accent);
+  box-shadow:0 0 12px rgba(var(--accent-rgb),.9),0 0 40px rgba(var(--accent-rgb),.45),0 0 110px rgba(var(--accent-rgb),.22)}
+[data-scene="11-outro"] .ot-bloom{position:absolute;left:-160px;top:-160px;width:320px;height:320px;border-radius:50%;opacity:0;pointer-events:none;
+  background:radial-gradient(circle,rgba(var(--accent-rgb),.22) 0,rgba(var(--accent-rgb),.08) 30%,rgba(var(--accent-rgb),0) 65%)}
+
+/* path */
+[data-scene="11-outro"] .ot-seg{position:absolute;left:0;top:0;width:100%;height:1px;background:rgba(255,255,255,.16);opacity:0}
+[data-scene="11-outro"] .ot-seg.is-next{background:repeating-linear-gradient(90deg,rgba(var(--accent-rgb),.45) 0 5px,transparent 5px 10px)}
+[data-scene="11-outro"] .ot-seg-lit{position:absolute;left:0;top:-.5px;width:100%;height:2px;transform-origin:0 50%;transform:scaleX(0);
+  background:linear-gradient(90deg,rgba(var(--accent-rgb),.45),rgba(var(--accent-rgb),.95))}
+[data-scene="11-outro"] .ot-cometpl{display:block}
+[data-scene="11-outro"] .ot-comet{position:absolute;inset:0;border-radius:50%;opacity:0;
+  background:radial-gradient(circle,#fffbe0 0,#fffbe0 3px,rgba(var(--accent-rgb),.9) 5px,rgba(var(--accent-rgb),.35) 14px,rgba(var(--accent-rgb),.12) 40px,rgba(var(--accent-rgb),0) 98px)}
+
+@media (max-width:760px){
+  [data-scene="11-outro"] .ot-lbl span{display:none}
+  [data-scene="11-outro"] .ot-lbl b{font-size:13px}
+}

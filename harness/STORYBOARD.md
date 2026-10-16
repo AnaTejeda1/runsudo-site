@@ -261,3 +261,13 @@ These numbers move if a scene overrides `travel` or `pause`. `Harness.timeline()
   unchanged writes).
 - Verify with `node /Users/romij/.harness-scroll-tools/shot.mjs http://localhost:PORT /tmp/out ID@0.2 ID#0.5 ID@0.9`
   plus `--mobile`, and check there are no console errors.
+
+## Integration notes
+
+- **Scroll warp.** Scroll no longer maps linearly to t. Each `LAYOUT` entry has `enter` / `exit` (local p). The stretch from one scene's `exit` to the next scene's `enter` gets 0.38x scroll per unit of t, so the camera moves quickly between stages and slowly where there is something to read. Use `Harness.scrollFrac(t)` / `Harness.timeAt(sf)` to convert. The rail positions are in scroll space.
+- **Flight path.** The engine lays small accent "runway lights" along the camera's look-at track inside each transition. They are only visible between stages.
+- **Entry framing.** Entry dollies were pulled in (about -400 to -540) so each stage arrives larger.
+- **Streak.** The anamorphic light streak dims by 85% while a caption is up.
+- **`api.dim`.** This is the engine's scene dim factor (0.26..1), for planes made with `fog:false`.
+- **`camera`.** It may be a function `({mobile}) => keys`.
+- **09-judge.** The hold drift is `{dolly: 50, fov: -1}` (set in the scene), not +130 / -2.

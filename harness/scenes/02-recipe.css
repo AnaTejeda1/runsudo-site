@@ -1,7 +1,27 @@
-/* /harness/scenes/02-recipe.css — STUB styles. Scope everything to [data-scene="02-recipe"]. */
-[data-scene="02-recipe"] .stub-card .stub-h{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:4px 0 16px}
-[data-scene="02-recipe"] .stub-bar{height:4px;border-radius:2px;background:#1a1a1a;overflow:hidden;margin:0 0 8px}
-[data-scene="02-recipe"] .stub-bar i{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
-[data-scene="02-recipe"] .stub-bar.is-hold i{background:var(--good)}
-[data-scene="02-recipe"] .stub-l{margin:10px 0 0}
-[data-scene="02-recipe"] .stub-back{background:repeating-linear-gradient(135deg,#0d0d0d 0 10px,#111 10px 20px);opacity:.6}
+/* /harness/scenes/02-recipe.css — setup_agent.py, recipe.json being written, Dockerfile, full-suite counter. */
+[data-scene="02-recipe"] .r-fn pre{padding:12px 16px}
+[data-scene="02-recipe"] .r-fn .ln{transition:none}
+[data-scene="02-recipe"] .r-recipe pre{padding:14px 16px;min-height:112px}
+[data-scene="02-recipe"] .r-ln{display:block;white-space:pre}
+[data-scene="02-recipe"] .r-ln.is-cur::after{content:"";display:inline-block;width:.55em;height:1.05em;vertical-align:-.18em;margin-left:1px;
+  background:var(--add);box-shadow:0 0 8px rgba(var(--add-rgb),.8)}
+[data-scene="02-recipe"] .r-who{display:inline-flex;align-items:center;gap:7px;color:var(--muted)}
+[data-scene="02-recipe"] .r-pulse{width:6px;height:6px;border-radius:50%;background:#333}
+[data-scene="02-recipe"] .r-who.is-on{color:var(--add)}
+[data-scene="02-recipe"] .r-who.is-on .r-pulse{background:var(--add);box-shadow:0 0 8px rgba(var(--add-rgb),.9);animation:r-pulse 1s ease-in-out infinite}
+@keyframes r-pulse{50%{opacity:.35}}
+[data-scene="02-recipe"] .r-docker pre{padding:12px 16px;font-size:12.5px}
+[data-scene="02-recipe"] .r-count .h-card-body{padding:16px 18px 14px}
+[data-scene="02-recipe"] .r-count .num{display:inline-block;transform-origin:0 80%;font-size:58px;color:var(--fg);
+  text-shadow:0 0 18px rgba(var(--accent-rgb),.18)}
+[data-scene="02-recipe"] .r-count.is-done .num{color:var(--good);text-shadow:0 0 12px rgba(var(--good-rgb),.45),0 0 34px rgba(var(--good-rgb),.22)}
+[data-scene="02-recipe"] .r-state{font-size:11px;padding:2px 9px}
+[data-scene="02-recipe"] .r-ver{margin:14px 0 0;padding:10px 12px;border-radius:8px;background:#0a0a0a;border:1px solid #1d1d1d;font-size:12px;line-height:1.55}
+
+@media (max-width:760px){
+  [data-scene="02-recipe"] .r-recipe pre{font-size:10.5px;padding:12px 12px}
+  [data-scene="02-recipe"] .r-ln{white-space:pre-wrap;padding-left:2ch;text-indent:-2ch}
+  [data-scene="02-recipe"] .r-docker pre{font-size:10.5px}
+  [data-scene="02-recipe"] .r-count .num{font-size:46px}
+  [data-scene="02-recipe"] .r-ver{font-size:10.5px}
+}

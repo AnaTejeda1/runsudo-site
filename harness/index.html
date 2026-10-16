@@ -71,7 +71,7 @@
       <p class="cap-b">This is the path every ticket takes through our backtest harness, from a bare clone to a public verdict. The function names, files and numbers are real.</p>
     </header>
     <div class="still">
-      <div class="chips"><span class="chip is-accent">gohugoio/hugo</span><span class="chip">30 closed issues</span><span class="chip">lane foreman</span><span class="chip">sealed container</span><span class="chip">blind A/B judge</span></div>
+      <div class="chips"><span class="chip is-accent">gohugoio/hugo</span><span class="chip">30 closed issues</span><span class="chip">lane foreman</span><span class="chip">run-20260930-081756</span><span class="chip">following #15169</span><span class="chip">sealed container</span><span class="chip">blind A/B judge</span></div>
     </div>
   </div>
 </section>
@@ -153,8 +153,8 @@
   <span class="tk-p">"listed"</span>: <span class="tk-n">186</span>,
   <span class="tk-p">"out_of_window"</span>: <span class="tk-n">93</span>,
   <span class="tk-p">"excluded"</span>: <span class="tk-n">31</span>,
-<span class="ln hl">  <span class="tk-p">"scoreable"</span>: <span class="tk-n">62</span>,</span>  <span class="tk-p">"seed"</span>: <span class="tk-n">3676299815</span>
-}</pre>
+<span class="ln hl">  <span class="tk-p">"scoreable"</span>: <span class="tk-n">62</span></span>}
+<span class="tk-c">30 drawn with</span> { <span class="tk-p">"seed"</span>: <span class="tk-n">3676299815</span> }</pre>
       </div>
       <div class="row2">
         <div class="h-card json-card">
@@ -204,6 +204,7 @@
 <span class="tk-k">def</span> <span class="tk-f">write_ticket_md</span><span class="tk-o">(…)</span></pre>
         </div>
       </div>
+      <div class="chips"><span class="chip is-add">base dd3f2731… = first_parent(fix)</span><span class="chip is-bad">✕ fix commit: absent from the checkout</span><span class="chip">bt-ws-&lt;run&gt;-&lt;ticket&gt; · cloned over file://</span><span class="chip">human.patch · not written until solve finishes</span></div>
     </div>
   </div>
 </section>
@@ -218,8 +219,12 @@
       <p class="cap-b">3,803 tests run on the base commit, 11 of them already failing. The exact command is frozen, so the after run is identical.</p>
     </header>
     <div class="still">
+      <div class="row2">
+        <div class="h-card h-card-body"><div class="counter"><span class="num">3,803</span><span class="lbl">tests on the base commit</span></div></div>
+        <div class="h-card h-card-body"><div class="counter is-good"><span class="num">3,693</span><span class="lbl">passed · <span style="color:var(--bad)">11 failing at base, kept</span></span></div></div>
+      </div>
       <div class="h-card json-card">
-        <div class="h-card-head"><span class="path">baseline.json</span><span class="kind">artifact</span></div>
+        <div class="h-card-head"><span class="path">baseline/baseline.json</span><span class="kind">artifact</span></div>
 <pre>{ <span class="tk-p">"kind"</span>: <span class="tk-s">"go-test-json"</span>, <span class="tk-p">"total"</span>: <span class="tk-n">3803</span>, <span class="tk-p">"passed"</span>: <span class="tk-n">3693</span> }</pre>
       </div>
       <div class="h-card fn-card">
@@ -227,6 +232,7 @@
 <pre><span class="tk-k">def</span> <span class="tk-f">run_prepare</span><span class="tk-o">(…)</span>
 <span class="tk-k">def</span> <span class="tk-f">select_tests</span><span class="tk-o">(…)</span>  <span class="tk-c"># chosen by a script, not a model</span></pre>
       </div>
+      <div class="chips"><span class="chip is-accent">baseline/test-spec.json · frozen</span><span class="chip">the after run replays the exact command</span></div>
     </div>
   </div>
 </section>
@@ -241,16 +247,18 @@
       <p class="cap-b">The agent works in a sealed container that can reach the model API and nothing else: no GitHub, no web, no fix. Its prompt is frozen to disk before it starts.</p>
     </header>
     <div class="still">
+      <div class="chips"><span class="chip is-accent">solve/prompt.md · frozen before spawn</span><span class="chip">bt/solve.py · box_argv(…)</span><span class="chip">foreman lane · sudo-solver v0.5.1</span></div>
       <div class="h-card fn-card">
-        <div class="h-card-head"><span class="path">bt/egress.py</span><span>fail-closed</span></div>
+        <div class="h-card-head"><span class="path">bt/egress.py</span><span>bt/guard.py · fail-closed</span></div>
 <pre><span class="tk-b">ALLOWED_HOSTS</span> <span class="tk-o">=</span> {<span class="tk-s">"api.anthropic.com"</span>, <span class="tk-s">"platform.claude.com"</span>}</pre>
       </div>
-      <div class="chips"><span class="chip is-good">✓ api.anthropic.com</span><span class="chip is-good">✓ platform.claude.com</span><span class="chip is-bad">✕ github.com</span><span class="chip is-bad">✕ the web</span></div>
+      <div class="chips"><span class="chip is-accent">✓ api.anthropic.com</span><span class="chip is-accent">✓ platform.claude.com</span><span class="chip is-bad">✕ github.com</span><span class="chip is-bad">✕ pypi.org</span><span class="chip is-bad">✕ any other host</span></div>
       <div class="h-card json-card">
         <div class="h-card-head"><span class="path">foreman record</span><span class="kind">#15169</span></div>
 <pre>{ <span class="tk-p">"stage"</span>: <span class="tk-s">"foreman"</span>, <span class="tk-p">"state"</span>: <span class="tk-s">"done"</span>, <span class="tk-p">"steps"</span>: <span class="tk-n">1</span>,
   <span class="tk-p">"verdicts"</span>: [<span class="tk-s">"continue"</span>], <span class="tk-p">"patch_bytes"</span>: <span class="tk-n">2070</span>, <span class="tk-p">"duration_s"</span>: <span class="tk-n">625.0</span> }</pre>
       </div>
+      <div class="chips"><span class="chip">transcript.jsonl</span><span class="chip">patch · 2,070 B</span></div>
     </div>
   </div>
 </section>
@@ -265,8 +273,14 @@
       <p class="cap-b">Code reads everything the agent did. A contaminated ticket stays in the total and is never scored.</p>
     </header>
     <div class="still">
+      <div class="h-card term-card">
+        <div class="h-card-head"><span class="dots"><i></i><i></i><i></i></span><span>zsh</span></div>
+<pre><span class="pr">$</span> bt audit gohugoio/hugo run-20260930-081756
+<span class="out">reading solve/transcript.jsonl</span>
+<span class="ok">audit.json  verdict clean</span></pre>
+      </div>
       <div class="h-card fn-card">
-        <div class="h-card-head"><span class="path">bt/audit.py</span></div>
+        <div class="h-card-head"><span class="path">bt/audit.py</span><span>code, not a model</span></div>
 <pre><span class="tk-k">def</span> <span class="tk-f">path_findings</span><span class="tk-o">(…)</span>
 <span class="tk-k">def</span> <span class="tk-f">egress_findings</span><span class="tk-o">(…)</span>
 <span class="tk-k">def</span> <span class="tk-f">mention_findings</span><span class="tk-o">(…)</span>
@@ -276,6 +290,7 @@
         <div class="h-card-head"><span class="path">audit.json</span></div>
 <pre>{ <span class="tk-p">"audit"</span>: { <span class="tk-p">"verdict"</span>: <span class="tk-s">"clean"</span> } }</pre>
       </div>
+      <p class="mono small muted"><span class="chip is-bad">contaminated</span> stays in the total, never scored.</p>
     </div>
   </div>
 </section>
@@ -297,7 +312,17 @@
       <div class="h-card json-card">
         <div class="h-card-head"><span class="path">verify/verify.json</span><span class="kind">artifact</span></div>
 <pre>{ <span class="tk-p">"verdict"</span>: <span class="tk-s">"clean"</span>,
-  <span class="tk-p">"report"</span>: { <span class="tk-p">"total"</span>: <span class="tk-n">3804</span>, <span class="tk-p">"passed"</span>: <span class="tk-n">3696</span>, <span class="tk-p">"skipped"</span>: <span class="tk-n">99</span>, <span class="tk-p">"duration_s"</span>: <span class="tk-n">74.3</span> } }</pre>
+  <span class="tk-p">"report"</span>: { <span class="tk-p">"total"</span>: <span class="tk-n">3804</span>, <span class="tk-p">"passed"</span>: <span class="tk-n">3696</span>, <span class="tk-p">"skipped"</span>: <span class="tk-n">99</span>, <span class="tk-p">"duration_s"</span>: <span class="tk-n">74.3</span> },
+  <span class="tk-p">"baseline_failed"</span>: [<span class="tk-c">…</span>], <span class="tk-p">"post_failed"</span>: [<span class="tk-c">…</span>] }</pre>
+      </div>
+      <div class="h-card fn-card">
+        <div class="h-card-head"><span class="path">bt/verify.py</span><span>a new failure is re-run twice</span></div>
+<pre><span class="tk-k">def</span> <span class="tk-f">verify_ticket</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">load_verify</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">rerun_suffix</span><span class="tk-o">(…)</span>
+<span class="tk-c"># passes on re-run: flaky, not counted. fails again: automatic loss.</span>
+<span class="tk-c"># bt/mandate.py: "contested" when every failure</span>
+<span class="tk-c"># is in a test the human fix itself rewrote.</span></pre>
       </div>
     </div>
   </div>
@@ -322,6 +347,19 @@
 <pre>{ <span class="tk-p">"verdict"</span>: <span class="tk-s">"better"</span>, <span class="tk-p">"agent_is"</span>: <span class="tk-s">"A"</span> }</pre>
         <div class="h-card-body"><p class="cap-b">“Patch A fixes the root cause exactly as VS Code's message suggests (‘Did you forget a leading ./?’)… Patch B instead just skips the root==dir entry… only masks the reported single-* symptom.”</p></div>
       </div>
+      <div class="row2">
+        <div class="h-card fn-card">
+          <div class="h-card-head"><span class="path">bt/judge.py</span></div>
+<pre><span class="tk-f">judge_ticket</span><span class="tk-o">(…)</span>
+<span class="tk-f">scrub_tells</span><span class="tk-o">(…)</span>
+<span class="tk-c">  issue URLs → &lt;link&gt;</span>
+<span class="tk-c">  versions → &lt;version&gt;</span></pre>
+        </div>
+        <div class="h-card json-card">
+          <div class="h-card-head"><span class="path">judge/order.json</span><span class="kind">after the reply</span></div>
+<pre>{ <span class="tk-p">"A"</span>: <span class="tk-s">"agent"</span>, <span class="tk-p">"B"</span>: <span class="tk-s">"human"</span> }</pre>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -336,6 +374,18 @@
       <p class="cap-b">Code does the counting; a model only writes the prose. The 2 worse verdicts are published too, each linked to both patches and the judge's exact words.</p>
     </header>
     <div class="still">
+        <div class="h-card fn-card">
+          <div class="h-card-head"><span class="path">bt/summarize.py</span><span>code counts</span></div>
+<pre><span class="tk-k">def</span> <span class="tk-f">classify_ticket</span><span class="tk-o">(…)</span>
+<span class="tk-k">def</span> <span class="tk-f">compute_counts</span><span class="tk-o">(…)</span></pre>
+        </div>
+        <div class="h-card term-card">
+          <div class="h-card-head"><span class="dots"><i></i><i></i><i></i></span>bt</div>
+<pre><span class="pr">$</span> bt export-site RUN_ID --notes "..."
+<span class="out">  scanned for host paths, tokens, email</span>
+<span class="pr">$</span> node scripts/build-backtests.mjs
+<span class="ok">  → GitHub Pages</span></pre>
+        </div>
       <div class="h-card h-card-body">
         <p class="cap-eyebrow">run-20260917-015623</p>
         <div class="bar"><span class="b-better" style="width:30%"></span><span class="b-par" style="width:10%"></span><span class="b-worse" style="width:53.33%"></span><span class="b-error" style="width:6.67%"></span></div>
@@ -343,6 +393,10 @@
         <p class="cap-eyebrow" style="margin-top:22px">run-20261013-011256</p>
         <div class="bar"><span class="b-better" style="width:93.33%"></span><span class="b-worse" style="width:6.67%"></span></div>
         <div class="counts"><span class="better"><i></i>28 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>2 worse</span><span class="error"><i></i>0 no scorable attempt</span></div>
+        <p class="cap-eyebrow" style="margin-top:22px">Hugo, better of 30, run by run</p>
+        <p class="mono small" style="margin:0">9 · 13 · 20 · 25 · 26 · 28 · 27 · 28</p>
+        <p class="cap-eyebrow" style="margin-top:18px">Same harness, other repos</p>
+        <p class="mono small" style="margin:0">pydantic 14 → 27 · vuejs/core 13 → 24</p>
       </div>
       <div class="h-card json-card">
         <div class="h-card-head"><span class="path">data/backtests/index.json</span></div>
@@ -364,6 +418,23 @@
       <p class="cap-b">Same harness, your last 90 days of closed tickets, failures on page one. You pay per merged PR, after the backtest.</p>
       <p class="cap-actions"><a class="primary" href="/#backtest">Request a backtest</a><a href="/backtests/">See our backtests</a></p>
     </header>
+    <div class="still">
+      <div class="h-card h-card-body ot-path">
+        <p class="cap-eyebrow">The path, one ticket</p>
+        <ol class="mono small" style="margin:0;padding-left:22px;line-height:1.9">
+          <li>Clone · cache.git</li>
+          <li>Build · 3,778 tests ran</li>
+          <li>Discover · 186 → 62 → 30</li>
+          <li>Rewind · base dd3f2731…</li>
+          <li>Baseline · 3,803 tests</li>
+          <li>Solve blind · 2 allowed hosts</li>
+          <li>Audit · clean</li>
+          <li>Verify · 0 newly broken</li>
+          <li>Blind judge · A was ours</li>
+          <li>Publish · 28 of 30 better</li>
+        </ol>
+      </div>
+    </div>
   </div>
 </section>
 <!-- ===================================================================== /11-outro -->

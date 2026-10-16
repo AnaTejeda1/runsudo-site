@@ -99,37 +99,37 @@
    * the engine duplicates it to the hold's start and end (end pose = hold pose + drift). */
 
   const LAYOUT = [
-    { id: '00-intro', step: null, name: 'Intro', cap: 'light', pos: [0, 0, 0], rot: [0, 0, 0], travel: 1.4,
+    { id: '00-intro', step: null, name: 'Intro', cap: 'light', pos: [0, 0, 0], rot: [0, 0, 0], travel: 1.4, exit: 0.96,
       light: { x: 0, y: -40, z: 0, color: 'accent' },
       cam: [
         { u: 0, dolly: -760, rx: 12, ry: -8, y: -40 },
         { u: 0.45, dolly: -170, rx: 4, ry: -2 },
         { u: 0.92, dolly: 140, rx: -6, ry: 10, x: 160, y: 90, rz: 2 },
       ] },
-    { id: '01-clone', step: '01', name: 'Clone', cap: 'light', pos: [1150, 950, -1400], rot: [0, -24, 0], travel: 1.9,
+    { id: '01-clone', step: '01', name: 'Clone', cap: 'light', pos: [1150, 950, -1400], rot: [0, -24, 0], travel: 1.9, enter: 0.22, exit: 0.95,
       light: { x: 0, y: 0, z: 60, color: 'white' },
       cam: [
-        { u: 0.16, dolly: -520, ry: -20, rz: -5, x: -220 },
+        { u: 0.16, dolly: -420, ry: -20, rz: -5, x: -180 },
         { u: 0.5, dolly: -50, ry: -6, rz: -1, sx: 0.06 },
         { u: 0.88, dolly: 90, ry: 8, rx: -8, y: 140, rz: 3 },
       ] },
-    { id: '02-recipe', step: '02', name: 'Build', cap: 'light', pos: [-250, 1950, -2650], rot: [0, 22, 0], travel: 2.0,
+    { id: '02-recipe', step: '02', name: 'Build', cap: 'light', pos: [-250, 1950, -2650], rot: [0, 22, 0], travel: 2.0, enter: 0.22, exit: 0.93,
       light: { x: 0, y: 0, z: 60, color: 'add' },
       cam: [
-        { u: 0.15, dolly: -580, ry: 18, rx: 8, rz: 5 },
+        { u: 0.15, dolly: -460, ry: 18, rx: 8, rz: 5 },
         { u: 0.52, dolly: -40, ry: 4, sx: 0.06 },
         { u: 0.88, dolly: 70, rx: -18, y: 220, ry: -4 },
       ] },
-    { id: '03-funnel', step: '03', name: 'Discover', cap: 'pause', pos: [450, 3350, -3650], rot: [0, 0, 0], travel: 2.4,
+    { id: '03-funnel', step: '03', name: 'Discover', cap: 'pause', pos: [450, 3350, -3650], rot: [0, 0, 0], travel: 2.4, enter: 0.15, exit: 0.93,
       pause: { at: 0.5, dwell: 1.6, drift: { dolly: 50 } },
       light: { x: 0, y: 40, z: 0, color: 'accent' },
       cam: [
-        { u: 0.1, dolly: -680, rx: -38, y: -220 },
+        { u: 0.1, dolly: -540, rx: -38, y: -200 },
         { u: 0.3, dolly: -260, rx: -14, y: -60 },
         { u: 0.5, hold: true, dolly: -20, rx: -3, sx: 0.12 },
         { u: 0.88, dolly: 110, rx: 6, ry: 16, x: 320, rz: -3 },
       ] },
-    { id: '04-rewind', step: '04', name: 'Rewind', cap: 'pause', pos: [1550, 4250, -2750], rot: [0, -18, 0], travel: 2.4,
+    { id: '04-rewind', step: '04', name: 'Rewind', cap: 'pause', pos: [1550, 4250, -2750], rot: [0, -18, 0], travel: 2.4, enter: 0.2, exit: 0.93,
       pause: { at: 0.62, dwell: 1.4, drift: { dolly: -30, z: 30 } },
       light: { x: 0, y: 0, z: 0, color: 'add' },
       cam: [
@@ -138,47 +138,47 @@
         { u: 0.62, hold: true, z: 0, dolly: -60, sx: 0.12 },
         { u: 0.9, dolly: -220, rx: -12, y: 170, ry: -10 },
       ] },
-    { id: '05-baseline', step: '05', name: 'Baseline', cap: 'light', pos: [700, 5250, -4350], rot: [0, 12, 0], travel: 1.8,
+    { id: '05-baseline', step: '05', name: 'Baseline', cap: 'light', pos: [700, 5250, -4350], rot: [0, 12, 0], travel: 1.8, enter: 0.16, exit: 0.93,
       light: { x: 0, y: 0, z: 60, color: 'white' },
       cam: [
         { u: 0.15, dolly: -440, ry: 14, rx: -8, rz: -4 },
         { u: 0.5, dolly: -40, ry: 4, sx: 0.06 },
         { u: 0.88, dolly: 60, ry: -14, x: -240, y: 130, rz: 3 },
       ] },
-    { id: '06-sandbox', step: '06', name: 'Solve', cap: 'pause', pos: [-550, 6350, -5650], rot: [0, 0, 0], travel: 2.6,
+    { id: '06-sandbox', step: '06', name: 'Solve', cap: 'pause', pos: [-550, 6350, -5650], rot: [0, 0, 0], travel: 2.6, enter: 0.21, exit: 0.95,
       pause: { at: 0.55, dwell: 1.6, drift: { ry: -10, dolly: -70 } },
       light: { x: 0, y: -40, z: 0, color: 'accent' },
       cam: [
-        { u: 0.1, dolly: -680, ry: -42, rx: -20 },
+        { u: 0.1, dolly: -520, ry: -42, rx: -20 },
         { u: 0.32, dolly: -330, ry: -30, rx: -13 },
         { u: 0.55, hold: true, dolly: -110, ry: -18, rx: -10, sx: 0.12 },
         { u: 0.9, dolly: 60, ry: 20, rx: -4, y: 160 },
       ] },
-    { id: '07-audit', step: '07', name: 'Audit', cap: 'light', pos: [-1550, 7250, -6450], rot: [0, 28, 0], travel: 1.8,
+    { id: '07-audit', step: '07', name: 'Audit', cap: 'light', pos: [-1550, 7250, -6450], rot: [0, 28, 0], travel: 1.8, enter: 0.2, exit: 0.93,
       light: { x: 0, y: 0, z: 60, color: 'good' },
       cam: [
-        { u: 0.15, dolly: -480, ry: 34, rz: -6 },
+        { u: 0.15, dolly: -400, ry: 34, rz: -6 },
         { u: 0.5, dolly: -40, ry: 6, rz: -1, sx: 0.06 },
         { u: 0.86, dolly: 80, ry: -6, rx: -10, y: 170, rz: 3 },
       ] },
-    { id: '08-verify', step: '08', name: 'Verify', cap: 'pause', pos: [-650, 8250, -7850], rot: [0, -10, 0], travel: 2.4,
+    { id: '08-verify', step: '08', name: 'Verify', cap: 'pause', pos: [-650, 8250, -7850], rot: [0, -10, 0], travel: 2.4, enter: 0.17, exit: 0.95,
       pause: { at: 0.5, dwell: 1.4, drift: { dolly: 35 } },
       light: { x: 0, y: 0, z: 0, color: 'good' },
       cam: [
-        { u: 0.14, dolly: -580, rx: -16, ry: -12, y: -130 },
+        { u: 0.14, dolly: -430, rx: -16, ry: -12, y: -110 },
         { u: 0.5, hold: true, dolly: -30, sx: 0.12 },
         { u: 0.88, dolly: 120, rx: -10, y: 190, ry: 8 },
       ] },
-    { id: '09-judge', step: '09', name: 'Judge', cap: 'pause', pos: [200, 9350, -9250], rot: [0, 0, 0], travel: 2.8,
+    { id: '09-judge', step: '09', name: 'Judge', cap: 'pause', pos: [200, 9350, -9250], rot: [0, 0, 0], travel: 2.8, enter: 0.12, exit: 0.95,
       pause: { at: 0.6, dwell: 1.8, drift: { dolly: 130, fov: -2 } },
       light: { x: 0, y: 0, z: 0, color: 'accent' },
       cam: [
-        { u: 0.12, dolly: -720, rx: -6 },
+        { u: 0.12, dolly: -540, rx: -6 },
         { u: 0.4, dolly: -250, rx: -2 },
         { u: 0.6, hold: true, dolly: 170, sx: 0.12, fov: 46 },
         { u: 0.9, dolly: -320, rx: -8, y: 150 },
       ] },
-    { id: '10-publish', step: '10', name: 'Publish', cap: 'pause', pos: [0, 10550, -10650], rot: [0, 0, 0], travel: 2.6,
+    { id: '10-publish', step: '10', name: 'Publish', cap: 'pause', pos: [0, 10550, -10650], rot: [0, 0, 0], travel: 2.6, enter: 0.08, exit: 0.97,
       pause: { at: 0.55, dwell: 1.6, drift: { dolly: -60 } },
       light: { x: 0, y: -60, z: 0, color: 'good' },
       cam: [
@@ -186,7 +186,7 @@
         { u: 0.55, hold: true, dolly: -120, sx: 0.12 },
         { u: 0.9, dolly: -430, rx: 6, y: 120 },
       ] },
-    { id: '11-outro', step: null, name: 'Outro', cap: 'end', pos: [0, 11550, -11850], rot: [0, 0, 0], travel: 1.4,
+    { id: '11-outro', step: null, name: 'Outro', cap: 'end', pos: [0, 11550, -11850], rot: [0, 0, 0], travel: 1.4, enter: 0.12,
       light: { x: 0, y: 0, z: 0, color: 'accent' },
       cam: [
         { u: 0.2, dolly: -620, rx: -6 },
@@ -229,6 +229,8 @@
   let W = innerWidth, VH = innerHeight, mobile = W <= 760, k = 1, P = 1000;
   let trackTop = 0, scrollable = 1;
   let cur = 0, target = 0;
+  let sCur = 0, sTarget = 0; // scroll fraction (pre-warp)
+  let warpS = null, warpN = 0, effScreens = 1;
   const vel = { v: 0 };
   let raf = 0, lastNow = 0, lastRendered = -1, forceRender = true;
   let waiters = [];
@@ -236,6 +238,7 @@
   let shiftX = 0, shiftY = 0;
   let pose = {};
   let dust = [];
+  let path = [], warpW = null;
   let lightOn = {};
   let debugEl = null, fpsAvg = 60;
   const ORIGIN = typeof DOMPoint === 'function' ? new DOMPoint(0, 0, 0) : null;
@@ -346,7 +349,7 @@
     const mob = mobile ? 0.55 : 1;
     for (const s of scenes) {
       const reg = s.reg || {};
-      let ks = (reg.camera || s.L.cam || [{ u: 0.5 }]).map((q) => Object.assign({}, q));
+      let ks = ((typeof reg.camera === 'function' ? reg.camera({ mobile }) : reg.camera) || s.L.cam || [{ u: 0.5 }]).map((q) => Object.assign({}, q));
       ks.sort((a, b) => a.u - b.u);
       if (s.pause && !ks.some((q) => q.hold)) {
         // synthesize a hold key by interpolating neighbours at u = at
@@ -415,6 +418,54 @@
       m[n - 1] = 0;
       tangents[c] = m;
     }
+  }
+
+  /* Scroll -> timeline warp. Transitions between scenes (from a scene's `exit` p to the next
+   * scene's `enter` p) get less scroll per unit of t, so the camera whips through the empty
+   * space between stages and slows down where there is something to read. */
+  const WARP_MIN = 0.38;
+  function buildWarp() {
+    const N = 4000;
+    const zones = [];
+    for (let i = 0; i < scenes.length - 1; i++) {
+      const a = scenes[i], b = scenes[i + 1];
+      const ex = a.L.exit != null ? a.L.exit : 0.94, en = b.L.enter != null ? b.L.enter : 0.12;
+      const t0 = a.g0 + ex * (a.g1 - a.g0), t1 = b.g0 + en * (b.g1 - b.g0);
+      if (t1 > t0) zones.push([t0, t1]);
+    }
+    const w = new Float64Array(N + 1);
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      let z = 0;
+      for (const [t0, t1] of zones) {
+        if (t <= t0 || t >= t1) continue;
+        const r = Math.min(0.3 * (t1 - t0), 0.012);
+        z = Math.max(z, ease.smooth(range(t, t0, t0 + r)) * (1 - ease.smooth(range(t, t1 - r, t1))));
+      }
+      w[i] = 1 - (1 - WARP_MIN) * z;
+    }
+    warpW = w;
+    warpS = new Float64Array(N + 1);
+    for (let i = 1; i <= N; i++) warpS[i] = warpS[i - 1] + (w[i - 1] + w[i]) / 2 / N;
+    const tot = warpS[N];
+    for (let i = 0; i <= N; i++) warpS[i] /= tot;
+    warpN = N;
+    effScreens = totalScreens * tot;
+  }
+  /* scroll fraction -> t */
+  function warp(sf) {
+    if (!warpS) return sf;
+    sf = clamp(sf);
+    let lo = 0, hi = warpN;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (warpS[m] <= sf) lo = m; else hi = m; }
+    const d = warpS[hi] - warpS[lo];
+    return (lo + (d > 0 ? (sf - warpS[lo]) / d : 0)) / warpN;
+  }
+  /* t -> scroll fraction */
+  function unwarp(t) {
+    if (!warpS) return t;
+    const x = clamp(t) * warpN, i = Math.min(warpN - 1, Math.floor(x));
+    return lerp(warpS[i], warpS[i + 1], x - i);
   }
 
   let segHint = 0;
@@ -591,8 +642,10 @@
     if (!s) return;
     s.reg = regs[id];
     buildTimeline();
+    buildWarp();
     measureTrack();
     mountScene(s);
+    if (els.ticks) buildRail();
     forceRender = true;
     kick();
   }
@@ -665,7 +718,7 @@
       const ft = s.pl ? s.g0 + s.pl.start * (s.g1 - s.g0) : s.g0 + 0.5 * (s.g1 - s.g0);
       const a = el('a', 'h-tick' + (s.pl ? ' is-pause' : ''), `<i></i><b>${s.L.step}</b><span>${s.L.name}</span>`, r);
       a.href = '#' + s.sec.id;
-      a.style.top = (ft * 100).toFixed(3) + '%';
+      a.style.top = (unwarp(ft) * 100).toFixed(3) + '%';
       a.setAttribute('aria-label', `Step ${s.L.step}: ${s.L.name}`);
       a.addEventListener('click', (ev) => { ev.preventDefault(); H.seek(ft, { smooth: true }); });
       els.ticks.push({ a, s, ft });
@@ -673,7 +726,7 @@
   }
 
   function renderRail(t, active) {
-    setTf(els.railFill, `scaleY(${n3(t)})`);
+    setTf(els.railFill, `scaleY(${n3(unwarp(t))})`);
     for (const q of els.ticks) {
       const on = q.s === active;
       if (q.on !== on) { q.on = on; q.a.classList.toggle('is-active', on); }
@@ -714,6 +767,39 @@
     }
   }
 
+  /* The flight path: small runway lights laid along the camera's look-at track through each
+   * transition, so the whip between stages always has something to follow. Shown only while the
+   * camera is between stages. */
+  function zoneAt(t) {
+    if (!warpW) return 0;
+    const i = Math.round(clamp(t) * (warpW.length - 1));
+    return (1 - warpW[i]) / (1 - WARP_MIN);
+  }
+  function buildPath() {
+    for (const d of path) d.e.remove();
+    path = [];
+    if (!warpW) return;
+    const N = warpW.length - 1, tmp = {};
+    let last = null, acc = 0, n = 0;
+    const gap = mobile ? 90 : 70;
+    for (let i = 0; i <= N; i += 2) {
+      const t = i / N;
+      if (warpW[i] > 0.995) { last = null; continue; }
+      evalCamera(t, tmp);
+      const q = { x: tmp.x, y: tmp.y + 70, z: tmp.z };
+      if (last) acc += Math.hypot(q.x - last.x, q.y - last.y, q.z - last.z);
+      last = q;
+      if (path.length && acc < gap) continue;
+      acc = 0;
+      n++;
+      const e = el('i', 'h-pathdot' + (n % 6 === 0 ? ' is-major' : ''), null, els.world);
+      place(e, { x: q.x, y: q.y, z: q.z, ry: tmp.ry, rx: tmp.rx, center: true });
+      setOpacity(e, 0);
+      setVis(e, false);
+      path.push({ e, t });
+    }
+  }
+
   function renderLight(active, p) {
     let colors = null, lx = 0, ly = 0, lz = 0, inten = 0;
     if (active) {
@@ -731,7 +817,9 @@
     }
     if (!pr) inten = 0;
     for (const c of LIGHT_COLORS) setOpacity(lightOn[c], inten * ((colors && colors[c]) || 0));
-    setOpacity(els.streak, inten * 0.4);
+    // the anamorphic streak reads as motion; keep it off the text while a caption is up
+    const capOn = active && active.cap ? Math.max(0, active.cap.v) : 0;
+    setOpacity(els.streak, inten * 0.34 * (1 - 0.85 * capOn));
     if (pr) setTf(els.rig, `translate3d(${n2(pr.x)}px,${n2(pr.y)}px,0) scale(${n3(clamp(pr.f, 0.55, 1.7))})`);
   }
 
@@ -759,15 +847,16 @@
       }
       if (!vis) continue;
       const p = clamp((t - s.g0) / (s.g1 - s.g0));
+      const dim = sceneDim(s, t);
       if (s.api) {
         s.api.p = p;
         s.api.t = t;
+        s.api.dim = dim;
       }
       if (p !== s.lastP && s.reg && typeof s.reg.update === 'function' && !s.errored) {
         s.lastP = p;
         safe(s, () => s.reg.update(p, s.api), 'update');
       }
-      const dim = sceneDim(s, t);
       for (const pl of s.planes) {
         if (!pl.e.isConnected) continue;
         if (!pl.fog) { if (pl.dim) setOpacity(pl.e, dim); continue; }
@@ -775,6 +864,18 @@
         const a = fogAlpha(P - qq.z) * (pl.dim ? dim : 1);
         setOpacity(pl.e, a);
         setVis(pl.e, a > 0.003);
+      }
+    }
+    const zn = ease.smooth(clamp(zoneAt(t) * 1.6));
+    if (zn > 0.002 || path.vis) {
+      path.vis = zn > 0.002;
+      for (const dd of path) {
+        const qq = view.transformPoint(dd.e.__ho);
+        // lights ahead of the camera's current point glow; ones already passed fade out
+        const ahead = 1 - ease.smooth(range(t - dd.t, 0.0, 0.006));
+        const a = fogAlpha(P - qq.z) * zn * (0.25 + 0.75 * ahead);
+        setOpacity(dd.e, a);
+        setVis(dd.e, a > 0.01);
       }
     }
     for (const dd of dust) {
@@ -798,14 +899,17 @@
   /* ------------------------------------------------------------------ scroll + loop */
 
   function measureTrack() {
-    const h = Math.round(totalScreens * VH + VH);
+    const h = Math.round(effScreens * VH + VH);
     els.track.style.height = h + 'px';
     const r = els.track.getBoundingClientRect();
     trackTop = r.top + scrollY;
     scrollable = Math.max(1, h - VH);
   }
-  function scrollT() {
+  function scrollS() {
     return clamp((scrollY - trackTop) / scrollable);
+  }
+  function scrollT() {
+    return warp(scrollS());
   }
   function measure() {
     W = innerWidth;
@@ -823,15 +927,17 @@
     const dt = clamp((now - (lastNow || now)) / 1000, 0, 0.05);
     lastNow = now;
     if (dt > 0) fpsAvg = lerp(fpsAvg, 1 / dt, 0.08);
-    target = scrollT();
+    sTarget = scrollS();
     const st = mobile ? 0.2 : 0.3;
-    cur = damp(cur, target, vel, st, dt || 1 / 60);
+    sCur = damp(sCur, sTarget, vel, st, dt || 1 / 60);
     let settled = false;
-    if (Math.abs(cur - target) < 2e-6 && Math.abs(vel.v) < 1e-5) {
-      cur = target;
+    if (Math.abs(sCur - sTarget) < 2e-6 && Math.abs(vel.v) < 1e-5) {
+      sCur = sTarget;
       vel.v = 0;
       settled = true;
     }
+    target = warp(sTarget);
+    cur = settled ? target : warp(sCur);
     if (forceRender || cur !== lastRendered) {
       forceRender = false;
       lastRendered = cur;
@@ -854,12 +960,14 @@
   function seek(t, opts = {}) {
     t = clamp(+t || 0);
     if (!H.ready) { H._pendingSeek = [t, opts]; return; }
-    const y = Math.round(trackTop + t * scrollable);
+    const sf = unwarp(t);
+    const y = Math.round(trackTop + sf * scrollable);
     if (opts.smooth) {
       window.scrollTo({ top: y, behavior: 'smooth' });
     } else {
       window.scrollTo(0, y);
       cur = target = t;
+      sCur = sTarget = sf;
       vel.v = 0;
       forceRender = true;
       lastRendered = -1;
@@ -875,6 +983,8 @@
   Object.assign(H, {
     seek,
     sceneT,
+    scrollFrac: (t) => unwarp(t),
+    timeAt: (sf) => warp(sf),
     seekScene(id, p = 0.5, opts) {
       const t = sceneT(id, p);
       if (t != null) seek(t, opts);
@@ -941,12 +1051,14 @@
       byId[L.id] = s;
     }
     buildTimeline();
+    buildWarp();
     measureTrack();
     for (const s of scenes) mountScene(s);
     buildCaptions();
     buildRail();
     buildFx();
     buildDust();
+    buildPath();
 
     if (qs.get('debug') === '1') debugEl = el('div', 'h-debug', null, D.body);
 
@@ -961,6 +1073,7 @@
         const changed = measure();
         if (changed) {
           buildTimeline();
+          buildWarp();
           for (const s of scenes) {
             const nm = s.sec.querySelector('.h-numeral');
             if (nm) place(nm, mobile ? { x: 60, y: -300, z: -700 } : { x: 420, y: -170, z: -900 });
@@ -968,6 +1081,7 @@
           }
           buildRail();
           buildDust();
+          buildPath();
         }
         measureTrack();
         seek(keepT);
@@ -991,7 +1105,8 @@
       if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
       seek(jump);
     } else {
-      cur = target = scrollT();
+      sCur = sTarget = scrollS();
+      cur = target = warp(sCur);
       forceRender = true;
       kick();
     }

@@ -1,7 +1,68 @@
-/* /harness/scenes/09-judge.css — STUB styles. Scope everything to [data-scene="09-judge"]. */
-[data-scene="09-judge"] .stub-card .stub-h{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:4px 0 16px}
-[data-scene="09-judge"] .stub-bar{height:4px;border-radius:2px;background:#1a1a1a;overflow:hidden;margin:0 0 8px}
-[data-scene="09-judge"] .stub-bar i{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
-[data-scene="09-judge"] .stub-bar.is-hold i{background:var(--good)}
-[data-scene="09-judge"] .stub-l{margin:10px 0 0}
-[data-scene="09-judge"] .stub-back{background:repeating-linear-gradient(135deg,#0d0d0d 0 10px,#111 10px 20px);opacity:.6}
+/* /harness/scenes/09-judge.css — Step 09 · Blind judge. Scoped to [data-scene="09-judge"]. */
+[data-scene="09-judge"] .jd-car{transform-style:preserve-3d}
+
+[data-scene="09-judge"] .jd-ab{transition:none}
+[data-scene="09-judge"] .jd-ab .ab-top{padding:14px 16px 10px}
+[data-scene="09-judge"] .jd-ab .ab-letter{font-size:52px;color:var(--fg)}
+[data-scene="09-judge"] .jd-ab.is-won .ab-letter{color:var(--good);text-shadow:0 0 14px rgba(var(--good-rgb),.6),0 0 40px rgba(var(--good-rgb),.3)}
+[data-scene="09-judge"] .jd-ab.is-won{border-color:rgba(var(--good-rgb),.45)}
+[data-scene="09-judge"] .jd-ab .ab-meta{line-height:1.6}
+
+/* author band: flips on the reveal */
+[data-scene="09-judge"] .jd-who{height:32px;border-bottom:1px solid var(--line);perspective:420px;background:#0e0e0e}
+[data-scene="09-judge"] .jd-flip{position:relative;display:block;height:100%;transform-style:preserve-3d;transform-origin:50% 50%}
+[data-scene="09-judge"] .jd-face{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 16px;font-family:var(--mono);font-size:12px;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;white-space:nowrap}
+[data-scene="09-judge"] .jd-front{color:#6f6f6f;letter-spacing:.04em;text-transform:uppercase;font-size:11px}
+[data-scene="09-judge"] .jd-front i{display:block;width:54px;height:8px;border-radius:2px;
+  background:repeating-linear-gradient(90deg,#2a2a2a 0 6px,#1a1a1a 6px 9px)}
+[data-scene="09-judge"] .jd-back{transform:rotateX(180deg);color:var(--par)}
+[data-scene="09-judge"] .jd-back b{font-weight:600}
+[data-scene="09-judge"] .jd-back.is-ours{color:var(--good);background:rgba(var(--good-rgb),.08)}
+[data-scene="09-judge"] .jd-back.is-ours b{text-shadow:0 0 10px rgba(var(--good-rgb),.6)}
+
+[data-scene="09-judge"] .jd-diff{padding:8px 0 10px}
+[data-scene="09-judge"] .jd-diff .dl{display:flex;align-items:center;height:16px;font-size:11px}
+[data-scene="09-judge"] .jd-diff .dl.hunk{height:22px}
+[data-scene="09-judge"] .jd-bar{display:block;height:6px;border-radius:3px;background:currentColor;opacity:.5}
+
+/* scrub_tells */
+[data-scene="09-judge"] .jd-scrub pre{font-size:12.5px;padding:12px 16px}
+[data-scene="09-judge"] .jd-m{position:relative;display:inline-block;white-space:nowrap}
+[data-scene="09-judge"] .jd-raw{color:#bdbdbd;position:relative}
+[data-scene="09-judge"] .jd-raw::after{content:"";position:absolute;left:0;right:0;top:55%;height:1px;background:var(--del);transform-origin:0 50%;transform:scaleX(0);transition:none}
+[data-scene="09-judge"] .jd-raw.is-strike::after{transform:scaleX(1)}
+[data-scene="09-judge"] .jd-tok{position:absolute;left:0;top:-1px;color:var(--accent);background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.35);
+  border-radius:4px;padding:0 6px;opacity:0;text-shadow:0 0 8px rgba(var(--accent-rgb),.5)}
+
+/* the judge */
+[data-scene="09-judge"] .jd-judge{background:linear-gradient(180deg,#141414 0,#0d0d0d 46%)}
+[data-scene="09-judge"] .jd-judge .jd-model{color:var(--accent);opacity:.85}
+[data-scene="09-judge"] .jd-body{padding:16px 20px 16px}
+[data-scene="09-judge"] .jd-q{margin:0 0 14px;font-size:16.5px;line-height:1.5;color:var(--fg);letter-spacing:-.005em;min-height:4.5em;white-space:normal}
+[data-scene="09-judge"] .jd-q .caret{width:.5em;height:1em;vertical-align:-.12em;margin-left:2px}
+[data-scene="09-judge"] .jd-v{display:flex;align-items:center;gap:8px;margin:0;font-family:var(--mono);font-size:13px;opacity:0}
+[data-scene="09-judge"] .jd-pill{display:inline-block;transform-origin:0 50%;font-size:14px;padding:4px 12px;
+  box-shadow:0 0 0 1px rgba(var(--good-rgb),.35),0 0 18px rgba(var(--good-rgb),.35);text-shadow:0 0 10px rgba(var(--good-rgb),.6)}
+[data-scene="09-judge"] .jd-ai{margin-left:auto;opacity:0}
+
+[data-scene="09-judge"] .jd-order pre{font-size:13px;padding:12px 16px}
+
+@media (max-width:760px){
+  [data-scene="09-judge"] .jd-ab .ab-top{padding:10px 12px 8px}
+  [data-scene="09-judge"] .jd-ab .ab-letter{font-size:38px}
+  [data-scene="09-judge"] .jd-ab .ab-meta{font-size:10.5px}
+  [data-scene="09-judge"] .jd-face{padding:0 10px;font-size:10.5px}
+  [data-scene="09-judge"] .jd-front i{width:28px}
+  [data-scene="09-judge"] .jd-diff .dl{height:14px}
+  [data-scene="09-judge"] .jd-diff .dl:nth-child(n+6){display:none}
+  [data-scene="09-judge"] .jd-diff .dl.hunk{font-size:9.5px;height:18px}
+  [data-scene="09-judge"] .jd-diff .dl .g{width:22px;padding-right:6px}
+  [data-scene="09-judge"] .jd-scrub pre{font-size:10.5px;padding:10px 12px}
+  [data-scene="09-judge"] .jd-scrub .h-card-head>span:last-child{display:none}
+  [data-scene="09-judge"] .jd-body{padding:12px 14px}
+  [data-scene="09-judge"] .jd-q{font-size:13.5px;min-height:5.6em;margin-bottom:10px}
+  [data-scene="09-judge"] .jd-v{font-size:11.5px}
+  [data-scene="09-judge"] .jd-order pre{font-size:11.5px}
+  [data-scene="09-judge"] .jd-order .kind{display:none}
+}

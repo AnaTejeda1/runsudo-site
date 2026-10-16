@@ -1,7 +1,70 @@
-/* /harness/scenes/08-verify.css — STUB styles. Scope everything to [data-scene="08-verify"]. */
-[data-scene="08-verify"] .stub-card .stub-h{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:4px 0 16px}
-[data-scene="08-verify"] .stub-bar{height:4px;border-radius:2px;background:#1a1a1a;overflow:hidden;margin:0 0 8px}
-[data-scene="08-verify"] .stub-bar i{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
-[data-scene="08-verify"] .stub-bar.is-hold i{background:var(--good)}
-[data-scene="08-verify"] .stub-l{margin:10px 0 0}
-[data-scene="08-verify"] .stub-back{background:repeating-linear-gradient(135deg,#0d0d0d 0 10px,#111 10px 20px);opacity:.6}
+/* /harness/scenes/08-verify.css — Step 08 · Verify. Scoped to [data-scene="08-verify"]. */
+[data-scene="08-verify"] .vf-car{transform-style:preserve-3d}
+
+[data-scene="08-verify"] .vf-panel .h-card-body{padding:14px 18px 16px}
+[data-scene="08-verify"] .vf-eye{margin:0 0 4px;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+[data-scene="08-verify"] .vf-after .vf-eye{color:var(--good)}
+[data-scene="08-verify"] .vf-big{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
+[data-scene="08-verify"] .vf-num{font-size:52px;font-weight:600;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums;color:var(--fg)}
+[data-scene="08-verify"] .vf-before .vf-num{color:#bdbdbd}
+[data-scene="08-verify"] .vf-unit{font-family:var(--mono);font-size:12px;color:var(--muted)}
+[data-scene="08-verify"] .vf-grid{display:grid;grid-template-columns:repeat(18,1fr);gap:3px;margin:0 0 14px}
+[data-scene="08-verify"] .vf-grid i{display:block;height:7px;border-radius:1.5px;background:rgba(var(--good-rgb),.55)}
+[data-scene="08-verify"] .vf-before .vf-grid i{background:#3a3a3a}
+[data-scene="08-verify"] .vf-grid i.b{background:var(--bad);opacity:.8}
+[data-scene="08-verify"] .vf-after .vf-grid i{opacity:.12}
+[data-scene="08-verify"] .vf-grid i.fl.is-fail{background:var(--bad);box-shadow:0 0 8px rgba(var(--bad-rgb),.9),0 0 18px rgba(var(--bad-rgb),.5)}
+[data-scene="08-verify"] .vf-kv{font-size:12px;gap:4px 14px}
+[data-scene="08-verify"] .vf-kv .vf-badt{color:var(--bad)}
+[data-scene="08-verify"] .vf-kv .vf-pass{color:var(--good);font-variant-numeric:tabular-nums}
+
+[data-scene="08-verify"] .vf-bridge{display:inline-flex;align-items:center;gap:10px;white-space:nowrap;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--muted);opacity:0}
+[data-scene="08-verify"] .vf-bridge .h-diamond{box-shadow:0 0 8px rgba(var(--accent-rgb),.8)}
+
+[data-scene="08-verify"] .vf-zero{position:relative;display:flex;align-items:center;gap:18px;white-space:nowrap;opacity:0}
+[data-scene="08-verify"] .vf-z-n{font-size:112px;font-weight:600;letter-spacing:-.05em;line-height:.9;color:var(--good);font-variant-numeric:tabular-nums;
+  text-shadow:0 0 14px rgba(var(--good-rgb),.6),0 0 40px rgba(var(--good-rgb),.35),0 0 90px rgba(var(--good-rgb),.2)}
+[data-scene="08-verify"] .vf-z-l{display:flex;flex-direction:column;gap:6px}
+[data-scene="08-verify"] .vf-z-l b{font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--fg)}
+[data-scene="08-verify"] .vf-z-l span{font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);
+  text-shadow:0 0 10px rgba(var(--accent-rgb),.5)}
+[data-scene="08-verify"] .vf-z-glow{position:absolute;left:-60px;top:50%;width:220px;height:220px;margin-top:-110px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(var(--good-rgb),.22) 0,rgba(var(--good-rgb),.08) 40%,rgba(var(--good-rgb),0) 70%);mix-blend-mode:screen;opacity:0}
+
+[data-scene="08-verify"] .vf-json pre{font-size:12px;padding:12px 16px}
+[data-scene="08-verify"] .vf-json .ln{opacity:0}
+
+[data-scene="08-verify"] .vf-loop{display:flex;flex-direction:column;gap:10px;padding:12px 16px 14px;background:linear-gradient(180deg,#111 0,#0c0c0c)}
+[data-scene="08-verify"] .vf-l-h{font-family:var(--mono);font-size:12px;color:var(--muted)}
+[data-scene="08-verify"] .vf-l-row{display:flex;align-items:center;gap:0}
+[data-scene="08-verify"] .vf-node{flex:none;font-family:var(--mono);font-size:11.5px;color:var(--fg);border:1px solid #333;border-radius:999px;padding:3px 10px;background:#141414;white-space:nowrap;opacity:.35}
+[data-scene="08-verify"] .vf-node.n0{color:var(--bad);border-color:#3f2320}
+[data-scene="08-verify"] .vf-wire{position:relative;flex:1;min-width:18px;height:1px;background:#2a2a2a;display:block}
+[data-scene="08-verify"] .vf-wire b{position:absolute;inset:0;background:var(--accent);box-shadow:0 0 8px rgba(var(--accent-rgb),.7);transform-origin:0 50%;transform:scaleX(0)}
+[data-scene="08-verify"] .vf-out{display:flex;flex-direction:column;gap:6px;margin-left:10px}
+[data-scene="08-verify"] .vf-node.ok{color:var(--good);border-color:#1f3a2a}
+[data-scene="08-verify"] .vf-node.ok.is-on{background:var(--good-bg);box-shadow:0 0 0 1px rgba(var(--good-rgb),.3),0 0 16px rgba(var(--good-rgb),.3)}
+[data-scene="08-verify"] .vf-node.no{color:var(--bad);border-color:#3f2320}
+
+[data-scene="08-verify"] .vf-fn pre{font-size:12px}
+[data-scene="08-verify"] .vf-diff pre{padding:8px 0 10px}
+[data-scene="08-verify"] .vf-diff .dl{display:flex;align-items:center;height:20px}
+[data-scene="08-verify"] .vf-bar{display:block;height:6px;border-radius:3px;background:currentColor;opacity:.55}
+
+@media (max-width:760px){
+  [data-scene="08-verify"] .vf-panel .h-card-body{padding:10px 12px 12px}
+  [data-scene="08-verify"] .vf-panel .h-card-head{padding:8px 10px;font-size:10.5px}
+  [data-scene="08-verify"] .vf-panel .h-card-head>span:last-child{display:none}
+  [data-scene="08-verify"] .vf-num{font-size:34px}
+  [data-scene="08-verify"] .vf-unit{display:none}
+  [data-scene="08-verify"] .vf-grid{grid-template-columns:repeat(12,1fr);gap:2px}
+  [data-scene="08-verify"] .vf-grid i{height:5px}
+  [data-scene="08-verify"] .vf-kv{font-size:10.5px;gap:3px 8px}
+  [data-scene="08-verify"] .vf-z-n{font-size:84px}
+  [data-scene="08-verify"] .vf-z-l b{font-size:19px}
+  [data-scene="08-verify"] .vf-bridge{font-size:10px;letter-spacing:.02em}
+  [data-scene="08-verify"] .vf-loop .vf-l-row{flex-wrap:wrap;row-gap:8px}
+  [data-scene="08-verify"] .vf-out{flex-direction:row;margin:0}
+  [data-scene="08-verify"] .vf-node.no{display:none}
+}
