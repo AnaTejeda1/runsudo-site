@@ -51,6 +51,41 @@
     </div>
   </section>
 
+  <section id="replay">
+    <div class="head2">
+      <div><p class="eyebrow">Inside a backtest</p><h2>Follow three tickets through a backtest</h2></div>
+      <p class="rp-lede">From your Jira history to a sealed container, a blind attempt, your test suite, a blind judge and the report. Illustrative: the tickets, code and verdicts below are placeholders, not a real customer run.</p>
+    </div>
+    <div class="rp" id="rp">
+      <ol class="rp-static" aria-label="The backtest, step by step">
+        <li class="sb">
+          <div class="sb-v"><div class="sb-jira"><span>ACME-519 · Add CSV export for the audit log</span><span class="pk">ACME-482 · Race in session refresh on token expiry</span><span>ACME-501 · Update onboarding copy in the README</span><span class="pk">ACME-497 · Pagination off by one on CSV exports</span><span class="pk">ACME-503 · Flaky CSV import on files with a UTF-8 BOM</span></div></div>
+          <p class="eyebrow">01 · Find and pick</p><p>We pull every ticket your team closed in the last 90 days and keep the ones we can replay: a merged fix, with tests that touch it.</p>
+        </li>
+        <li class="sb">
+          <div class="sb-v"><div class="sb-cts"><span><b>container 01</b>ACME-482</span><span><b>container 02</b>ACME-497</span><span><b>container 03</b>ACME-503</span></div></div>
+          <p class="eyebrow">02 · Seal</p><p>Each ticket gets its own sealed container. No network beyond the model API, no access to the real fix.</p>
+        </li>
+        <li class="sb">
+          <div class="sb-v"><pre class="sb-code"><span class="m">checkout 3f2a9c1 · parent of the fix</span><span class="r">−  await store.set(id, fresh);</span><span class="a">+  return withLock(key, async () =&gt; {</span><span class="a">+    const cur = await store.get(id);</span></pre></div>
+          <p class="eyebrow">03 · Solve</p><p>Inside, the repo is checked out at the commit before the fix landed. The agent solves the ticket blind.</p>
+        </li>
+        <li class="sb">
+          <div class="sb-v"><div class="sb-diff"><div><b>sudo</b><i class="a"></i><i class="r"></i><i class="a"></i><i class="a"></i></div><div><b>engineer</b><i class="a"></i><i class="r"></i><i class="a"></i></div></div></div>
+          <p class="eyebrow">04 · Compare</p><p>Its patch is set beside the one your engineer actually merged.</p>
+        </li>
+        <li class="sb">
+          <div class="sb-v"><div class="sb-tests"><span>9 affected tests</span><span class="pill good">sudo 9 / 9 pass</span><span class="pill good">engineer 9 / 9 pass</span></div></div>
+          <p class="eyebrow">05 · Test and judge</p><p>The harness runs the tests that touch either change against both patches. Then a judge that cannot tell which patch is ours picks one and explains why.</p>
+        </li>
+        <li class="sb">
+          <div class="sb-v"><div class="sb-rep"><span class="pill good">1 better</span><span class="pill par">1 par</span><span class="pill bad">1 worse</span></div></div>
+          <p class="eyebrow">06 · Report</p><p>Every ticket lands in one report, failures first, including the ones we lose.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
   <section id="after">
     <div class="head2">
       <div><p class="eyebrow">Next</p><h2>What comes after the backtest</h2></div>
@@ -81,5 +116,6 @@
     </div>
   </footer>
 </div>
+<script src="replay.js" defer></script>
 </body>
 </html>
