@@ -51,6 +51,30 @@
     </div>
   </section>
 
+  <section id="replay" class="sx">
+    <div class="head2">
+      <div><p class="eyebrow">Walkthrough</p><h2>Follow one backtest, ticket to report</h2></div>
+      <p class="sx-intro">Scroll to follow three closed tickets from your Jira history into sealed containers, through a blind solve, your own tests and a blind judge, and into the report. The tickets, code and results are illustrative.</p>
+    </div>
+    <div class="sx-track">
+      <div class="sx-stage">
+        <div class="sx-view"><div class="sx-canvas" aria-hidden="true"></div></div>
+        <div class="sx-cap">
+          <ol class="sx-steps">
+            <li><span class="sx-n">01 / 07</span><strong>Find the tickets</strong><span>We read every ticket closed in the last 90 days and keep the ones with a merged fix and tests that touch it.</span></li>
+            <li><span class="sx-n">02 / 07</span><strong>Pick what to replay</strong><span>Eligible tickets rise to the top. A real backtest replays every one of them; we follow three.</span></li>
+            <li><span class="sx-n">03 / 07</span><strong>Seal each one</strong><span>Each ticket gets its own container: your repo at the commit before the fix, no network beyond the model API.</span></li>
+            <li><span class="sx-n">04 / 07</span><strong>Solve it blind</strong><span>Inside, an agent works from the ticket and the old checkout alone. It never sees the fix your engineer shipped.</span></li>
+            <li><span class="sx-n">05 / 07</span><strong>Run the affected tests</strong><span>The harness picks the tests the change touches and runs them on both patches, in the same image.</span></li>
+            <li><span class="sx-n">06 / 07</span><strong>Judge the two diffs</strong><span>An LLM judge compares the patches without knowing which one is ours. The labels are revealed after.</span></li>
+            <li><span class="sx-n">07 / 07</span><strong>Read the report</strong><span>Every ticket lands in one report, failures first. These three are illustrative.</span></li>
+          </ol>
+          <div class="sx-rail" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="after">
     <div class="head2">
       <div><p class="eyebrow">Next</p><h2>What comes after the backtest</h2></div>
@@ -81,5 +105,6 @@
     </div>
   </footer>
 </div>
+<script src="replay.js" defer></script>
 </body>
 </html>
