@@ -286,8 +286,9 @@ html.js .collapse[data-collapsed] .toggle,html.js .collapse[data-expanded] .togg
 body{overflow-x:clip}
 #replay{--docker:#1D63ED;--sudo:#6aa0ff;--sudo-bg:rgba(106,160,255,.13);--sudo-line:rgba(106,160,255,.55);--eng:#f2a33c;--eng-bg:rgba(242,163,60,.12);--eng-line:rgba(242,163,60,.55)}
 #replay .intro2{margin:0;color:var(--muted);font-size:17px;max-width:48ch;align-self:end}
-#replay{padding-top:24px}
-#replay .reel{margin-top:40px}
+#replay{padding-top:12px}
+#replay .head2{padding-top:24px}
+#replay .reel{margin-top:0}
 #replay .frame{display:flex;flex-direction:column;gap:20px}
 #replay .world,#replay .ground,#replay .inside,#replay .vp,#replay .col,#replay .pt,#replay .pe{display:contents}
 #replay .hud,#replay .grid,#replay .mark,#replay .route,#replay .tk,#replay .crate,#replay .ihead,#replay .brace,#replay .gaze,#replay .eye,#replay .pf2{display:none}
