@@ -50,7 +50,7 @@
     <header class="h-hero" id="top">
       <p class="eyebrow">Harness · how a backtest runs</p>
       <h1>One backtest, from bare clone to public verdict.</h1>
-      <p class="lead">Every number on our backtest pages comes out of the same harness. Follow one Hugo run through it: the commands, the functions, the files it freezes to disk, and the one ticket that went from blind solve to a judge's verdict.</p>
+      <p class="lead">Every number on our backtest pages comes out of the same harness. Follow one ticket through a Hugo run: the commands, the functions, the files it freezes to disk, and the blind judge's verdict at the end.</p>
       <p class="meta">Ten steps · gohugoio/hugo · ticket #15169</p>
       <p class="h-cue" aria-hidden="true"><i></i>Scroll</p>
     </header>
@@ -106,7 +106,7 @@
     <header class="cap">
       <p class="cap-eyebrow"><span class="n">Step 02</span> · Learn to build</p>
       <h2 class="cap-h" id="cap-02">An agent writes the recipe. Code proves it.</h2>
-      <p class="cap-b">Once per repo, an agent works out how to install and test it. Then code runs the full suite, 3,778 tests, before a single ticket is scored.</p>
+      <p class="cap-b">Once per repo, an agent works out how to install and test it. Code then runs the tests to prove the recipe works, 3,778 of them, before a single ticket is scored.</p>
     </header>
     <div class="still">
       <div class="h-card fn-card">
@@ -252,7 +252,7 @@
         <div class="h-card-head"><span class="path">bt/egress.py</span><span>bt/guard.py · fail-closed</span></div>
 <pre><span class="tk-b">ALLOWED_HOSTS</span> <span class="tk-o">=</span> {<span class="tk-s">"api.anthropic.com"</span>, <span class="tk-s">"platform.claude.com"</span>}</pre>
       </div>
-      <div class="chips"><span class="chip is-accent">✓ api.anthropic.com</span><span class="chip is-accent">✓ platform.claude.com</span><span class="chip is-bad">✕ github.com</span><span class="chip is-bad">✕ pypi.org</span><span class="chip is-bad">✕ any other host</span></div>
+      <div class="chips"><span class="chip is-accent">✓ api.anthropic.com</span><span class="chip is-accent">✓ platform.claude.com</span><span class="chip is-bad">✕ github.com</span><span class="chip is-bad">✕ any other host</span></div>
       <div class="h-card json-card">
         <div class="h-card-head"><span class="path">foreman record</span><span class="kind">#15169</span></div>
 <pre>{ <span class="tk-p">"stage"</span>: <span class="tk-s">"foreman"</span>, <span class="tk-p">"state"</span>: <span class="tk-s">"done"</span>, <span class="tk-p">"steps"</span>: <span class="tk-n">1</span>,
@@ -335,7 +335,7 @@
     <header class="cap">
       <p class="cap-eyebrow"><span class="n">Step 09</span> · Blind judge</p>
       <h2 class="cap-h" id="cap-09">Patch A or patch B. Then the reveal.</h2>
-      <p class="cap-b">The judge sees two patches in random order with the tells scrubbed, and picks one without knowing which is ours. On #15169 it picked A. A was ours.</p>
+      <p class="cap-b">The judge sees two patches in random order with the tells scrubbed, and picks one without knowing which is ours. <span class="cap-reveal">On #15169 it picked A. <span class="lum-good">A was ours.</span></span></p>
     </header>
     <div class="still">
       <div class="row2">
@@ -370,8 +370,8 @@
   <div class="scene-fallback">
     <header class="cap">
       <p class="cap-eyebrow"><span class="n">Step 10</span> · Publish</p>
-      <h2 class="cap-h" id="cap-10">Hugo went from 9 better of 30 to 28.</h2>
-      <p class="cap-b">Code does the counting; a model only writes the prose. The 2 worse verdicts are published too, each linked to both patches and the judge's exact words.</p>
+      <h2 class="cap-h" id="cap-10">Hugo went from 9 of 30 better to 28.</h2>
+      <p class="cap-b">Code does the counting; a model only writes the prose. The run we followed scored 25 better, 4 worse and 1 with no patch. The latest published run scored 28, and its 2 worse are listed too.</p>
     </header>
     <div class="still">
         <div class="h-card fn-card">

@@ -80,7 +80,7 @@
         'h-card r-count',
         `<div class="h-card-head"><span class="path">verify_recipe(…)</span><span class="chip r-state is-accent">running</span></div>
          <div class="h-card-body">
-           <div class="counter"><span class="num r-num">0</span><span class="lbl">tests ran · full suite</span></div>
+           <div class="counter"><span class="num r-num">0</span><span class="lbl">tests ran · verify_recipe</span></div>
            <pre class="r-ver"><span class="tk-c">verified.json</span>
 { <span class="tk-p">"attempts"</span>: <span class="tk-n">2</span>, <span class="tk-p">"tests_ran"</span>: <span class="tk-n">3778</span> }</pre>
          </div>`,

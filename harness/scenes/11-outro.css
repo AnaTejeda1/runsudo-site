@@ -38,3 +38,9 @@
   [data-scene="11-outro"] .ot-lbl span{display:none}
   [data-scene="11-outro"] .ot-lbl b{font-size:13px}
 }
+/* phone: the constellation is small; label only the six pause stages and your repo, larger */
+@media (max-width:760px){
+  [data-scene="11-outro"] .ot-node:not(.is-pause):not(.is-you) .ot-lbl{display:none}
+  [data-scene="11-outro"] .ot-lbl{transform:scale(1.7);transform-origin:0 50%}
+  [data-scene="11-outro"] .is-left .ot-lbl{transform-origin:100% 50%}
+}

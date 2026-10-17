@@ -46,8 +46,8 @@
 
   H.registerScene({
     id: '09-judge',
-    // gentler drift than the stock +130 so the reveal frame (order.json above, A/B, judge below) stays composed
-    pause: { drift: { dolly: 50, fov: -1 } },
+    // gentle push plus a slow counter-orbit so the angled hold keeps its parallax through the reveal
+    pause: { drift: { dolly: 50, ry: -4, rz: 0.8, fov: -1 } },
     mount(root, api) {
       const m = api.mobile;
       S = { m };
@@ -55,7 +55,7 @@
 
       S.A = card(
         api,
-        m ? { x: -84, y: -150, z: 0, w: cw } : { x: -136, y: -86, z: 0, w: cw },
+        m ? { x: -84, y: -150, z: 0, w: cw } : { x: -136, y: -86, z: 60, w: cw },
         'ab-card diff-card jd-ab jd-a',
         patch('A', '2,070 B', '<b>ours</b> · agent', 'is-ours', [
           ['hunk'],
@@ -107,7 +107,7 @@
       // the judge
       S.J = card(
         api,
-        m ? { x: 0, y: 80, z: 30, w: 330 } : { x: 5, y: 176, z: 30, w: 560 },
+        m ? { x: 0, y: 80, z: 30, w: 330 } : { x: 5, y: 176, z: -40, w: 560 },
         'jd-judge',
         '<div class="h-card-head"><span class="path"><span class="tk-f">judge_ticket</span><span class="tk-o">(…)</span></span><span class="jd-model">claude-opus-5-5</span></div>' +
           '<div class="jd-body"><p class="jd-q"><span class="jd-qt"></span><span class="caret jd-caret"></span></p>' +
@@ -115,6 +115,7 @@
           '<span class="jd-ai"><span class="tk-p">"agent_is"</span><span class="tk-o">:</span> <span class="tk-s jd-ai-v">"A"</span></span></p></div>'
       );
       S.qt = S.J.c.querySelector('.jd-qt');
+      S.q = S.J.c.querySelector('.jd-q');
       S.caret = S.J.c.querySelector('.jd-caret');
       S.vline = S.J.c.querySelector('.jd-v');
       S.pill = S.J.c.querySelector('.jd-pill');
@@ -124,7 +125,7 @@
       // order.json: written only after the reply
       S.O = card(
         api,
-        m ? { x: 0, y: -120, z: 120, w: 290 } : { x: 5, y: -262, z: 60, w: 360 },
+        m ? { x: 0, y: 34, z: 90, w: 300 } : { x: 5, y: -300, z: -50, w: 360 },
         'json-card jd-order',
         '<div class="h-card-head"><span class="path">judge/order.json</span><span class="kind">written after the reply</span></div>' +
           '<pre>{ <span class="tk-p">"A"</span>: <span class="tk-s lum-good">"agent"</span>, <span class="tk-p">"B"</span>: <span class="tk-s">"human"</span> }</pre>'
@@ -185,28 +186,28 @@
       });
 
       // reasoning types, then verdict
-      const ty = api.range(h, 0.02, 0.46);
+      const ty = api.range(h, 0.02, 0.4);
       api.type(S.qt, QUOTE, ty);
-      api.opacity(S.caret, h > 0 && h < 0.5 ? 1 : 0);
-      const v = api.range(h, 0.48, 0.58);
+      api.opacity(S.caret, h > 0 && h < 0.42 ? 1 : 0);
+      const v = api.range(h, 0.42, 0.5);
       api.opacity(S.vline, e.outCubic(v));
       const vs = e.spring(v, 0.5, 12);
       api.transform(S.pill, `scale(${(1.6 - 0.6 * vs).toFixed(4)})`);
       api.opacity(S.ai, api.seg(h, 0.74, 0.82));
-      api.opacity(S.jHalo, api.bump(h, 0.48, 0.56, 0.66, 0.76) * 0.8);
+      api.opacity(S.jHalo, api.bump(h, 0.42, 0.48, 0.54, 0.62) * 0.8);
 
-      // A wins: accent focus on A during the verdict
-      const pick = api.bump(h, 0.5, 0.58, 0.68, 0.76);
+      // A wins: accent focus on A after the verdict, gone before order.json arrives
+      const pick = api.bump(h, 0.47, 0.53, 0.58, 0.64);
       api.opacity(S.A.halo, pick);
       api.opacity(S.B.halo, 0);
 
       // order.json drops in, then the cards flip to reveal who wrote what
-      const o = api.range(h, 0.62, 0.74);
+      const o = api.range(h, 0.63, 0.73);
       const os = e.spring(o, 0.6, 11);
-      // phone: order.json lands in front of the cards, then clears so the flip reads
-      const oOut = m ? e.inOutCubic(api.range(h, 0.84, 0.97)) : 0;
-      api.opacity(S.O.c, e.outCubic(api.range(o, 0, 0.5)) * (1 - lv * 0.6) * (1 - oOut));
-      api.place(S.O.pl, { y: S.O.o.y - (1 - os) * 90 - lv * 40, z: S.O.o.z + (1 - os) * 160 });
+      api.opacity(S.O.c, e.outCubic(api.range(o, 0, 0.5)) * (1 - lv * 0.6));
+      // phone: order.json lands over the finished quote (not over the cards), so the flip stays visible
+      api.place(S.O.pl, { y: S.O.o.y - (1 - os) * (m ? -60 : 90) - lv * 40, z: S.O.o.z + (1 - os) * 160 });
+      if (m) api.opacity(S.q, 1 - 0.85 * e.outCubic(o));
       api.opacity(S.oHalo, api.bump(h, 0.66, 0.74, 0.86, 1.2) * 0.75);
 
       const fA = e.inOutBack(api.range(h, 0.7, 0.8));
@@ -234,6 +235,17 @@
         z: S.B.base.z - lift * 20 - lv * 80,
         ry: S.B.base.ry - lv * 8,
       });
+
+      // caption: the second sentence ("It picked A. A was ours.") only lands with the reveal
+      if (api.caption) {
+        const cr = api.caption.querySelector('.cap-reveal');
+        if (cr) {
+          const k = e.outCubic(api.range(h, 0.74, 0.84));
+          api.opacity(cr, k);
+          api.filter(cr, k > 0.995 ? 'none' : `blur(${((1 - k) * 6).toFixed(2)}px)`);
+          api.transform(cr, `translate3d(0,${((1 - k) * 8).toFixed(2)}px,0)`);
+        }
+      }
 
       // light: accent through the deliberation, good after the reveal
       api.setLight({ x: 0, y: -20, z: 0, colors: { accent: 1 - rv, good: rv } });

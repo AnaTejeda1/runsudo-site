@@ -46,3 +46,5 @@
   [data-scene="07-audit"] .au-row{padding-top:4px;padding-bottom:4px}
   [data-scene="07-audit"] .au-stamp{font-size:24px}
 }
+[data-scene="07-audit"] .au-sk{display:inline-block;height:5px;border-radius:3px;background:#2c2c2c;margin:0 5px;vertical-align:middle}
+@media (max-width:760px){[data-scene="07-audit"] .au-row:nth-child(n+6){display:none}}

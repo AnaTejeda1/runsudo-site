@@ -7,15 +7,8 @@
   const H = window.Harness;
   if (!H) return;
 
-  const ROWS = [
-    ['user', '{"type":"user","content":"# resources/jsconfig: Address VS Code…"}'],
-    ['asst', '{"type":"assistant","tool_use":"Read", …}'],
-    ['res', '{"type":"tool_result", …}'],
-    ['asst', '{"type":"assistant","tool_use":"Edit", …}'],
-    ['asst', '{"type":"assistant","tool_use":"Bash","input":"./bt-test …"}'],
-    ['res', '{"type":"tool_result", …}'],
-    ['asst', '{"type":"assistant","text":"…"}'],
-  ];
+  // neutral placeholder rows (one JSON object per line; contents not shown), same as 06
+  const ROWS = [62, 48, 70, 40, 56, 44, 66];
   const CHECKS = [
     ['path_findings', '0 findings'],
     ['egress_findings', '0 findings'],
@@ -52,10 +45,8 @@
 
       // transcript being scanned
       const rows = ROWS.map(
-        (r, i) =>
-          `<span class="au-row au-${r[0]}"><span class="g">${i + 1}</span><span class="tx">${r[1]
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')}</span><i class="au-tick"></i></span>`
+        (w, i) =>
+          `<span class="au-row"><span class="g">${i + 1}</span><span class="tx"><span class="tk-o">{</span><i class="au-sk" style="width:${w}%"></i><span class="tk-o">}</span></span><i class="au-tick"></i></span>`
       ).join('');
       S.tr = card(
         api,
@@ -87,7 +78,7 @@
       // audit.json result
       S.json = card(
         api,
-        m ? { x: 0, y: -235, z: 40, w: 330 } : { x: 345, y: 100, z: 40, ry: -10, w: 300 },
+        m ? { x: 0, y: -200, z: 40, w: 330 } : { x: 345, y: 100, z: 40, ry: -10, w: 300 },
         'json-card au-json',
         '<div class="h-card-head"><span class="path">audit.json</span><span class="kind">artifact</span></div>' +
           '<pre>{ <span class="tk-p">"audit"</span>: { <span class="tk-p">"verdict"</span>: <span class="tk-s au-v">"clean"</span> } }</pre>'
@@ -130,7 +121,7 @@
       if (S.ghost) api.opacity(S.ghost.c, 0.55 * api.range(p, 0.2, 0.42));
 
       // terminal types the command
-      api.type(S.cmd, 'bt audit gohugoio/hugo run-20260930-081756', e.inOutSine(api.range(p, 0.1, 0.3)));
+      api.type(S.cmd, m ? 'bt audit gohugoio/hugo \\\n    run-20260930-081756' : 'bt audit gohugoio/hugo run-20260930-081756', e.inOutSine(api.range(p, 0.1, 0.3)));
       api.opacity(S.caret, p < 0.32 ? 1 : 0);
       api.opacity(S.o1, api.seg(p, 0.3, 0.34));
       api.opacity(S.o2, api.seg(p, 0.66, 0.7));

@@ -4,8 +4,8 @@
 [data-scene="04-rewind"] .rw-rail-past{left:0;width:100%;
   background:linear-gradient(90deg,rgba(var(--add-rgb),0),rgba(var(--add-rgb),.55) 30%,rgba(var(--add-rgb),.55) 32%,rgba(var(--add-rgb),0) 34%)}
 [data-scene="04-rewind"] .rw-rail-future{right:0;
-  background:linear-gradient(90deg,rgba(var(--add-rgb),.75),rgba(var(--add-rgb),.35) 50%,rgba(var(--add-rgb),.08));
-  box-shadow:0 0 10px rgba(var(--add-rgb),.45)}
+  background:linear-gradient(90deg,rgba(var(--add-rgb),.85),rgba(var(--add-rgb),.6) 50%,rgba(var(--add-rgb),.22));
+  box-shadow:0 0 10px rgba(var(--add-rgb),.5),0 0 26px rgba(var(--add-rgb),.18)}
 
 /* commits */
 [data-scene="04-rewind"] .rw-commit{padding:10px 14px 11px;border-radius:10px;font-family:var(--mono)}

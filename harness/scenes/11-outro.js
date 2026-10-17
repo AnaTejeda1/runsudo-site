@@ -35,6 +35,9 @@
       y: (q.pos[1] - 5775) * 0.05,
       z: -(q.pos[2] + 5925) * 0.026, // mirrored: later stages sit nearer the viewer
     }));
+    // the first three stages sit close together in the world; spread their labels apart
+    const nudge = { '00-intro': [-40, -46], '02-recipe': [-20, 34] };
+    out.forEach((q) => { const d = nudge[q.id]; if (d) { q.x += d[0]; q.y += d[1]; } });
     // the next stage: your repo, a step past Publish along the same heading
     const a = out[out.length - 2], b = out[out.length - 1];
     if (a && b) out.push({ id: 'you', x: b.x + (b.x - a.x) * 0.6 + 90, y: b.y + 70, z: b.z + 60 });

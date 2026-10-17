@@ -1,8 +1,8 @@
 /* /harness/scenes/06-sandbox.js — STEP 06 · SOLVE BLIND (pause).
  * A sealed glass container in 3D. solve/prompt.md is frozen to disk, drops in, the lid seals.
  * During the hold the agent works (transcript streams, the clock runs to 625 s) and reaches out:
- * api.anthropic.com and platform.claude.com pass (accent); github.com, pypi.org and any other host
- * hit the wall and are refused (bad). On exit the foreman record slides out with the patch.
+ * api.anthropic.com and platform.claude.com pass (accent); github.com and any other host
+ * hit the wall and are refused (bad). Transcript rows are neutral placeholders (we don't publish the format). On exit the foreman record slides out with the patch.
  * Pure function of p. */
 (() => {
   const H = window.Harness;
@@ -21,28 +21,13 @@
     '<p class="sb-p-f">freeze_prompt(…) · written before spawn</p>' +
     '</div></div>';
 
-  const ROWS = [
-    ['k', '{"type":"user","content":"<solve/prompt.md>"}'],
-    ['a', '{"type":"assistant","message":{…}}'],
-    ['t', '{"type":"tool_use","name":"Read",…}'],
-    ['r', '{"type":"tool_result",…}'],
-    ['t', '{"type":"tool_use","name":"Grep",…}'],
-    ['r', '{"type":"tool_result",…}'],
-    ['a', '{"type":"assistant","message":{…}}'],
-    ['t', '{"type":"tool_use","name":"Edit",…}'],
-    ['t', '{"type":"tool_use","name":"Bash","input":"./bt-test …"}'],
-    ['r', '{"type":"tool_result",…}'],
-    ['a', '{"type":"assistant","message":{…}}'],
-    ['t', '{"type":"tool_use","name":"Edit",…}'],
-    ['t', '{"type":"tool_use","name":"Bash","input":"./bt-test …"}'],
-    ['r', '{"type":"tool_result",…}'],
-    ['a', '{"type":"assistant","message":{…}}'],
-  ];
+  // neutral placeholder rows: one JSON object per line, contents not shown
+  const ROWS = [62, 48, 70, 40, 56, 44, 66, 38, 58, 50, 72, 42, 54, 46, 64];
   const TRANS_HTML =
     '<div class="h-card sb-trans">' +
     '<div class="h-card-head"><span class="path">transcript.jsonl</span><span class="sb-live"><i></i>live</span></div>' +
     '<div class="sb-rows"><div class="sb-rows-in">' +
-    ROWS.map(([k, t]) => `<span class="sb-row is-${k}">${t.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`).join('') +
+    ROWS.map((w, i) => `<span class="sb-row${i === 0 ? ' is-k' : ''}"><span class="tk-o">{</span><i style="width:${w}%"></i><span class="tk-o">}</span></span>`).join('') +
     '</div></div></div>';
 
   const FN_HTML =
@@ -113,7 +98,7 @@
     S.promptCard = S.prompt.firstChild;
     S.frz = S.promptCard.querySelector('.sb-frz');
     S.promptHalo = api.halo(S.promptCard, 'accent');
-    S.trans = api.plane({ x: m ? 14 : 34, y: m ? 0 : -2, z: BD * 0.16, w: m ? 180 : 224, html: TRANS_HTML }, box);
+    S.trans = api.plane({ x: m ? 10 : 34, y: m ? 0 : -2, z: BD * 0.16, w: m ? 196 : 224, html: TRANS_HTML }, box);
     S.transCard = S.trans.firstChild;
     S.rowsIn = S.transCard.querySelector('.sb-rows-in');
     S.rowEls = [...S.transCard.querySelectorAll('.sb-row')];
@@ -137,15 +122,14 @@
       ? [
           { name: 'api.anthropic.com', kind: 'allow', x: 92, y: -232 },
           { name: 'platform.claude.com', kind: 'allow', x: 92, y: -190 },
-          { name: 'github.com', kind: 'deny', x: -104, y: 150 },
-          { name: 'pypi.org', kind: 'deny', x: 104, y: 150 },
+          { name: 'github.com', kind: 'deny', x: -100, y: 150 },
+          { name: 'any other host', kind: 'deny', x: 100, y: 150 },
         ]
       : [
           { name: 'api.anthropic.com', kind: 'allow', x: 362, y: -172, w: 210 },
           { name: 'platform.claude.com', kind: 'allow', x: 378, y: -84, w: 226 },
-          { name: 'github.com', kind: 'deny', x: -268, y: -200, w: 170 },
-          { name: 'pypi.org', kind: 'deny', x: -290, y: -60, w: 150 },
-          { name: 'any other host', kind: 'deny', x: -250, y: 128, w: 190 },
+          { name: 'github.com', kind: 'deny', x: -282, y: -150, w: 170 },
+          { name: 'any other host', kind: 'deny', x: -262, y: 96, w: 190 },
         ];
     S.hosts = HOSTS.map((h, i) => {
       const pl = api.plane({ x: h.x, y: h.y, z: 0, html: hostHtml(h.name, h.kind) });
@@ -181,8 +165,12 @@
     if (!m) {
       S.fn = api.plane({ x: 300, y: 196, z: 50, ry: -8, w: 330, html: FN_HTML });
       S.fnCard = S.fn.firstChild;
+    } else {
+      // phone: the allow-list's name sits over the two allowed hosts
+      S.fn = api.plane({ x: 92, y: -268, z: 0, html: '<div class="sb-mlbl"><span class="tk-c">bt/egress.py ·</span> <span class="tk-b">ALLOWED_HOSTS</span></div>' });
+      S.fnCard = S.fn.firstChild;
     }
-    S.rec = api.plane({ x: m ? 0 : -110, y: m ? 112 : 210, z: m ? 200 : 190, w: m ? 340 : 470, html: REC_HTML(m) });
+    S.rec = api.plane({ x: m ? 0 : -110, y: m ? 112 : 262, z: m ? 200 : 190, w: m ? 340 : 470, html: REC_HTML(m) });
     S.recCard = S.rec.firstChild;
     S.recHalo = api.halo(S.recCard, 'accent');
   }
@@ -224,9 +212,9 @@
     const sealed = p > 0.3;
     const flash = api.bump(p, 0.29, 0.32, 0.34, 0.46, e.outCubic);
     const sealGlow = api.seg(p, 0.29, 0.36) * (1 - 0.5 * lv);
-    for (const ed of S.edges) api.opacity(ed, boxIn * (0.22 + 0.78 * Math.max(flash, sealGlow * 0.4)));
-    api.opacity(S.coreIn, 0.28 + 0.72 * sealGlow * (0.85 + 0.15 * Math.sin(hp * Math.PI * 6)));
-    api.opacity(S.floorGlow, 0.3 + 0.7 * sealGlow);
+    for (const ed of S.edges) api.opacity(ed, boxIn * (0.2 + 0.7 * Math.max(flash, sealGlow * 0.36)));
+    api.opacity(S.coreIn, 0.8 * (0.28 + 0.72 * sealGlow * (0.85 + 0.15 * Math.sin(hp * Math.PI * 6))));
+    api.opacity(S.floorGlow, 0.8 * (0.3 + 0.7 * sealGlow));
     api.opacity(S.stOpen, sealed ? 0 : 1);
     api.opacity(S.stSealed, sealed ? 1 : 0);
     S.front.classList.toggle('is-sealed', sealed);
@@ -249,15 +237,15 @@
       const t0 = allow ? 0.02 + o.order * 0.1 : 0.26 + o.order * 0.11;
       const g = e.outCubic(api.range(hp, t0, t0 + 0.1));
       const chipIn = e.outCubic(api.range(p, 0.08 + o.i * 0.025, 0.2 + o.i * 0.025));
-      const fade = 1 - 0.75 * e.inOutCubic(api.range(p, pe + 0.02, pe + 0.14));
-      api.opacity(o.card, chipIn);
+      const fade = 1 - e.inOutCubic(api.range(p, pe + 0.01, pe + 0.07));
+      api.opacity(o.card, chipIn * fade);
       const lineLen = allow ? o.L : o.Lw;
       api.transform(o.line, `scaleX(${g.toFixed(4)})`);
       api.opacity(o.line, (g > 0 ? 1 : 0) * fade);
       const reached = g > 0.98 && hp > 0;
       if (allow) {
         o.card.classList.toggle('is-on', reached || p > pe);
-        api.opacity(o.halo, (reached ? api.bump(hp, t0 + 0.09, t0 + 0.14, 0.9, 1.0) * 0.8 : 0) * fade);
+        api.opacity(o.halo, (reached ? api.bump(hp, t0 + 0.09, t0 + 0.14, 0.9, 1.0) * 0.64 : 0) * fade);
         // packets running out and back along the ray while the agent works
         for (let k = 0; k < o.dots.length; k++) {
           const ph = (hp * 3.2 + k * 0.5 + o.order * 0.23) % 1;
@@ -273,6 +261,7 @@
         api.opacity(o.hit.firstChild, hitT > 0 && hitT < 1 ? Math.sin(hitT * Math.PI) : 0);
         api.transform(o.hit.firstChild, `scale(${(0.4 + 1.6 * e.outCubic(hitT)).toFixed(3)})`);
         api.opacity(o.hit.lastChild, (hitOn ? 1 : 0) * fade);
+        api.opacity(o.ray, fade);
         refusedFlash = Math.max(refusedFlash, hitT > 0 && hitT < 1 ? Math.sin(hitT * Math.PI) : 0);
         const dot = o.dots[0];
         api.opacity(dot, g > 0 && g < 1 ? 1 : 0);
@@ -286,19 +275,22 @@
     if (S.fn) {
       const a = api.stagger(p, 0, 1, ps - 0.08, ps + 0.06, 1, e.outCubic);
       const sp = e.softSpring(api.range(p, ps - 0.08, ps + 0.1));
-      api.opacity(S.fnCard, a * (1 - 0.6 * api.range(p, pe + 0.04, pe + 0.16)));
-      api.place(S.fn, { y: 196 + (1 - sp) * 50, rx: (1 - sp) * 18 });
+      api.opacity(S.fnCard, a * (1 - e.inOutCubic(api.range(p, pe + 0.01, pe + 0.07))));
+      if (!m) api.place(S.fn, { y: 196 + (1 - sp) * 50, rx: (1 - sp) * 18 });
     }
-    const out = e.softSpring(api.range(p, pe + 0.02, pe + 0.16));
-    const outA = e.outCubic(api.range(p, pe + 0.02, pe + 0.1));
-    const R0 = m ? [0, 0, 0] : [0, 0, 0];
-    const R1 = m ? [0, 112, 200] : [-110, 210, 190];
+    // the record comes out once the hosts have cleared: from the box, arcing toward the viewer,
+    // and settles below it
+    const out = e.softSpring(api.range(p, pe + 0.07, pe + 0.2));
+    const outA = e.outCubic(api.range(p, pe + 0.07, pe + 0.13));
+    const R0 = [0, 0, 0];
+    const R1 = m ? [0, 112, 200] : [-110, 262, 190];
     api.opacity(S.recCard, outA);
     api.place(S.rec, {
-      x: api.lerp(R0[0], R1[0], out), y: api.lerp(R0[1], R1[1], out), z: api.lerp(R0[2], R1[2], out),
+      x: api.lerp(R0[0], R1[0], out), y: api.lerp(R0[1], R1[1], out),
+      z: api.lerp(R0[2], R1[2], out) + Math.sin(api.clamp(out) * Math.PI) * 150,
       s: api.lerp(0.45, 1, out), rx: (1 - out) * -20,
     });
-    api.opacity(S.recHalo, api.bump(p, pe + 0.06, pe + 0.12, 0.9, 1) * 0.75);
+    api.opacity(S.recHalo, api.bump(p, pe + 0.1, pe + 0.16, 0.9, 1) * 0.75);
   }
 
   H.registerScene({

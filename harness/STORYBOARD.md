@@ -94,7 +94,7 @@ These numbers move if a scene overrides `travel` or `pause`. `Harness.timeline()
 ---
 
 ### 00-intro: "one run" (light caption)
-- pos (0, 0, 0), rot (0, 0, 0). Camera: u0 dolly -760 rx 12 ry -8 y -40 → u.45 dolly -170 rx 4 ry -2
+- pos (0, 0, 0), rot (0, 0, 0). Camera: u0 dolly -380 rx 12 ry -8 y -40 → u.45 dolly -170 rx 4 ry -2
   → u.92 dolly 140 rx -6 ry 10 x 160 y 90 rz 2 (a slow push-in from far, then it banks right and
   dives toward 01).
 - Content: a constellation of the 30 sampled Hugo tickets as small mono ticket chips (`#15169` is
@@ -127,12 +127,12 @@ These numbers move if a scene overrides `travel` or `pause`. `Harness.timeline()
   (`verified.json {"attempts":2,"tests_ran":3778}`). Accent-lit while it verifies, good tint once
   it's verified.
 - Caption: `Step 02 · Learn to build`. "An agent writes the recipe. Code proves it." "Once per repo,
-  an agent works out how to install and test it. Then code runs the full suite, 3,778 tests, before
+  an agent works out how to install and test it. Code then runs the tests to prove the recipe works, 3,778 of them, before
   a single ticket is scored."
 
-### 03-funnel: STEP 03 · DISCOVER (PAUSE: at .5, dwell 1.6, drift dolly +50)
+### 03-funnel: STEP 03 · DISCOVER (PAUSE: at .5, dwell 1.6, drift dolly +110 y +50 ry -3 rx +2)
 - pos (450, 3350, -3650), rot (0, 0, 0). Camera dives in from above: u.1 dolly -680 rx -38 y -220 →
-  u.3 dolly -260 rx -14 y -60 → **hold** u.5 dolly -20 rx -3 sx .12 → u.88 dolly 110 rx 6 ry 16 x 320 rz -3.
+  u.3 dolly -260 rx -14 y -60 → **hold** u.5 dolly -20 rx -9 ry 4 sx .12 → u.88 dolly 110 rx 6 ry 16 x 320 rz -3.
 - Content: a funnel built from stacked tiers in depth. 186 listed collapse to 62 scoreable
   (93 out of window and 31 excluded peel off to the sides as counted rejects, still visible and dimmed
   with their reason, e.g. `{"number":15360,"reason":"unresolved","detail":"no usable linked
@@ -212,9 +212,9 @@ These numbers move if a scene overrides `travel` or `pause`. `Harness.timeline()
   nothing newly broken. A new failure is re-run twice to rule out flakiness, and a confirmed one is
   an automatic loss, before any model gives an opinion."
 
-### 09-judge: STEP 09 · BLIND JUDGE (PAUSE: at .6, dwell 1.8, drift dolly +130 fov -2). Emotional peak.
-- pos (200, 9350, -9250), rot (0, 0, 0). Camera: a **tight push-in**. u.12 dolly -720 rx -6 → u.4 dolly
-  -250 rx -2 → **hold** u.6 dolly 170 sx .12 fov 46 → (drift to dolly 300, fov 44) → u.9 dolly -320 rx -8 y 150.
+### 09-judge: STEP 09 · BLIND JUDGE (PAUSE: at .6, dwell 1.8, drift dolly +50 ry -4 rz +0.8 fov -1, set in the scene). Emotional peak.
+- pos (200, 9350, -9250), rot (0, 0, 0). Camera: a **tight push-in**. u.05 dolly -260 rx -8 ry -6 → u.4
+  dolly -150 rx -5 ry 2 → **hold** u.6 dolly 150 rx -4 ry 6 rz -1 sx .12 fov 46 → u.9 dolly -320 rx -8 y 150.
 - Content: two patch cards labelled only **A** and **B** (diff-cards, sizes 2,070 B vs 1,095 B but
   unlabelled as to author). Tells are scrubbed (issue URLs → `<link>`, versions → `<version>`).
   `bt/judge.py judge_ticket(…)`, `scrub_tells(…)`, model `claude-opus-5-5`. Within the hold: the
@@ -225,12 +225,14 @@ These numbers move if a scene overrides `travel` or `pause`. `Harness.timeline()
   bloom and B to "merged fix". Switch the light to good at the reveal with
   `api.setLight({colors:{accent:1-r, good:r}})`.
 - Caption: `Step 09 · Blind judge`. "Patch A or patch B. Then the reveal." "The judge sees two
-  patches in random order with the tells scrubbed, and picks one without knowing which is ours. On
-  #15169 it picked A. A was ours."
+  patches in random order with the tells scrubbed, and picks one without knowing which is ours."
+  The last sentence, "On #15169 it picked A. A was ours." (`.cap-reveal`), is held back and fades in
+  from blur only when A flips to "ours" (hold ≈ 0.74–0.84). Beat order inside the hold: quote types
+  (0.02–0.40) → "better" (0.42–0.50) → accent on A (0.47–0.64) → order.json (0.63–0.73) → flip (0.70–0.84).
 
-### 10-publish: STEP 10 · PUBLISH (PAUSE: at .55, dwell 1.6, drift dolly -60)
+### 10-publish: STEP 10 · PUBLISH (PAUSE: at .55, dwell 1.6, drift dolly -40 ry +4)
 - pos (0, 10550, -10650), rot (0, 0, 0). Camera: u.12 dolly -220 rx -22 y -220 (looking down as it
-  descends) → **hold** u.55 dolly -120 sx .12 → u.9 dolly -430 rx 6 y 120 (wide pull-out).
+  descends) → **hold** u.55 dolly -120 rx -5 ry -7 sx .12 → u.9 dolly -430 rx 6 y 120 (wide pull-out).
 - Content: the published chart, styled like the site's `.chart`. Hugo runs as stacked
   better/par/worse/error bars: run-20260917-015623 **9/3/16/2** climbing to run-20261013-011256
   **28/0/2/0**. The 2 worse stay visible and listed ("failures go on page one"). Optional faint
@@ -238,9 +240,14 @@ These numbers move if a scene overrides `travel` or `pause`. `Harness.timeline()
   (`classify_ticket(…)`, `compute_counts(…)`), `bt export-site RUN_ID --notes "..."` →
   `node scripts/build-backtests.mjs` → GitHub Pages, and an `index.json` row
   `{"id":"run-20261013-011256","tickets":30,"better":28,"par":0,"worse":2,"error":0}`.
-- Caption: `Step 10 · Publish`. "Hugo went from 9 better of 30 to 28." "Code does the counting; a
-  model only writes the prose. The 2 worse verdicts are published too, each linked to both patches
-  and the judge's exact words."
+- Caption: `Step 10 · Publish`. "Hugo went from 9 of 30 better to 28." "Code does the counting; a
+  model only writes the prose. The run we followed scored 25 better, 4 worse and 1 with no patch. The
+  latest published run scored 28, and its 2 worse are listed too."
+- Approach order (no overlaps): tally 0.03–0.17 → tickets.json hands off to the export terminal
+  (0.16–0.27, same spot) → chart stands up 0.23–0.34 with the earlier runs already growing
+  (0.27–0.43) → hold: playhead reaches Oct 13 by hold 0.32; "2 worse, still listed" 0.38–0.50.
+  `tickets.json` shows field names only (the followed run, run-20260930-081756, is not published;
+  its values must not be shown against run-20261013-011256).
 
 ### 11-outro: "Your repo · next" (end caption: stays on and has clickable CTAs)
 - pos (0, 11550, -11850), rot (0, 0, 0). Camera: u.2 dolly -620 rx -6 → u.62 dolly -90 → u.98 dolly -70.
@@ -270,4 +277,23 @@ These numbers move if a scene overrides `travel` or `pause`. `Harness.timeline()
 - **Streak.** The anamorphic light streak dims by 85% while a caption is up.
 - **`api.dim`.** This is the engine's scene dim factor (0.26..1), for planes made with `fog:false`.
 - **`camera`.** It may be a function `({mobile}) => keys`.
-- **09-judge.** The hold drift is `{dolly: 50, fov: -1}` (set in the scene), not +130 / -2.
+- **09-judge.** The hold drift is `{dolly: 50, ry: -4, rz: 0.8, fov: -1}` (set in the scene).
+
+## Polish pass (after review)
+
+- **Transitions.** While the camera is between stages the fog reaches 6·P (not 4·P) and other
+  scenes dim to 0.55 (not 0.26). Each step's giant numeral gets a lit accent copy (`.h-numeral-lit`)
+  that shows only around the transition into that step: a chapter marker ahead of the camera.
+- **Angled holds.** 03, 09 and 10 holds are no longer face-on; their drift rotates as well as dollies.
+  09 cards are z-staggered (A +60, B 0, judge -40, order.json -50).
+- **Captions a scene controls.** `api.caption` is the scene's motion caption element; anything in it
+  with `.cap-reveal` starts hidden and is the scene's to show (09 uses it).
+- **Rail.** A lit diamond rides the rail fill, so the rail reads from the first frame.
+- **Deep links.** `/harness/#s-<id>` lands on that step's hold (or middle). Rail clicks write the hash
+  with `history.replaceState`.
+- **Fallback a11y.** In motion mode every link/pre inside `.scene-fallback` gets `tabindex=-1` (the
+  fallback stays for screen readers); focus landing there seeks to the scene. Fallback `pre` wraps.
+- **Content.** pypi.org removed (allowed: the two hosts; refused: github.com and any other host).
+  Transcript rows in 06 and 07 are neutral `{ … }` placeholders. 08's re-run strip is a rule
+  ("if a new failure appears") with neither outcome lit, and the AFTER grid only repeats the base
+  failures. 04's fix commit is "the merged fix" and gets a centred, banked camera key at u .3.

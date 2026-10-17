@@ -102,7 +102,7 @@
     { id: '00-intro', step: null, name: 'Intro', cap: 'light', pos: [0, 0, 0], rot: [0, 0, 0], travel: 1.4, exit: 0.96,
       light: { x: 0, y: -40, z: 0, color: 'accent' },
       cam: [
-        { u: 0, dolly: -760, rx: 12, ry: -8, y: -40 },
+        { u: 0, dolly: -380, rx: 12, ry: -8, y: -40 },
         { u: 0.45, dolly: -170, rx: 4, ry: -2 },
         { u: 0.92, dolly: 140, rx: -6, ry: 10, x: 160, y: 90, rz: 2 },
       ] },
@@ -121,12 +121,12 @@
         { u: 0.88, dolly: 70, rx: -18, y: 220, ry: -4 },
       ] },
     { id: '03-funnel', step: '03', name: 'Discover', cap: 'pause', pos: [450, 3350, -3650], rot: [0, 0, 0], travel: 2.4, enter: 0.15, exit: 0.93,
-      pause: { at: 0.5, dwell: 1.6, drift: { dolly: 50 } },
+      pause: { at: 0.5, dwell: 1.6, drift: { dolly: 110, y: 50, ry: -3, rx: 2 } },
       light: { x: 0, y: 40, z: 0, color: 'accent' },
       cam: [
         { u: 0.1, dolly: -540, rx: -38, y: -200 },
         { u: 0.3, dolly: -260, rx: -14, y: -60 },
-        { u: 0.5, hold: true, dolly: -20, rx: -3, sx: 0.12 },
+        { u: 0.5, hold: true, dolly: -20, rx: -9, ry: 4, sx: 0.12 },
         { u: 0.88, dolly: 110, rx: 6, ry: 16, x: 320, rz: -3 },
       ] },
     { id: '04-rewind', step: '04', name: 'Rewind', cap: 'pause', pos: [1550, 4250, -2750], rot: [0, -18, 0], travel: 2.4, enter: 0.2, exit: 0.93,
@@ -170,20 +170,20 @@
         { u: 0.88, dolly: 120, rx: -10, y: 190, ry: 8 },
       ] },
     { id: '09-judge', step: '09', name: 'Judge', cap: 'pause', pos: [200, 9350, -9250], rot: [0, 0, 0], travel: 2.8, enter: 0.12, exit: 0.95,
-      pause: { at: 0.6, dwell: 1.8, drift: { dolly: 130, fov: -2 } },
+      pause: { at: 0.6, dwell: 1.8, drift: { dolly: 90, ry: -4, rz: 0.8, fov: -2 } },
       light: { x: 0, y: 0, z: 0, color: 'accent' },
       cam: [
-        { u: 0.12, dolly: -540, rx: -6 },
-        { u: 0.4, dolly: -250, rx: -2 },
-        { u: 0.6, hold: true, dolly: 170, sx: 0.12, fov: 46 },
+        { u: 0.05, dolly: -260, rx: -8, ry: -6 },
+        { u: 0.4, dolly: -150, rx: -5, ry: 2 },
+        { u: 0.6, hold: true, dolly: 150, rx: -4, ry: 6, rz: -1, sx: 0.12, fov: 46 },
         { u: 0.9, dolly: -320, rx: -8, y: 150 },
       ] },
     { id: '10-publish', step: '10', name: 'Publish', cap: 'pause', pos: [0, 10550, -10650], rot: [0, 0, 0], travel: 2.6, enter: 0.08, exit: 0.97,
-      pause: { at: 0.55, dwell: 1.6, drift: { dolly: -60 } },
+      pause: { at: 0.55, dwell: 1.6, drift: { dolly: -40, ry: 4 } },
       light: { x: 0, y: -60, z: 0, color: 'good' },
       cam: [
         { u: 0.12, dolly: -220, rx: -22, y: -220 },
-        { u: 0.55, hold: true, dolly: -120, sx: 0.12 },
+        { u: 0.55, hold: true, dolly: -120, rx: -5, ry: -7, sx: 0.12 },
         { u: 0.9, dolly: -430, rx: 6, y: 120 },
       ] },
     { id: '11-outro', step: null, name: 'Outro', cap: 'end', pos: [0, 11550, -11850], rot: [0, 0, 0], travel: 1.4, enter: 0.12,
@@ -522,10 +522,13 @@
 
   /* ------------------------------------------------------------------ fog */
 
+  /* farMul widens during transitions (see render) so the next stage is already a silhouette
+   * ahead while the camera travels, and the previous one lingers behind it. */
+  let farMul = 4.0;
   function fogAlpha(d) {
     // d = distance from the eye along the view axis, in screen px (P = target plane)
     const near = ease.smooth(range(d, P * 0.12, P * 0.45));
-    const far = 1 - ease.smooth(range(d, P * 1.3, P * 4.0));
+    const far = 1 - ease.smooth(range(d, P * 1.3, P * farMul));
     return near * far * far;
   }
 
@@ -540,11 +543,12 @@
 
   /* ------------------------------------------------------------------ scenes */
 
+  let dimFloor = 0.26;
   function sceneDim(s, t) {
     let a;
     if (t >= s.g0 && t <= s.g1) a = 1;
     else a = 1 - range(t < s.g0 ? s.g0 - t : t - s.g1, 0, 0.035);
-    return 0.26 + 0.74 * ease.smooth(a);
+    return dimFloor + (1 - dimFloor) * ease.smooth(a);
   }
 
   function makeApi(s) {
@@ -634,6 +638,7 @@
     s.lightOverride = null;
     s.errored = false;
     s.api = makeApi(s);
+    if (s.cap) s.api.caption = s.cap.el;
     if (s.reg && typeof s.reg.mount === 'function') safe(s, () => s.reg.mount(s.root, s.api), 'mount');
   }
 
@@ -665,6 +670,7 @@
       parts.forEach((n) => { n.style.opacity = 0; });
       setVis(c, false);
       s.cap = { el: c, parts, v: -1 };
+      if (s.api) { s.api.caption = c; s.lastP = -1; }
     }
   }
 
@@ -712,6 +718,8 @@
     r.textContent = '';
     el('span', 'h-rail-line', null, r);
     els.railFill = el('span', 'h-rail-fill', null, r);
+    els.railHead = el('span', 'h-rail-head', null, r);
+    els.railH = r.clientHeight;
     els.ticks = [];
     for (const s of scenes) {
       if (!s.L.step) continue;
@@ -720,13 +728,19 @@
       a.href = '#' + s.sec.id;
       a.style.top = (unwarp(ft) * 100).toFixed(3) + '%';
       a.setAttribute('aria-label', `Step ${s.L.step}: ${s.L.name}`);
-      a.addEventListener('click', (ev) => { ev.preventDefault(); H.seek(ft, { smooth: true }); });
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        try { history.replaceState(null, '', '#' + s.sec.id); } catch (e) { /* file:// etc. */ }
+        H.seek(ft, { smooth: true });
+      });
       els.ticks.push({ a, s, ft });
     }
   }
 
   function renderRail(t, active) {
-    setTf(els.railFill, `scaleY(${n3(unwarp(t))})`);
+    const rf = unwarp(t);
+    setTf(els.railFill, `scaleY(${n3(rf)})`);
+    if (els.railHead) setTf(els.railHead, `translate3d(0,${n2(rf * (els.railH || 0))}px,0) rotate(45deg)`);
     for (const q of els.ticks) {
       const on = q.s === active;
       if (q.on !== on) { q.on = on; q.a.classList.toggle('is-active', on); }
@@ -833,7 +847,11 @@
   function render(t) {
     evalCamera(t, pose);
     applyCamera(pose);
-    const far = P * 4.0;
+    // between stages: see further and dim the neighbours less, so the frame is never just the trail
+    const zn = ease.smooth(clamp(zoneAt(t) * 1.6));
+    farMul = 4.0 + 2.0 * zn;
+    dimFloor = 0.26 + 0.29 * zn;
+    const far = P * 6.0;
     for (const s of scenes) {
       const Msc = view.multiply(s.M);
       const q = Msc.transformPoint(ORIGIN);
@@ -846,6 +864,7 @@
         if (vis) s.lastP = -1;
       }
       if (!vis) continue;
+      if (s.beacon) setOpacity(s.beacon, zn * (1 - ease.smooth(range(Math.abs(t - s.g0), 0.004, 0.022))));
       const p = clamp((t - s.g0) / (s.g1 - s.g0));
       const dim = sceneDim(s, t);
       if (s.api) {
@@ -866,7 +885,6 @@
         setVis(pl.e, a > 0.003);
       }
     }
-    const zn = ease.smooth(clamp(zoneAt(t) * 1.6));
     if (zn > 0.002 || path.vis) {
       path.vis = zn > 0.002;
       for (const dd of path) {
@@ -1013,6 +1031,18 @@
 
   /* ------------------------------------------------------------------ init */
 
+  /* Deep links: /harness/#s-08-verify lands on that step's hold (or its middle). */
+  function sceneFromHash() {
+    const m = /^#s-(.+)$/.exec(location.hash || '');
+    return m && byId[decodeURIComponent(m[1])] ? byId[decodeURIComponent(m[1])] : null;
+  }
+  function focusT(s) {
+    return s.pl ? s.g0 + lerp(s.pl.start, s.pl.end, 0.5) * (s.g1 - s.g0) : s.g0 + 0.5 * (s.g1 - s.g0);
+  }
+  function seekToScene(s, opts) {
+    seek(focusT(s), opts);
+  }
+
   function init() {
     if (!MOTION) { H.ready = false; return; }
     els.track = D.getElementById('h-track');
@@ -1044,6 +1074,9 @@
       if (L.step && !(s.reg && s.reg.numeral === false)) {
         const nm = el('div', 'h-plane h-numeral', L.step, sec);
         nm.setAttribute('aria-hidden', 'true');
+        // lit copy of the numeral: a landmark ahead of the camera while it travels between stages
+        s.beacon = el('span', 'h-numeral-lit', L.step, nm);
+        setOpacity(s.beacon, 0);
         place(nm, mobile ? { x: 60, y: -300, z: -700, center: true } : { x: 420, y: -170, z: -900, center: true });
         s.planes.push({ e: nm, fog: true, dim: true, engine: true });
       }
@@ -1084,10 +1117,21 @@
           buildPath();
         }
         measureTrack();
+        if (els.rail) els.railH = els.rail.clientHeight;
         seek(keepT);
       }, 140);
     });
     if (mqReduced && mqReduced.addEventListener) mqReduced.addEventListener('change', () => location.reload());
+
+    for (const s of scenes) {
+      if (!s.fallback) continue;
+      s.fallback.querySelectorAll('a,button,[tabindex],pre').forEach((n) => n.setAttribute('tabindex', '-1'));
+      s.fallback.addEventListener('focusin', () => seekToScene(s, { smooth: false }));
+    }
+    addEventListener('hashchange', () => {
+      const s = sceneFromHash();
+      if (s) seekToScene(s, { smooth: true });
+    });
 
     H.ready = true;
     R.classList.add('h-ready');
@@ -1100,10 +1144,19 @@
       if (qs.has('hold') && s.pl) jump = sceneT(s.id, lerp(s.pl.start, s.pl.end, clamp(parseFloat(qs.get('hold')) || 0)));
       else jump = sceneT(s.id, qs.has('p') ? parseFloat(qs.get('p')) : 0.5);
     }
+    const hs = jump == null ? sceneFromHash() : null;
+    if (hs) jump = focusT(hs);
     if (H._pendingSeek) { jump = H._pendingSeek[0]; delete H._pendingSeek; }
     if (jump != null) {
       if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
       seek(jump);
+      // the browser's own anchor jump can land after us; put the camera back on the step
+      if (hs) {
+        const j = jump;
+        const again = () => setTimeout(() => seek(j), 0);
+        if (D.readyState === 'complete') again();
+        else addEventListener('load', again, { once: true });
+      }
     } else {
       sCur = sTarget = scrollS();
       cur = target = warp(sCur);

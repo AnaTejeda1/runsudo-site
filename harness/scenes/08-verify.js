@@ -1,8 +1,8 @@
 /* /harness/scenes/08-verify.js — Step 08 · Verify (pause frame).
  * Before/after, side by side in depth: baseline 3,803 total / 3,693 passed, then the same
  * frozen command with our patch: 3,804 / 3,696 / 99 skipped / 74.3 s. The focal beat is
- * "0 newly broken". The re-run rule plays as a loop (new failure -> re-run twice ->
- * flaky or confirmed). verify/verify.json is written last.
+ * "0 newly broken". The re-run rule is shown as a rule ("if a new failure appears"), with
+ * neither outcome lit: #15169 had no new failure. verify/verify.json is written last.
  * Pure function of p. Key beats happen inside the hold (api.hold). */
 (() => {
   const H = window.Harness;
@@ -19,7 +19,8 @@
   }
   function grid(after) {
     let s = '<div class="vf-grid">';
-    for (let i = 0; i < GRID; i++) s += `<i class="${BASE_BAD.includes(i) ? 'b' : ''}${after && i === 40 ? ' fl' : ''}"></i>`;
+    // the after grid carries the same already-failing cells as the base: nothing new
+    for (let i = 0; i < GRID; i++) s += `<i class="${BASE_BAD.includes(i) ? 'b' : ''}"></i>`;
     return s + '</div>';
   }
   function panel(kind) {
@@ -50,7 +51,6 @@
       S.pass = S.after.c.querySelector('.vf-pass');
       S.cellsA = [...S.after.c.querySelectorAll('.vf-grid i')];
       S.cellsB = [...S.before.c.querySelectorAll('.vf-grid i')];
-      S.flaky = S.after.c.querySelector('.vf-grid i.fl');
 
       // the bridge: same frozen command on both sides
       S.bridgePl = api.plane(m ? { x: 0, y: -290, z: 20, cls: 'vf-car' } : { x: -18, y: -296, z: 30, cls: 'vf-car' });
@@ -90,7 +90,7 @@
         api,
         m ? { x: 0, y: 140, z: 30, w: 340 } : { x: -10, y: 222, z: 40, w: 640 },
         'vf-loop',
-        '<span class="vf-l-h"><span class="tk-f">rerun_suffix</span><span class="tk-o">(…)</span> · a new failure is re-run twice</span>' +
+        '<span class="vf-l-h"><span class="tk-f">rerun_suffix</span><span class="tk-o">(…)</span> · the rule, if a new failure appears</span>' +
           '<span class="vf-l-row">' +
           '<span class="vf-node n0">new failure</span><i class="vf-wire w0"><b></b></i>' +
           '<span class="vf-node n1">re-run 1</span><i class="vf-wire w1"><b></b></i>' +
@@ -185,13 +185,7 @@
         api.opacity(c, 0.12 + 0.88 * on);
       });
 
-      // the flaky cell: fails, re-run twice, passes -> not counted
-      const fl1 = api.bump(h, 0.22, 0.26, 0.62, 0.7);
-      S.flaky.classList.toggle('is-fail', h > 0.22 && h < 0.6);
-      api.opacity(S.flaky, Math.max(0.12 + 0.88 * api.range(run * (nA + 4) - 40, 0, 4), fl1));
-      api.transform(S.flaky, `scale(${(1 + 0.9 * api.bump(h, 0.22, 0.26, 0.5, 0.62)).toFixed(3)})`);
-
-      // loop: pulse travels through the wires
+      // the rule: a pulse walks the wires; both outcomes stay equally lit (none happened here)
       api.opacity(S.nodes[0], 0.35 + 0.65 * api.bump(h, 0.24, 0.3, 0.9, 1));
       S.wires.forEach((w, i) => {
         const a0 = 0.3 + i * 0.1;
@@ -200,9 +194,9 @@
       });
       api.opacity(S.nodes[1], 0.35 + 0.65 * api.seg(h, 0.38, 0.42));
       api.opacity(S.nodes[2], 0.35 + 0.65 * api.seg(h, 0.48, 0.52));
-      api.opacity(S.nodes[3], 0.3 + 0.7 * api.seg(h, 0.58, 0.64));
-      S.nodes[3].classList.toggle('is-on', h >= 0.6);
-      api.opacity(S.nodes[4], 0.42);
+      const outs = 0.4 + 0.3 * api.seg(h, 0.58, 0.64);
+      api.opacity(S.nodes[3], outs);
+      api.opacity(S.nodes[4], outs);
 
       // focal: 0 newly broken lands after the loop resolves
       const z = api.range(h, 0.6, 0.78);

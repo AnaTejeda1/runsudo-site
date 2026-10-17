@@ -36,7 +36,8 @@ html.h-motion .h-cue{display:flex}
 .still>*{min-width:0}
 .still .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media (max-width:620px){.still .row2{grid-template-columns:minmax(0,1fr)}}
-.still .h-card pre{overflow-x:auto}
+.still .h-card pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible}
+html.h-motion .scene-fallback pre{overflow:visible}
 
 /* ---------------------------------------------------------------- captions (shared by static + motion) */
 .cap-eyebrow{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:0 0 14px}
@@ -68,6 +69,8 @@ html.h-motion footer{margin-top:0}
 /* engine-owned depth props */
 .h-numeral{font-family:var(--mono);font-size:360px;font-weight:500;line-height:1;letter-spacing:-.06em;color:rgba(255,255,255,.018);
   -webkit-text-stroke:1px rgba(255,255,255,.085);pointer-events:none;user-select:none}
+.h-numeral-lit{position:absolute;left:0;top:0;color:rgba(var(--accent-rgb),.07);-webkit-text-stroke:1.5px rgba(var(--accent-rgb),.9);
+  text-shadow:0 0 18px rgba(var(--accent-rgb),.35),0 0 60px rgba(var(--accent-rgb),.18)}
 .h-dust{position:absolute;left:0;top:0;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%;background:rgba(255,255,255,.55);
   box-shadow:0 0 6px rgba(255,255,255,.3);transform-origin:0 0}
 .h-dust.is-accent{background:rgba(var(--accent-rgb),.9);box-shadow:0 0 8px rgba(var(--accent-rgb),.7),0 0 18px rgba(var(--accent-rgb),.3)}
@@ -108,7 +111,9 @@ html.h-motion footer{margin-top:0}
 
 /* ---------------------------------------------------------------- progress rail */
 .h-rail{position:absolute;right:30px;top:20vh;bottom:20vh;width:1px;height:auto;display:block;z-index:5;pointer-events:none}
-.h-rail-line{position:absolute;inset:0;background:#222}
+.h-rail-line{position:absolute;inset:0;background:#2a2a2a}
+.h-rail-head{position:absolute;left:-3px;top:-3px;width:7px;height:7px;background:var(--accent);transform:rotate(45deg);
+  box-shadow:0 0 8px rgba(var(--accent-rgb),.8),0 0 20px rgba(var(--accent-rgb),.35)}
 .h-rail-fill{position:absolute;inset:0;background:linear-gradient(rgba(var(--accent-rgb),.25),rgba(var(--accent-rgb),.75));transform-origin:50% 0;transform:scaleY(0)}
 .h-tick{position:absolute;right:-4px;display:flex;flex-direction:row-reverse;align-items:center;gap:10px;transform:translateY(-50%);pointer-events:auto;
   font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;padding:4px 0 4px 10px;white-space:nowrap}
@@ -228,7 +233,7 @@ html.h-motion footer{margin-top:0}
 .h-halo{position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;opacity:0;--hc:var(--accent-rgb);
   box-shadow:0 0 0 1px rgba(var(--hc),.6),0 0 16px rgba(var(--hc),.32),0 0 54px rgba(var(--hc),.2),0 0 130px rgba(var(--hc),.12)}
 .h-halo--good{--hc:var(--good-rgb)} .h-halo--bad{--hc:var(--bad-rgb)} .h-halo--par{--hc:var(--par-rgb)}
-.h-halo--warn{--hc:var(--warn-rgb)} .h-halo--add{--hc:var(--add-rgb)} .h-halo--white{--hc:var(--white-rgb)}
+.h-halo--warn{--hc:var(--warn-rgb)} .h-halo--add{--hc:var(--add-rgb)} .h-halo--white{--hc:var(--white-rgb)} .h-halo--del{--hc:var(--del-rgb)}
 /* Static lit states (no animation) */
 .is-lit{border-color:rgba(var(--accent-rgb),.45);box-shadow:var(--h-shadow),0 0 0 1px rgba(var(--accent-rgb),.25),0 0 40px rgba(var(--accent-rgb),.14)}
 .is-lit-good{border-color:rgba(var(--good-rgb),.45);box-shadow:var(--h-shadow),0 0 0 1px rgba(var(--good-rgb),.25),0 0 40px rgba(var(--good-rgb),.14)}
@@ -244,3 +249,6 @@ html.h-motion footer{margin-top:0}
 .h-beam{height:1px;background:linear-gradient(90deg,rgba(var(--accent-rgb),0),rgba(var(--accent-rgb),.7),rgba(var(--accent-rgb),0));box-shadow:0 0 8px rgba(var(--accent-rgb),.5)}
 .h-diamond{display:inline-block;width:7px;height:7px;background:var(--accent);transform:rotate(45deg)}
 .bt .cap-actions a{text-decoration:none}
+
+/* a caption sentence a scene reveals on its own beat (09: "A was ours.") */
+.h-cap .cap-reveal{display:block;margin-top:10px;opacity:0;color:var(--fg)}

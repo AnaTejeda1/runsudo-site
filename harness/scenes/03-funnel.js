@@ -52,8 +52,8 @@
       OUT: grid(93, 12, 10, 8, 3, 352, -196, -210),
       EXC: grid(31, 8, 10, 8, 3, 352, -30, -210),
       B: grid(62, 16, 15, 11, 3, -30, -42, -50),
-      C: grid(30, 5, 72, 23, 7, -30, 150, 60),
-      exCard: { x: 330, y: 104, z: -70, w: 290 },
+      C: grid(30, 5, 72, 23, 7, -72, 150, 60),
+      exCard: { x: 296, y: 84, z: -70, w: 284 },
       bg: true,
       lbl: 13,
     };
@@ -92,7 +92,7 @@
 
       // ---- background code cards (parallax layer)
       if (C.bg) {
-        S.disc = api.plane({ x: -560, y: 350, z: -560, w: 300, rz: -2 });
+        S.disc = api.plane({ x: -290, y: 330, z: -200, w: 280, rz: -2 });
         S.discC = api.el(
           'div',
           'h-card fn-card f-bg',
@@ -100,7 +100,7 @@
 <pre><span class="ln f-d0"><span class="tk-k">def</span> <span class="tk-f">discover</span><span class="tk-o">(…)</span></span><span class="ln f-d1"><span class="tk-k">def</span> <span class="tk-f">fresh_seed</span><span class="tk-o">(…)</span></span></pre>`,
           S.disc
         );
-        S.gh = api.plane({ x: 500, y: 330, z: -560, w: 300, rz: 2 });
+        S.gh = api.plane({ x: 150, y: 345, z: -200, w: 280, rz: 2 });
         S.ghC = api.el(
           'div',
           'h-card fn-card f-bg',
@@ -147,7 +147,7 @@
       S.lA = label(api, C.A.left, ly(C.A), C.A.z, `<span class="f-k">"listed"</span><span class="f-o">: </span><b class="f-n">0</b>`, 'is-a');
       S.lO = label(api, C.OUT.left, ly(C.OUT), C.OUT.z, `<span class="f-k">"out_of_window"</span><span class="f-o">: </span><b class="f-n">0</b>`, 'is-o');
       S.lE = label(api, C.EXC.left, ly(C.EXC), C.EXC.z, `<span class="f-k">"excluded"</span><span class="f-o">: </span><b class="f-n">0</b>`, 'is-e');
-      S.lB = label(api, C.B.left, ly(C.B), C.B.z, `<span class="f-k">"scoreable"</span><span class="f-o">: </span><b class="f-n">0</b>`, 'is-b');
+      S.lB = label(api, C.B.left - (m ? 0 : 6), ly(C.B) - (m ? 2 : 6), C.B.z + (m ? 40 : 90), `<span class="f-k">"scoreable"</span><span class="f-o">: </span><b class="f-n">0</b>`, 'is-b');
       S.lC = label(api, C.C.left, ly(C.C) - (m ? 0 : 2), C.C.z, `<b class="f-n">0</b><span class="f-o"> drawn with </span><span class="f-seed"><span class="f-k">"seed"</span><span class="f-o">: </span><span class="f-sv">${SEED}</span></span>`, 'is-c');
       S.seed = S.lC.c.querySelector('.f-seed');
       S.seedHalo = api.halo(S.seed, 'accent');
@@ -208,15 +208,18 @@
       const e = api.ease;
       const C = S.C;
       const ps = api.pause ? api.pause.start : 0.3, pe = api.pause ? api.pause.end : 0.7;
-      const Hh = (h) => ps + (pe - ps) * h; // hold fraction → local p
+      // phone: the beats run a little earlier so the 30 are drawn by the middle of the hold
+      const K = api.mobile ? 0.78 : 1;
+      const Hh = (h) => ps + (pe - ps) * h * K; // hold fraction → local p
       const PI = Math.PI;
 
       // beat windows (local p)
       const LIST = [0.02, 0.27];
-      const OUTW = [Hh(0.02), Hh(0.3)];
-      const EXCW = [Hh(0.2), Hh(0.44)];
-      const SCOW = [Hh(0.42), Hh(0.6)];
-      const SAMW = [Hh(0.62), Hh(0.84)];
+      const OUTW = [Hh(0.0), Hh(0.2)];
+      const EXCW = [Hh(0.12), Hh(0.3)];
+      const SCOW = [Hh(0.28), Hh(0.42)];
+      const SAMW = [Hh(0.43), Hh(0.6)];
+      const POP = [Hh(0.6), Hh(0.7)]; // #15169 steps forward once the draw lands
 
       let nA = 0, nO = 0, nE = 0, nB = 0, nC = 0;
       const unDim = e.inOutSine(api.range(p, SAMW[0] + 0.02, SAMW[1]));
@@ -255,22 +258,26 @@
         api.opacity(q.t, op);
       }
 
+      const pop = api.range(p, POP[0], POP[1]);
+      const popS = e.outBack(pop, 2.2);
       for (const ch of S.chips) {
         const g = api.stagger(p, ch.i, 30, SAMW[0], SAMW[1], 0.4, e.outCubic);
         if (g >= 0.5) nC++;
         const arc = Math.sin(g * PI);
+        const isF = ch.i === S.FOCUS_C;
         api.place(ch.pl, {
           x: api.lerp(ch.from.x, ch.P.x, g),
           y: api.lerp(ch.from.y, ch.P.y, g),
-          z: api.lerp(ch.from.z, ch.P.z, g) + arc * 90,
-          s: api.lerp(C.A.tw / C.C.tw, 1, e.outBack(g, 1.2)),
+          z: api.lerp(ch.from.z, ch.P.z, g) + arc * 90 + (isF ? 40 * e.outCubic(pop) : 0),
+          s: api.lerp(C.A.tw / C.C.tw, 1, e.outBack(g, 1.2)) * (isF ? 1 + 0.35 * popS : 1),
           rx: arc * -25,
         });
-        api.opacity(ch.c, api.range(g, 0, 0.2));
+        // the other 29 step back a little so the one we follow is the payoff
+        api.opacity(ch.c, api.range(g, 0, 0.2) * (isF ? 1 : 1 - 0.35 * e.inOutSine(pop)));
       }
 
       // focus ticket: lights after the draw and keeps its glow on the way out
-      const fl = e.inOutSine(api.range(p, SAMW[1] - 0.01, SAMW[1] + 0.05));
+      const fl = e.inOutSine(api.range(p, POP[0] - 0.01, POP[0] + 0.03));
       if (S.focusHalo) api.opacity(S.focusHalo, fl);
       S.chips[S.FOCUS_C] && S.chips[S.FOCUS_C].c.classList.toggle('is-lit', fl > 0.5);
 
@@ -318,13 +325,13 @@
       // background cards: highlight the function doing the work
       if (S.discC) {
         const bgOut = 1 - e.inOutSine(api.range(p, pe + 0.02, pe + 0.14));
-        api.opacity(S.discC, e.outCubic(api.range(p, 0.0, 0.2)) * bgOut);
-        api.opacity(S.ghC, e.outCubic(api.range(p, 0.08, 0.28)) * bgOut);
+        api.opacity(S.discC, 0.5 * e.outCubic(api.range(p, 0.0, 0.2)) * bgOut);
+        api.opacity(S.ghC, 0.5 * e.outCubic(api.range(p, 0.08, 0.28)) * bgOut);
         S.d0.classList.toggle('hl', p > LIST[0] && p < LIST[1] + 0.02);
         S.g0.classList.toggle('hl', p > OUTW[0] && p < SCOW[1]);
         S.d1.classList.toggle('hl', p > SAMW[0] - 0.02 && p < SAMW[1] + 0.03);
-        api.place(S.disc, { y: 350 + api.lerp(30, -30, p) });
-        api.place(S.gh, { y: 330 + api.lerp(-30, 30, p) });
+        api.place(S.disc, { y: 330 + api.lerp(30, -30, p) });
+        api.place(S.gh, { y: 345 + api.lerp(-30, 30, p) });
       }
 
       // light: tier A while listing → piles while peeling → tier B → front tier with the seed

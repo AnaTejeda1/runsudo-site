@@ -42,10 +42,9 @@
   const FN_HTML =
     '<div class="h-card fn-card bl-fn">' +
     '<div class="h-card-head"><span class="path">bt/prepare.py · bt/selection.py</span></div>' +
-    '<pre><span class="ln"><span class="tk-k">def</span> <span class="tk-f">run_prepare</span><span class="tk-o">(…)</span></span>' +
-    '<span class="ln hl"><span class="tk-k">def</span> <span class="tk-f">select_tests</span><span class="tk-o">(…)</span></span>' +
-    '<span class="ln"><span class="tk-c"># tests related to files either patch</span></span>' +
-    '<span class="ln"><span class="tk-c"># changed: chosen by a script, not a model</span></span></pre>' +
+    '<pre><span class="ln hl"><span class="tk-k">def</span> <span class="tk-f">run_prepare</span><span class="tk-o">(…)</span></span>' +
+    '<span class="ln"><span class="tk-k">def</span> <span class="tk-f">select_tests</span><span class="tk-o">(…)</span></span>' +
+    '<span class="ln"><span class="tk-c"># test choice: made by a script, not a model</span></span></pre>' +
     '</div>';
 
   function buildCells(cols, rows) {

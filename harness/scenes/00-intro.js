@@ -132,7 +132,8 @@
           rz: Math.sin(ch.q.ph) * 4,
           ry: Math.cos(ch.q.ph) * 14,
         });
-        api.opacity(ch.c, a * (1 - 0.72 * dimF));
+        // already faintly there on the first frame, so the opening has depth before any scroll
+        api.opacity(ch.c, (0.4 + 0.6 * a) * (1 - 0.72 * dimF));
       }
       void n;
 
@@ -140,7 +141,7 @@
       const fIn = api.stagger(p, 24, 30, 0.0, 0.34, 0.34, e.outQuint);
       const lit = e.inOutSine(api.range(p, 0.3, 0.6));
       const open = e.outCubic(api.range(p, 0.5, 0.72));
-      api.opacity(S.focusC, fIn);
+      api.opacity(S.focusC, 0.4 + 0.6 * fIn);
       api.place(S.focus, {
         y: S.F.y + Math.sin(p * 4) * 5 + (1 - fIn) * 60,
         z: S.F.z - (1 - fIn) * 260,

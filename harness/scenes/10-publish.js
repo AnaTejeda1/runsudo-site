@@ -178,14 +178,15 @@
             '<span class="ln hl"><span class="tk-k">def</span> <span class="tk-f">compute_counts</span><span class="tk-o">(…)</span>:</span>' +
             '<span class="ln tk-c">    # every ticket counted, none dropped</span>' +
             '</pre>', S.T);
+        // field names only: the per-ticket values live on the published page for this run
         S.tix = card(api, { x: 420, y: -6, z: 10, ry: -16, w: 290 }, 'h-card json-card pb-tix',
           '<div class="h-card-head"><span class="path">tickets.json</span><span class="kind">one row per ticket</span></div><pre>' +
-            '{ <span class="tk-p">"verdict"</span>: <span class="tk-s">"better"</span>,\n' +
-            '  <span class="tk-p">"pr"</span>: <span class="tk-c">…</span>,\n' +
-            '  <span class="tk-p">"judge"</span>: { <span class="tk-p">"agent_is"</span>: <span class="tk-s">"A"</span> },\n' +
-            '  <span class="tk-p">"solve"</span>: { <span class="tk-p">"duration_s"</span>: <span class="tk-n">625.0</span> },\n' +
-            '  <span class="tk-p">"tests"</span>: <span class="tk-c">…</span>, <span class="tk-p">"lines"</span>: <span class="tk-c">…</span>,\n' +
-            '  <span class="tk-p">"audit"</span>: <span class="tk-s">"clean"</span> }</pre>', S.T);
+            '{ <span class="tk-p">"number"</span>: <span class="tk-n">15169</span>,\n' +
+            '  <span class="tk-p">"verdict"</span>: <span class="tk-s">"better"</span>,\n' +
+            '  <span class="tk-p">"pr"</span>: <span class="tk-c">…</span>, <span class="tk-p">"judge"</span>: <span class="tk-c">{…}</span>,\n' +
+            '  <span class="tk-p">"solve"</span>: <span class="tk-c">{…}</span>, <span class="tk-p">"tests"</span>: <span class="tk-c">{…}</span>,\n' +
+            '  <span class="tk-p">"lines"</span>: <span class="tk-c">{…}</span>, <span class="tk-p">"audit"</span>: <span class="tk-c">{…}</span>,\n' +
+            '  <span class="tk-p">"patches"</span>: <span class="tk-c">{…}</span> }</pre>', S.T);
       }
 
       /* ---- 30 ticket slabs: scattered → tally stacks → newest chart column */
@@ -211,7 +212,7 @@
       });
 
       /* ---- export-site terminal (approach) */
-      S.term = card(api, m ? { x: 0, y: 70, z: -140, w: 330 } : { x: -150, y: -300, z: -200, w: 470 }, 'h-card term-card pb-term',
+      S.term = card(api, m ? { x: 0, y: 70, z: -140, w: 330 } : { x: 360, y: -262, z: -90, ry: -12, w: 420 }, 'h-card term-card pb-term',
         '<div class="h-card-head"><span class="dots"><i></i><i></i><i></i></span><span>bt</span></div><pre>' +
           '<span class="pr">$</span> <span class="pb-t1"></span>\n' +
           '<span class="out pb-t2"></span>\n' +
@@ -249,20 +250,21 @@
       const lv = api.leave(p);
 
       /* tally group: in place for the approach, then recedes up and back as the chart takes over */
-      const tr = seg(p, 0.27, 0.42, E.inOutCubic);
+      const tr = seg(p, 0.19, 0.3, E.inOutCubic);
       const Tp = { x: lerp(S.Tpos.x, S.Tend.x, tr), y: lerp(S.Tpos.y, S.Tend.y, tr), z: lerp(S.Tpos.z, S.Tend.z, tr), rx: lerp(0, 10, tr) };
       api.place(S.T, Tp);
       const tIn = seg(p, 0.0, 0.1, E.outCubic);
       S.tallyLbl.forEach((q, i) => {
-        api.opacity(q.c, api.stagger(p, i, 4, 0.04, 0.16, 0.5) * (1 - 0.85 * tr));
+        api.opacity(q.c, api.stagger(p, i, 4, 0.04, 0.14, 0.5) * (1 - 0.92 * tr));
       });
-      api.opacity(S.tallyHead.c, tIn * (1 - 0.9 * tr));
+      api.opacity(S.tallyHead.c, tIn * (1 - 0.95 * tr));
       if (S.fn) {
-        const a = seg(p, 0.0, 0.1, E.outCubic), b = seg(p, 0.17, 0.26, E.inCubic);
+        const a = seg(p, 0.0, 0.08, E.outCubic), b = seg(p, 0.13, 0.2, E.inCubic);
         api.opacity(S.fn.c, a * (1 - b));
         api.transform(S.fn.c, `translate3d(${(1 - a) * -60 - b * 80}px,${(1 - a) * 24}px,0)`);
-        const c = seg(p, 0.03, 0.13, E.outCubic);
-        api.opacity(S.tix.c, c * (1 - 0.88 * tr));
+        // tickets.json hands its spot to the export terminal
+        const c = seg(p, 0.03, 0.12, E.outCubic) * (1 - seg(p, 0.135, 0.17, E.inCubic));
+        api.opacity(S.tix.c, c);
         api.transform(S.tix.c, `translate3d(${(1 - c) * 60}px,${(1 - c) * 24}px,0)`);
       }
 
@@ -272,8 +274,8 @@
       const G = S.Gpos;
       let landed = [0, 0, 0, 0];
       S.tiles.forEach((q, i) => {
-        const a = api.stagger(p, i, 30, 0.03, 0.23, 0.32, E.outCubic);
-        const b = E.inOutCubic(api.range(p, 0.28 + q.k * 0.0026, 0.37 + q.k * 0.0026));
+        const a = api.stagger(p, i, 30, 0.03, 0.17, 0.32, E.outCubic);
+        const b = E.inOutCubic(api.range(p, 0.29 + q.k * 0.0016, 0.37 + q.k * 0.0016));
         if (a > 0.98) landed[q.v]++;
         // stack slot (tally-local) → root
         const lx = S.stackX(q.v), ly = S.stackBase - (q.j + 0.5) * M.unit;
@@ -287,10 +289,10 @@
           x: lerp(ax, cx, b), y: lerp(ay, cy, b), z: lerp(az, cz, b) + arc,
           rz: lerp(q.from.rz, 0, E.outCubic(a)) , rx: lerp(0, -20, Math.sin(b * Math.PI)),
         });
-        api.opacity(q.c, seg(p, 0.02 + i * 0.006, 0.06 + i * 0.006, E.outCubic));
+        api.opacity(q.c, seg(p, 0.02 + i * 0.0045, 0.06 + i * 0.0045, E.outCubic));
       });
       // counts tick up as tiles land
-      if (p < 0.28) {
+      if (p < 0.2) {
         api.text(S.tallyNum[0], landed[0]);
         api.text(S.tallyNum[1], landed[1]);
         api.text(S.tallyNum[2], landed[2]);
@@ -300,42 +302,47 @@
       }
 
       /* terminal: types the publish path, then sinks back */
-      const tm = seg(p, 0.12, 0.2, E.outCubic);
-      api.opacity(S.term.c, tm * (1 - 0.55 * seg(p, pz.start, pz.start + 0.1)));
-      api.transform(S.term.c, `translate3d(0,${(1 - tm) * 30}px,0)`);
-      api.type(S.t[0], S.tStr[0], api.range(p, 0.15, 0.24));
-      api.type(S.t[1], S.tStr[1], api.range(p, 0.245, 0.27));
-      api.type(S.t[2], S.tStr[2], api.range(p, 0.27, 0.31));
-      api.type(S.t[3], S.tStr[3], api.range(p, 0.315, 0.335));
+      const tm = seg(p, 0.175, 0.21, E.outCubic);
+      const tOut = seg(p, 0.29, 0.35, E.inOutCubic);
+      api.opacity(S.term.c, tm * (1 - (m ? 0.6 : 1) * tOut));
+      api.transform(S.term.c, `translate3d(0,${((1 - tm) * 30 - tOut * 40).toFixed(2)}px,0)`);
+      api.type(S.t[0], S.tStr[0], api.range(p, 0.185, 0.225));
+      api.type(S.t[1], S.tStr[1], api.range(p, 0.225, 0.24));
+      api.type(S.t[2], S.tStr[2], api.range(p, 0.24, 0.26));
+      api.type(S.t[3], S.tStr[3], api.range(p, 0.26, 0.272));
 
       /* chart: stands up out of the floor (0.2–0.34) */
-      const ci = seg(p, 0.19, 0.33, E.outQuart);
+      const ci = seg(p, 0.23, 0.34, E.outQuart);
       api.place(S.G, { x: G.x, y: G.y + (1 - ci) * 160, z: G.z - (1 - ci) * 240, rx: (1 - ci) * 62 });
-      api.opacity(S.chart.c, seg(p, 0.19, 0.27, E.outCubic));
+      api.opacity(S.chart.c, seg(p, 0.23, 0.29, E.outCubic));
       api.opacity(S.shadow, 0.9 * ci);
-      api.opacity(S.pub, seg(p, 0.315, 0.34));
+      api.opacity(S.pub, seg(p, 0.27, 0.31));
       // slot outline visible until the stacks land in it
       const landedCol = seg(p, 0.36, 0.42);
-      api.opacity(S.slot.c, seg(p, 0.24, 0.3) * (1 - 0.65 * landedCol));
+      api.opacity(S.slot.c, seg(p, 0.26, 0.3) * (1 - 0.65 * landedCol));
 
       /* hold: history columns rise left to right, playhead + run panel follow */
       const nHist = HUGO.length - 1;
-      const sweep = api.range(h, 0.04, 0.6); // 0..1 across the 7 earlier runs, then onto the newest
-      let cur = -1;
+      // the earlier runs grow as the window lands, so the chart is never empty
+      const rise = [];
       S.cols.forEach((col, i) => {
         if (i === nHist) return;
-        const r = E.outQuart(api.range(sweep * (nHist + 1), i, i + 0.9));
+        const r = E.outCubic(api.range(p, 0.27 + i * 0.017, 0.33 + i * 0.017));
+        rise[i] = r;
         api.transform(col, `translate3d(0,${((1 - r) * 100).toFixed(2)}%,0)`);
-        api.opacity(S.ns[i], api.range(sweep * (nHist + 1), i + 0.4, i + 0.9));
-        if (sweep * (nHist + 1) >= i + 0.35) cur = i;
+        api.opacity(S.ns[i], api.range(r, 0.5, 1));
       });
+      // hold: the playhead walks the runs and reaches the newest early, so most of the hold shows 28
+      const sweep = api.range(h, 0.02, 0.32);
+      let cur = -1;
+      for (let i = 0; i < nHist; i++) if (h > 0 && sweep * (nHist + 1) >= i + 0.35) cur = i;
       const lastOn = api.range(sweep * (nHist + 1), nHist + 0.1, nHist + 0.7);
       if (lastOn > 0) cur = nHist;
       api.opacity(S.ns[nHist], lastOn);
       // playhead
       const hx = M.left0 + Math.min(sweep * (nHist + 1), nHist + 0.5) * M.pitch - 6;
       api.transform(S.headEl, `translate3d(${hx.toFixed(1)}px,0,0)`);
-      api.opacity(S.headEl, api.bump(h, 0.0, 0.06, 0.6, 0.7));
+      api.opacity(S.headEl, api.bump(h, 0.0, 0.04, 0.38, 0.48));
       // run panel shows the column under the playhead
       const r = HUGO[Math.max(0, cur)];
       api.text(S.run, r[1]);
@@ -343,24 +350,24 @@
       api.text(S.rPar, cur < 0 ? '—' : r[3]);
       api.text(S.rWorse, cur < 0 ? '—' : r[4]);
       api.text(S.rError, cur < 0 ? '—' : r[5]);
-      const fin = seg(h, 0.6, 0.78, E.outCubic);
+      const fin = seg(h, 0.3, 0.42, E.outCubic);
       S.panel.classList.toggle('is-final', cur === nHist);
       api.opacity(S.panel, seg(p, 0.3, 0.36));
-      api.opacity(S.listed, seg(h, 0.72, 0.9, E.outCubic));
-      api.transform(S.listed, `translate3d(0,${(1 - seg(h, 0.72, 0.9, E.outCubic)) * 8}px,0)`);
+      api.opacity(S.listed, seg(h, 0.38, 0.5, E.outCubic));
+      api.transform(S.listed, `translate3d(0,${(1 - seg(h, 0.38, 0.5, E.outCubic)) * 8}px,0)`);
       // newest column bloom; dates fade in with their columns
-      S.ds.forEach((d, i) => api.opacity(d, i === nHist ? 0.5 + 0.5 * fin : 0.25 + 0.75 * api.range(sweep * (nHist + 1), i, i + 0.6)));
+      S.ds.forEach((d, i) => api.opacity(d, i === nHist ? 0.5 + 0.5 * fin : 0.25 + 0.75 * (rise[i] || 0)));
       api.opacity(S.slotHalo, fin * (1 - 0.5 * lv));
       api.opacity(S.chartHalo, 0.5 * fin * (1 - lv));
       S.tiles.forEach((q) => q.c.classList.toggle('is-lit', fin > 0.5));
 
       /* secondary repos + index.json */
       if (S.lines) {
-        const la = seg(h, 0.62, 0.82, E.outCubic);
+        const la = seg(h, 0.5, 0.68, E.outCubic);
         api.opacity(S.lines.c, la);
         api.transform(S.lines.c, `translate3d(${(1 - la) * 40}px,${(1 - la) * -20}px,0)`);
-        api.transform(S.wipe, `translate3d(${(seg(h, 0.66, 0.98, E.inOutCubic) * 100).toFixed(2)}%,0,0)`);
-        const ia = seg(h, 0.8, 0.98, E.outCubic);
+        api.transform(S.wipe, `translate3d(${(seg(h, 0.54, 0.84, E.inOutCubic) * 100).toFixed(2)}%,0,0)`);
+        const ia = seg(h, 0.66, 0.84, E.outCubic);
         api.opacity(S.idx.c, ia);
         api.transform(S.idx.c, `translate3d(0,${(1 - ia) * 34}px,0)`);
       }
