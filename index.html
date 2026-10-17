@@ -51,6 +51,25 @@
     </div>
   </section>
 
+  <section id="replay" class="fm">
+    <div class="head2">
+      <div><p class="eyebrow">In one take</p><h2>Follow three tickets through a backtest</h2></div>
+      <p class="fm-lede">Scroll to replay it. Three tickets leave your Jira, each gets a sealed container and a blind attempt, and one goes all the way to a verdict. The tickets, code and scores in this replay are illustrative.</p>
+    </div>
+    <div class="fm-film" data-film>
+      <ol class="fm-steps">
+        <li><b>Find</b>We start from every ticket your team closed in the last 90 days.</li>
+        <li><b>Rank</b>Each one is ranked by how cleanly it can be replayed: a merged fix, tests near the change, a commit to rewind to.</li>
+        <li><b>Pick</b>The top of the list is lifted out. This replay follows three.</li>
+        <li><b>Seal</b>Every ticket gets its own sealed container. No network beyond the model API, no access to the real fix.</li>
+        <li><b>Solve</b>Inside, the repo is rewound to the commit before the fix landed, and an agent writes its own patch.</li>
+        <li><b>Test</b>A harness picks the tests the change could affect and runs them on both patches.</li>
+        <li><b>Judge</b>A judge reads both diffs without knowing which one is ours, then picks the one it would merge.</li>
+        <li><b>Report</b>Every verdict lands in one report, failures first.</li>
+      </ol>
+    </div>
+  </section>
+
   <section id="after">
     <div class="head2">
       <div><p class="eyebrow">Next</p><h2>What comes after the backtest</h2></div>
@@ -81,5 +100,11 @@
     </div>
   </footer>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/CustomEase.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.min.js" defer></script>
+<script src="film.js" defer></script>
 </body>
 </html>
