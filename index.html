@@ -68,7 +68,7 @@
           <div class="cap c5 an"><p class="eyebrow">05 · Solve</p><h3>Solve it from the ticket alone</h3><p>Same checkout, same sandbox. The agent reads the ticket, finds the race and writes a patch.</p></div>
           <div class="cap c6 an"><p class="eyebrow">06 · Retest</p><h3>The same six tests, now on the patch</h3><p>The suite runs again, unchanged. All six pass and the patch applies cleanly, so it is marked clean.</p></div>
           <div class="cap c7 an"><p class="eyebrow">07 · Compare</p><h3>Our patch next to your engineer's</h3><p><span class="kw ks">Blue</span> is sudo's patch. <span class="kw ke">Amber</span> is the one your engineer merged in PR #1931.</p></div>
-          <div class="cap c8 an"><p class="eyebrow">08 · Judge</p><h3>A blind judge reads both</h3><p>The patches go in as A and B, in random order. The judge never learns who wrote which. The colored edges are only for you.</p></div>
+          <div class="cap c8 an"><p class="eyebrow">08 · Judge</p><h3>A blind judge weighs both</h3><p>Both pass the tests, so the tests cannot separate them. A judge reads the ticket and the two patches as A and B, and is never told who wrote which.</p></div>
           <div class="cap c9 an"><p class="eyebrow">09 · Report</p><h3>Every ticket, scored honestly</h3><p>Wins, ties and losses side by side, failures first.</p></div>
 
           <div class="hud" aria-hidden="true">
@@ -192,31 +192,38 @@
                   <div class="duel">
                     <div class="side sa an">
                       <div class="patch pa an">
-                        <i class="rim an" aria-hidden="true"></i>
-                        <div class="ph"><i class="tint an" aria-hidden="true"></i><span class="who"><span class="real an"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 13v1M14.5 13v1"/></svg><b>sudo</b><span class="sub">sandbox-1</span><span class="cln"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>clean</span></span><span class="blind an" aria-hidden="true">Patch A</span></span><span class="pm"><span class="a">+22</span> <span class="r">−6</span></span></div>
+                        <i class="rim" aria-hidden="true"></i>
+                        <div class="ph"><i class="tint" aria-hidden="true"></i><span class="who"><span class="real an"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 13v1M14.5 13v1"/></svg><b>sudo</b><span class="sub">sandbox-1</span><span class="cln"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>clean</span></span><span class="blind an" aria-hidden="true">Patch A</span></span><span class="pm"><span class="a">+22</span> <span class="r">−6</span></span></div>
                         <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -38,6 +38,8 @@</span><span class="a">+from .locks import KeyedLocks</span><span class="c"> from .tokens import issue_token</span><span class="a">+        self._locks = KeyedLocks()</span><span class="h">@@ -46,6 +48,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with self._locks.hold(session_id):</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="f">tests/auth/test_refresh.py</span><span class="h">@@ -88,0 +88,14 @@</span><span class="a">+def test_concurrent_refresh_issues_one_token(store):</span><span class="a">+    tokens = run_parallel(store.refresh, "s1", n=8)</span><span class="a">+    assert len(set(tokens)) == 1</span></pre>
-                        <p class="pft">6 of 6 affected tests pass · marked clean</p>
+                        <p class="pft"><span class="pf1 an">6 of 6 affected tests pass · marked clean</span><span class="pf2 an" aria-hidden="true">6 of 6 affected tests pass</span></p>
+                        <i class="eye an" aria-hidden="true"></i>
                       </div>
                     </div>
                     <div class="side sb an">
                       <div class="patch pb an">
-                        <i class="rim an" aria-hidden="true"></i>
-                        <div class="ph"><i class="tint an" aria-hidden="true"></i><span class="who"><span class="real an"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg><b>engineer</b><span class="sub">merged in PR #1931</span></span><span class="blind an" aria-hidden="true">Patch B</span></span><span class="pm"><span class="a">+11</span> <span class="r">−6</span></span></div>
+                        <i class="rim" aria-hidden="true"></i>
+                        <div class="ph"><i class="tint" aria-hidden="true"></i><span class="who"><span class="real an"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg><b>engineer</b><span class="sub">merged in PR #1931</span></span><span class="blind an" aria-hidden="true">Patch B</span></span><span class="pm"><span class="a">+11</span> <span class="r">−6</span></span></div>
                         <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -1,4 +1,7 @@</span><span class="a">+import threading</span><span class="c"> from .tokens import issue_token</span><span class="a">+</span><span class="a">+_refresh_lock = threading.Lock()</span><span class="h">@@ -46,6 +49,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with _refresh_lock:</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="c">             token = issue_token(session.user_id)</span><span class="c">             self._backend.put(session_id, token)</span></pre>
-                        <p class="pft">6 of 6 affected tests pass · merged in PR #1931</p>
+                        <p class="pft"><span class="pf1 an">6 of 6 affected tests pass · merged in PR #1931</span><span class="pf2 an" aria-hidden="true">6 of 6 affected tests pass</span></p>
+                        <i class="eye an" aria-hidden="true"></i>
                       </div>
                     </div>
                     <p class="pnote an">Same ticket, same starting commit, same six tests, and both pass, so the tests alone cannot separate them. Ours was written without access to the engineer's.</p>
                   </div>
-                  <div class="judge an">
-                    <div class="jh"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v16M8 20.5h8M5 6.5h14"/><path d="m5 6.5-3 6.5h6zM19 6.5l-3 6.5h6z"/></svg><p class="bk">Judge · blind</p><p class="bs">Reads the ticket and two patches in random order, labelled only A and B.</p></div>
-                    <div class="slots"><div class="slot sla"><b>A</b><span>2 files · +22 −6</span></div><div class="slot slb"><b>B</b><span>1 file · +11 −6</span></div></div>
-                    <div class="crit an" style="--i:0"><span>Fixes the race</span><span class="ch"><i>A</i><i class="on">tie</i><i>B</i></span></div>
-                    <div class="crit an" style="--i:1"><span>Lock scope</span><span class="ch"><i class="on">A</i><i>tie</i><i>B</i></span></div>
-                    <div class="crit an" style="--i:2"><span>Regression test</span><span class="ch"><i class="on">A</i><i>tie</i><i>B</i></span></div>
-                    <div class="crit an" style="--i:3"><span>Readability</span><span class="ch"><i>A</i><i class="on">tie</i><i>B</i></span></div>
-                    <div class="verdict an"><p><span class="pill good">better</span><b>Prefers A</b></p><p>A per-session lock instead of a process-wide one, and a regression test for the race.</p></div>
-                    <p class="rv an"><span class="rk">Unblinded after the verdict</span><span class="ua"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 13v1M14.5 13v1"/></svg>A was sudo</span><span class="ub"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg>B was your engineer</span></p>
+                  <div class="box jg">
+                    <div class="jhead an">
+                      <p class="bk"><svg class="eyei" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>Judge · blind</p>
+                      <p class="bs">Reads the ticket and patches A and B in random order. It is never told who wrote which.</p>
+                    </div>
+                    <svg class="brace" viewBox="0 0 714 44" aria-hidden="true"><path class="an" pathLength="1" d="M357 0 V14 H186 Q176 14 176 24 V44"/><path class="an" pathLength="1" d="M357 14 H528 Q538 14 538 24 V44"/></svg>
+                    <i class="gaze an" aria-hidden="true"></i>
+                    <div class="crits">
+                      <div class="crit an" style="--i:0"><span>Fixes the race</span><span class="ch"><i>A</i><i class="on an">tie</i><i>B</i></span></div>
+                      <div class="crit an" style="--i:1"><span>Lock scope</span><span class="ch"><i class="on an">A</i><i>tie</i><i>B</i></span></div>
+                      <div class="crit an" style="--i:2"><span>Regression test</span><span class="ch"><i class="on an">A</i><i>tie</i><i>B</i></span></div>
+                      <div class="crit an" style="--i:3"><span>Readability</span><span class="ch"><i>A</i><i class="on an">tie</i><i>B</i></span></div>
+                    </div>
+                    <div class="verdict an"><p><b>Prefers <span class="ka">A</span></b></p><p>A per-session lock instead of a process-wide one, and a regression test for the race.</p><p class="rv an"><span class="pill good">better</span><span><span class="ka">A was sudo</span> · <span class="kb">B was your engineer</span></span></p></div>
                   </div>
                 </div>
 
