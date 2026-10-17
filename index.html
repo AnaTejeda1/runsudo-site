@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module" src="replay.js"></script>
 
 </head>
 <body>
@@ -47,6 +49,165 @@
         <li class="step"><span class="n">01</span><div><h3>Replay your tickets</h3><p>We take your closed tickets from the last 90 days and check out your repo at the commit just before each fix landed.</p></div></li>
         <li class="step"><span class="n">02</span><div><h3>Solve each one blind</h3><p>Our software factory, an orchestration of agents we built, solves every ticket inside a sealed container: no network beyond the model API, no access to the real fix, nothing but that checkout.</p></div></li>
         <li class="step"><span class="n">03</span><div><h3>Compare, honestly</h3><p>Your test suite runs on both patches. A blind judge compares the software factory's patch to your engineer's.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="replay" class="replay">
+    <div class="head2">
+      <div><p class="eyebrow">Walkthrough</p><h2>Follow three tickets through a backtest</h2></div>
+      <div class="rp-intro">
+        <p>One continuous pass through the pipeline: from your Jira history, into sealed containers, through the agent's work, the tests and the judge, to the report.</p>
+        <p class="rp-note">Illustrative data. Ticket titles, code and results are placeholders.</p>
+      </div>
+    </div>
+
+    <div class="rp-track">
+      <div class="rp-stage" aria-hidden="true">
+        <canvas class="rp-gl"></canvas>
+        <div class="rp-css"></div>
+        <div class="rp-vignette"></div>
+        <div class="rp-hud">
+          <p class="rp-hud-n"><span></span> / 07</p>
+          <h3 class="rp-hud-t"></h3>
+          <p class="rp-hud-p"></p>
+        </div>
+        <ol class="rp-rail"></ol>
+        <p class="rp-tag">illustrative</p>
+      </div>
+
+      <ol class="rp-steps">
+        <li class="rp-step" data-step="1">
+          <div class="rp-cap"><span class="n">01</span><h3>Find the tickets</h3><p>Every ticket closed in the last 90 days, ranked by whether it can be replayed: a merged fix, a clean parent commit, tests that touch the change.</p></div>
+          <div class="rp-panel rp-jira">
+            <div class="jr-side">
+              <div class="jr-proj"><i></i><div><b>Acme API</b><small>Software project</small></div></div>
+              <ul><li>Timeline</li><li>Backlog</li><li>Board</li><li class="on">Issues</li><li>Releases</li><li>Reports</li></ul>
+            </div>
+            <div class="jr-main">
+              <p class="jr-crumbs">Projects / Acme API / Issues</p>
+              <div class="jr-titlebar"><h4>Issues</h4><span class="jr-count">1–12 of 87</span></div>
+              <div class="jr-jql"><span class="jr-chip">JQL</span><code>project = API AND status = Done AND resolved &gt;= -90d ORDER BY <span class="jr-ord"><s>resolved DESC</s><b>replayable DESC</b></span></code></div>
+              <div class="jr-head"><span>Type</span><span>Key</span><span>Summary</span><span>Assignee</span><span>Status</span><span>Resolved</span><span class="jr-score">Replayable</span></div>
+              <div class="jr-rows">
+                <div class="jr-row" data-from="0" data-to="5"><i class="ty bug"></i><span class="k">API-511</span><span class="s">Webhook retries duplicate deliveries on 5xx</span><span class="av">MR</span><span class="st">Done</span><span class="d">Jul 14</span><span class="sc">0.66</span></div>
+                <div class="jr-row" data-from="1" data-to="7"><i class="ty story"></i><span class="k">API-509</span><span class="s">Add per-tenant rate limit headers</span><span class="av">JL</span><span class="st">Done</span><span class="d">Jul 11</span><span class="sc">0.58</span></div>
+                <div class="jr-row pick" data-from="2" data-to="2" data-card="2"><i class="ty bug"></i><span class="k">API-503</span><span class="s">Flaky CSV import on files with a UTF-8 BOM</span><span class="av">AK</span><span class="st">Done</span><span class="d">Jul 08</span><span class="sc">0.84</span></div>
+                <div class="jr-row" data-from="3" data-to="10"><i class="ty task"></i><span class="k">API-501</span><span class="s">Migrate billing cron to queue workers</span><span class="av">SP</span><span class="st">Done</span><span class="d">Jul 03</span><span class="sc">0.22</span></div>
+                <div class="jr-row pick" data-from="4" data-to="1" data-card="0"><i class="ty bug"></i><span class="k">API-497</span><span class="s">Pagination off by one on CSV exports</span><span class="av">MR</span><span class="st">Done</span><span class="d">Jun 29</span><span class="sc">0.88</span></div>
+                <div class="jr-row" data-from="5" data-to="9"><i class="ty task"></i><span class="k">API-494</span><span class="s">Upgrade Postgres driver to 3.x</span><span class="av">DO</span><span class="st">Done</span><span class="d">Jun 24</span><span class="sc">0.35</span></div>
+                <div class="jr-row" data-from="6" data-to="3"><i class="ty bug"></i><span class="k">API-490</span><span class="s">Audit log misses role changes</span><span class="av">JL</span><span class="st">Done</span><span class="d">Jun 19</span><span class="sc">0.71</span></div>
+                <div class="jr-row" data-from="7" data-to="11"><i class="ty story"></i><span class="k">API-486</span><span class="s">Dark mode for the admin dashboard</span><span class="av">AK</span><span class="st">Done</span><span class="d">Jun 12</span><span class="sc">0.18</span></div>
+                <div class="jr-row pick" data-from="8" data-to="0" data-card="1"><i class="ty bug"></i><span class="k">API-482</span><span class="s">Race in session refresh on token expiry</span><span class="av">SP</span><span class="st">Done</span><span class="d">Jun 05</span><span class="sc">0.91</span></div>
+                <div class="jr-row" data-from="9" data-to="4"><i class="ty bug"></i><span class="k">API-479</span><span class="s">Timezone drift in weekly digest emails</span><span class="av">DO</span><span class="st">Done</span><span class="d">May 30</span><span class="sc">0.67</span></div>
+                <div class="jr-row" data-from="10" data-to="8"><i class="ty task"></i><span class="k">API-475</span><span class="s">Remove legacy v1 auth endpoints</span><span class="av">MR</span><span class="st">Done</span><span class="d">May 22</span><span class="sc">0.53</span></div>
+                <div class="jr-row" data-from="11" data-to="6"><i class="ty bug"></i><span class="k">API-471</span><span class="s">SSO login loops in Safari private mode</span><span class="av">JL</span><span class="st">Done</span><span class="d">May 17</span><span class="sc">0.61</span></div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="rp-step" data-step="2">
+          <div class="rp-cap"><span class="n">02</span><h3>Seal each one</h3><p>Each ticket gets its own container holding the repo as it was before the fix. No network beyond the model API, and no view of the real fix.</p></div>
+          <div class="rp-panel rp-boxes">
+            <div class="rp-box"><div class="bx-label"><svg viewBox="0 0 24 24" class="shield"><path d="M12 2.5 4.5 5.4v6.1c0 4.6 3.1 8.6 7.5 10 4.4-1.4 7.5-5.4 7.5-10V5.4L12 2.5Z"/><path d="m8.6 12.1 2.4 2.4 4.4-4.6"/></svg><span>sealed · api-497</span></div><div class="rp-card"><p class="ck"><i class="ty bug"></i>API-497<em>0.88</em></p><p class="cs">Pagination off by one on CSV exports</p></div></div>
+            <div class="rp-box"><div class="bx-label"><svg viewBox="0 0 24 24" class="shield"><path d="M12 2.5 4.5 5.4v6.1c0 4.6 3.1 8.6 7.5 10 4.4-1.4 7.5-5.4 7.5-10V5.4L12 2.5Z"/><path d="m8.6 12.1 2.4 2.4 4.4-4.6"/></svg><span>sealed · api-482</span></div><div class="rp-card"><p class="ck"><i class="ty bug"></i>API-482<em>0.91</em></p><p class="cs">Race in session refresh on token expiry</p></div></div>
+            <div class="rp-box"><div class="bx-label"><svg viewBox="0 0 24 24" class="shield"><path d="M12 2.5 4.5 5.4v6.1c0 4.6 3.1 8.6 7.5 10 4.4-1.4 7.5-5.4 7.5-10V5.4L12 2.5Z"/><path d="m8.6 12.1 2.4 2.4 4.4-4.6"/></svg><span>sealed · api-503</span></div><div class="rp-card"><p class="ck"><i class="ty bug"></i>API-503<em>0.84</em></p><p class="cs">Flaky CSV import on files with a UTF-8 BOM</p></div></div>
+          </div>
+        </li>
+
+        <li class="rp-step" data-step="3">
+          <div class="rp-cap"><span class="n">03</span><h3>Solve it blind</h3><p>Inside the container for API-482, the agent checks out the commit before the fix, reproduces the bug and writes its own patch.</p></div>
+          <div class="rp-panel rp-agent">
+            <div class="pn-top"><span>container api-482 · acme/api @ a41c9e2</span><span class="pn-net">network: model API only</span></div>
+            <div class="ag-body">
+              <div class="ag-term">
+                <p data-t="0 .06"><b>$</b> git checkout a41c9e2</p>
+                <p class="m" data-t=".06 .1">HEAD is now at a41c9e2, the parent of the merged fix</p>
+                <p data-t=".12 .18"><b>$</b> agent read API-482</p>
+                <p class="m" data-t=".18 .22">Race in session refresh on token expiry</p>
+                <p data-t=".24 .3"><b>$</b> agent locate refresh</p>
+                <p class="m" data-t=".3 .34">auth/session.py:41  SessionStore.refresh</p>
+                <p data-t=".36 .42"><b>$</b> agent reproduce</p>
+                <p class="m" data-t=".42 .46">test_concurrent_refresh_issues_once</p>
+                <p class="r" data-t=".46 .5">FAILED  2 tokens issued, expected 1</p>
+                <p data-t=".52 .58"><b>$</b> agent edit auth/session.py</p>
+                <p data-t=".8 .86"><b>$</b> pytest tests/test_session.py -q</p>
+                <p class="g" data-t=".88 .92">13 passed in 1.84s</p>
+              </div>
+              <div class="ag-code">
+                <p class="fn">auth/session.py</p>
+                <pre><span class="c"><i>39</i>class SessionStore:</span><span class="c"><i>40</i>    ...</span><span class="c"><i>41</i>    def refresh(self, sid):</span><span class="a" data-t=".58 .64"><i>42</i>        with self._locks[sid]:</span><span class="c"><i>43</i>            token = self._tokens[sid]</span><span class="c"><i>44</i>            if token.expired():</span><span class="c"><i>45</i>                self._tokens[sid] = self._issue(sid)</span><span class="c"><i>46</i>        return self._tokens[sid]</span><span class="c"><i>47</i></span><span class="a" data-t=".64 .7"><i>48</i>    def _lock_for(self, sid):</span><span class="a" data-t=".7 .76"><i>49</i>        return self._locks.setdefault(sid, Lock())</span></pre>
+                <p class="ag-status" data-t=".9 .96"><i></i>Patch ready · 2 files · +14 −3</p>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="rp-step" data-step="4">
+          <div class="rp-cap"><span class="n">04</span><h3>Two patches, side by side</h3><p>The agent's patch next to the one your engineer merged. Neither side has seen the other.</p></div>
+          <div class="rp-panel rp-diffs">
+            <div class="patch rp-diff">
+              <div class="ph"><span>sudo · solved blind</span><span class="pm"><span class="a">+14</span> <span class="r">−3</span></span></div>
+              <pre class="diff"><span class="f">auth/session.py</span><span class="h">@@ -39,9 +39,12 @@ class SessionStore</span><span class="c">     def refresh(self, sid):</span><span class="r">-        token = self._tokens[sid]</span><span class="r">-        if token.expired():</span><span class="r">-            self._tokens[sid] = self._issue(sid)</span><span class="a">+        with self._lock_for(sid):</span><span class="a">+            token = self._tokens[sid]</span><span class="a">+            if token.expired():</span><span class="a">+                self._tokens[sid] = self._issue(sid)</span><span class="c">         return self._tokens[sid]</span><span class="f">tests/test_session.py</span><span class="h">@@ -88,0 +88,9 @@</span><span class="a">+def test_concurrent_refresh_issues_once(store):</span><span class="a">+    store.expire("s1")</span><span class="a">+    run_parallel(lambda: store.refresh("s1"), n=8)</span><span class="a">+    assert store.issued("s1") == 1</span></pre>
+            </div>
+            <div class="patch rp-diff">
+              <div class="ph"><span>Engineer · merged</span><span class="pm"><span class="a">+6</span> <span class="r">−3</span></span></div>
+              <pre class="diff"><span class="f">auth/session.py</span><span class="h">@@ -1,6 +1,8 @@</span><span class="c"> import time</span><span class="a">+import threading</span><span class="a">+_refresh_lock = threading.Lock()</span><span class="h">@@ -39,9 +41,10 @@ class SessionStore</span><span class="c">     def refresh(self, sid):</span><span class="r">-        token = self._tokens[sid]</span><span class="r">-        if token.expired():</span><span class="r">-            self._tokens[sid] = self._issue(sid)</span><span class="a">+        with _refresh_lock:</span><span class="a">+            token = self._tokens[sid]</span><span class="a">+            if token.expired():</span><span class="a">+                self._tokens[sid] = self._issue(sid)</span><span class="c">         return self._tokens[sid]</span></pre>
+            </div>
+          </div>
+        </li>
+
+        <li class="rp-step" data-step="5">
+          <div class="rp-cap"><span class="n">05</span><h3>Run the affected tests</h3><p>The harness picks the tests the change touches and runs them against both patches, each in a fresh container.</p></div>
+          <div class="rp-panel rp-harness">
+            <div class="pn-top"><span>harness · api-482</span><span>14 of 1,312 tests selected</span></div>
+            <p class="hz-why" data-t="0 .12">Selected by import graph and coverage of auth/session.py</p>
+            <div class="hz-head"><span>Test</span><span>sudo</span><span>Engineer</span></div>
+            <div class="hz-rows">
+              <div class="hz-row" data-t=".1 .2"><span>test_refresh_returns_valid_token</span><b>pass</b><b>pass</b></div>
+              <div class="hz-row" data-t=".16 .26"><span>test_refresh_reissues_when_expired</span><b>pass</b><b>pass</b></div>
+              <div class="hz-row" data-t=".22 .32"><span>test_refresh_keeps_unexpired_token</span><b>pass</b><b>pass</b></div>
+              <div class="hz-row" data-t=".28 .38"><span>test_concurrent_refresh_issues_once</span><b>pass</b><b>pass</b></div>
+              <div class="hz-row" data-t=".34 .44"><span>test_logout_revokes_session</span><b>pass</b><b>pass</b></div>
+              <div class="hz-row" data-t=".4 .5"><span>test_middleware_attaches_session</span><b>pass</b><b>pass</b></div>
+              <div class="hz-row" data-t=".46 .56"><span>test_token_expiry_boundary</span><b>pass</b><b>pass</b></div>
+              <div class="hz-row more" data-t=".52 .62"><span>7 more</span><b>7 pass</b><b>7 pass</b></div>
+            </div>
+            <div class="hz-sum" data-t=".66 .78"><span>Result</span><b class="pill good">14/14 pass</b><b class="pill good">14/14 pass</b></div>
+          </div>
+        </li>
+
+        <li class="rp-step" data-step="6">
+          <div class="rp-cap"><span class="n">06</span><h3>A blind judge</h3><p>When both pass, an LLM judge reads the ticket and two anonymous patches and picks one, with its reasons. It never learns which is which.</p></div>
+          <div class="rp-panel rp-judge">
+            <div class="pn-top"><span>judge · blind</span><span>sees ticket, patch A, patch B</span></div>
+            <div class="jd-ab"><span>Patch A</span><span class="vs">vs</span><span>Patch B</span></div>
+            <ul class="jd-why">
+              <li data-t=".04 .16"><b>Correctness</b>Both fix the race. Both pass 14 of 14 affected tests.</li>
+              <li data-t=".16 .28"><b>Scope</b>A locks per session. B serializes every refresh behind one global lock.</li>
+              <li data-t=".28 .4"><b>Tests</b>A adds a regression test for concurrent refresh. B adds none.</li>
+              <li data-t=".4 .52"><b>Risk</b>B's global lock can stall unrelated sessions under load.</li>
+            </ul>
+            <div class="jd-pick" data-t=".6 .72"><span>Preferred</span><b>Patch A</b></div>
+            <div class="jd-reveal" data-t=".78 .9"><span>Unblinded after the verdict: A was sudo</span><b class="pill good">better</b></div>
+          </div>
+        </li>
+
+        <li class="rp-step" data-step="7">
+          <div class="rp-cap"><span class="n">07</span><h3>The report</h3><p>Every verdict lands in one report, failures first, with the tests and the judge's reasons one click away.</p></div>
+          <div class="rp-panel report rp-report">
+            <div class="top"><span>backtest · acme/api · this walkthrough · 3 tickets</span><span>illustrative</span></div>
+            <div class="strip" data-t=".05 .3">
+              <p class="k">Report headline</p>
+              <div class="pills"><span class="pill good">1 better</span><span class="pill par">1 par</span><span class="pill bad">1 worse</span><span class="pill warn">0 no scorable attempt</span></div>
+            </div>
+            <div class="sec">Failures first</div>
+            <div class="row" data-t=".3 .5"><span class="id">API-503</span><span class="t">Flaky CSV import on files with a UTF-8 BOM<small>Our patch fails 2 of 9 tests · engineer patch passes</small></span><span class="pill bad">worse</span></div>
+            <div class="row" data-t=".45 .65"><span class="id">API-497</span><span class="t">Pagination off by one on CSV exports<small>Both pass · judge calls it equivalent</small></span><span class="pill par">par</span></div>
+            <div class="row" data-t=".6 .8"><span class="id">API-482</span><span class="t">Race in session refresh on token expiry<small>Both pass · judge prefers ours: narrower lock, adds a regression test</small></span><span class="pill good">better</span></div>
+          </div>
+        </li>
       </ol>
     </div>
   </section>
