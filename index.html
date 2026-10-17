@@ -64,13 +64,15 @@
           <div class="cap c1 an"><p class="eyebrow">01 · Find</p><h3>Read 90 days of closed tickets</h3><p>We start from the tickets your team closed in the last 90 days, straight from Jira.</p></div>
           <div class="cap c2 an"><p class="eyebrow">02 · Pick</p><h3>Rank the ones we can score</h3><p>A ticket is scorable when a fix was merged and tests touch the changed code. Here we follow three.</p></div>
           <div class="cap c3 an"><p class="eyebrow">03 · Seal</p><h3>One sealed container per ticket</h3><p>Each ticket gets its own sandbox: your repo, no network beyond the model API, and no view of the real fix.</p></div>
-          <div class="cap c4 an"><p class="eyebrow">04 · Solve</p><h3>Solve it on the repo as it was</h3><p>The repo is checked out at the commit before the fix landed. The agent works from the ticket alone.</p></div>
-          <div class="cap c5 an"><p class="eyebrow">05 · Compare</p><h3>Two patches for the same ticket</h3><p>Our patch on the left. The patch your engineer merged on the right.</p></div>
-          <div class="cap c6 an"><p class="eyebrow">06 · Test and judge</p><h3>Run the affected tests, then a blind judge</h3><p>The harness runs the tests that touch the change on both patches. A judge that sees only A and B picks the better one.</p></div>
-          <div class="cap c7 an"><p class="eyebrow">07 · Report</p><h3>Every ticket, scored honestly</h3><p>Wins, ties and losses side by side, failures first.</p></div>
+          <div class="cap c4 an"><p class="eyebrow">04 · Baseline</p><h3>Prove the bug on the repo as it was</h3><p>Before anyone fixes anything, the affected tests run on the pre-fix checkout. One fails: the bug is real.</p></div>
+          <div class="cap c5 an"><p class="eyebrow">05 · Solve</p><h3>Solve it from the ticket alone</h3><p>Same checkout, same sandbox. The agent reads the ticket, finds the race and writes a patch.</p></div>
+          <div class="cap c6 an"><p class="eyebrow">06 · Retest</p><h3>The same six tests, now on the patch</h3><p>The suite runs again, unchanged. All six pass and the patch applies cleanly, so it is marked clean.</p></div>
+          <div class="cap c7 an"><p class="eyebrow">07 · Compare</p><h3>Our patch next to your engineer's</h3><p><span class="kw ks">Blue</span> is sudo's patch. <span class="kw ke">Amber</span> is the one your engineer merged in PR #1931.</p></div>
+          <div class="cap c8 an"><p class="eyebrow">08 · Judge</p><h3>A blind judge reads both</h3><p>The patches go in as A and B, in random order. The judge never learns who wrote which. The colored edges are only for you.</p></div>
+          <div class="cap c9 an"><p class="eyebrow">09 · Report</p><h3>Every ticket, scored honestly</h3><p>Wins, ties and losses side by side, failures first.</p></div>
 
           <div class="hud" aria-hidden="true">
-            <span class="prog"><i class="an" style="--s:1"></i><i class="an" style="--s:2"></i><i class="an" style="--s:3"></i><i class="an" style="--s:4"></i><i class="an" style="--s:5"></i><i class="an" style="--s:6"></i><i class="an" style="--s:7"></i></span>
+            <span class="prog"><i class="an"></i><i class="an"></i><i class="an"></i><i class="an"></i><i class="an"></i><i class="an"></i><i class="an"></i><i class="an"></i><i class="an"></i></span>
             <span>illustrative data</span>
           </div>
 
@@ -144,9 +146,9 @@
                     <p class="tl an" style="--i:5"><b>$</b> pytest tests/auth -k concurrent</p>
                     <p class="tl fail an" style="--i:6">1 failed · two tokens issued for one session</p>
                     <p class="tl an" style="--i:7">editing src/auth/session.py</p>
-                    <p class="tl an" style="--i:8"><b>$</b> pytest tests/auth</p>
-                    <p class="tl ok an" style="--i:9">39 passed</p>
-                    <p class="tl done an" style="--i:10">patch ready · 2 files · +22 −6</p>
+                    <p class="tl late an" style="--i:8"><b>$</b> pytest tests/auth</p>
+                    <p class="tl ok late an" style="--i:9">39 passed</p>
+                    <p class="tl done late an" style="--i:10">patch ready · 2 files · +22 −6</p>
                   </div>
                   <div class="ed">
                     <div class="edh"><span>session.py</span><span>src/auth · @ 9c41e0a, before the fix</span></div>
@@ -154,39 +156,67 @@
                   </div>
                 </div>
 
-                <div class="pnl pe">
-                  <div class="patch pa an">
-                    <div class="ph"><span>Patch A · sudo, sandbox-1</span><span class="pm"><span class="a">+22</span> <span class="r">−6</span></span></div>
-                    <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -38,6 +38,8 @@</span><span class="a">+from .locks import KeyedLocks</span><span class="c"> from .tokens import issue_token</span><span class="a">+        self._locks = KeyedLocks()</span><span class="h">@@ -46,6 +48,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with self._locks.hold(session_id):</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="f">tests/auth/test_refresh.py</span><span class="h">@@ -88,0 +88,14 @@</span><span class="a">+def test_concurrent_refresh_issues_one_token(store):</span><span class="a">+    tokens = run_parallel(store.refresh, "s1", n=8)</span><span class="a">+    assert len(set(tokens)) == 1</span></pre>
+                <div class="pnl pt">
+                  <div class="suite">
+                    <div class="sh"><span class="sk">Harness · pytest · 6 affected tests</span><span class="tgt"><span class="tg0 an">@ 9c41e0a · before the fix</span><span class="tg1 an">@ 9c41e0a + sudo's patch</span></span></div>
+                    <p class="bs">6 of 1,204 tests import the changed code. The same six run before the fix and on the patch.</p>
+                    <div class="bar" aria-hidden="true"><i class="b0 an"></i><i class="b1 an"></i></div>
+                    <div class="srow th2"><span>Test</span><span class="rc"><span>before fix</span><span>with patch</span></span></div>
+                    <div class="srow an" style="--i:0"><span class="nm">test_refresh.py::test_refresh_expired</span><span class="rc"><span class="r1">···</span><span class="r0 an"><b class="an">pass</b></span><span class="r2"><b class="an">pass</b></span></span></div>
+                    <div class="srow an" style="--i:1"><span class="nm">test_refresh.py::test_refresh_valid</span><span class="rc"><span class="r1">···</span><span class="r0 an"><b class="an">pass</b></span><span class="r2"><b class="an">pass</b></span></span></div>
+                    <div class="srow an" style="--i:2"><span class="nm">test_session.py::test_put_get</span><span class="rc"><span class="r1">···</span><span class="r0 an"><b class="an">pass</b></span><span class="r2"><b class="an">pass</b></span></span></div>
+                    <div class="srow hit an" style="--i:3"><i class="hz bad an"></i><i class="hz good an"></i><span class="nm">test_session.py::test_concurrent_refresh</span><span class="rc"><span class="r1">···</span><span class="r0 an"><b class="f an">fail</b></span><span class="r2"><b class="an">pass</b></span></span></div>
+                    <div class="srow an" style="--i:4"><span class="nm">test_login.py::test_login_rotates_token</span><span class="rc"><span class="r1">···</span><span class="r0 an"><b class="an">pass</b></span><span class="r2"><b class="an">pass</b></span></span></div>
+                    <div class="srow an" style="--i:5"><span class="nm">test_logout.py::test_logout_revokes</span><span class="rc"><span class="r1">···</span><span class="r0 an"><b class="an">pass</b></span><span class="r2"><b class="an">pass</b></span></span></div>
+                    <p class="ssum"><span class="s0 an"><span class="an"><em class="bad">before the fix</em> 1 failed · 5 passed · the bug is real</span></span><span class="s1 an"><em class="ok">with the patch</em> 6 passed · the bug is fixed</span></p>
                   </div>
-                  <div class="patch pb an">
-                    <div class="ph"><span>Patch B · engineer, merged in PR #1931</span><span class="pm"><span class="a">+11</span> <span class="r">−6</span></span></div>
-                    <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -1,4 +1,7 @@</span><span class="a">+import threading</span><span class="c"> from .tokens import issue_token</span><span class="a">+</span><span class="a">+_refresh_lock = threading.Lock()</span><span class="h">@@ -46,6 +49,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with _refresh_lock:</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="c">             token = issue_token(session.user_id)</span><span class="c">             self._backend.put(session_id, token)</span></pre>
+                  <div class="subj">
+                    <div class="pre an" aria-hidden="true">
+                      <div class="preh"><span>acme/api @ 9c41e0a</span><span>no patch applied</span></div>
+                      <pre class="trace"><span class="an" style="--i:0">FAILED tests/auth/test_session.py::</span><span class="an" style="--i:0">       test_concurrent_refresh</span><span class="an" style="--i:1">&gt;   assert first.token == second.token</span><span class="e an" style="--i:2">E   AssertionError: two tokens issued</span><span class="e an" style="--i:2">E   for one session</span><span class="m an" style="--i:3">1 failed, 5 passed in 2.41s</span></pre>
+                    </div>
+                    <div class="vpatch an">
+                      <div class="vh"><span class="who"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 13v1M14.5 13v1"/></svg><b>sudo</b><span>patch from sandbox-1</span></span><span class="pm"><span class="a">+22</span> <span class="r">−6</span></span></div>
+                      <div class="vf"><span>src/auth/session.py</span><span><span class="a">+8</span> <span class="r">−6</span></span></div>
+                      <div class="vf"><span>tests/auth/test_refresh.py</span><span><span class="a">+14</span></span></div>
+                      <ul class="chk">
+                        <li class="an" style="--i:0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Applies cleanly to 9c41e0a</li>
+                        <li class="an" style="--i:1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>6 of 6 affected tests pass</li>
+                      </ul>
+                      <div class="stamp an"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>clean</div>
+                    </div>
                   </div>
-                  <p class="pnote">Same ticket, same starting commit. Patch A was written without access to patch B.</p>
                 </div>
 
-                <div class="pnl pf">
-                  <div class="box hz">
-                    <p class="bk">Harness · affected tests</p>
-                    <p class="bs">6 of 1,204 tests import the changed code. The same six run against both patches.</p>
-                    <div class="trow th2"><span>Test</span><span>A</span><span>B</span></div>
-                    <div class="trow an" style="--i:0"><span>test_refresh.py::test_refresh_expired</span><b class="an" style="--i:0">pass</b><b class="an" style="--i:0">pass</b></div>
-                    <div class="trow an" style="--i:1"><span>test_refresh.py::test_refresh_valid</span><b class="an" style="--i:1">pass</b><b class="an" style="--i:1">pass</b></div>
-                    <div class="trow an" style="--i:2"><span>test_session.py::test_put_get</span><b class="an" style="--i:2">pass</b><b class="an" style="--i:2">pass</b></div>
-                    <div class="trow an" style="--i:3"><span>test_session.py::test_concurrent_refresh</span><b class="an" style="--i:3">pass</b><b class="an" style="--i:3">pass</b></div>
-                    <div class="trow an" style="--i:4"><span>test_login.py::test_login_rotates_token</span><b class="an" style="--i:4">pass</b><b class="an" style="--i:4">pass</b></div>
-                    <div class="trow an" style="--i:5"><span>test_logout.py::test_logout_revokes</span><b class="an" style="--i:5">pass</b><b class="an" style="--i:5">pass</b></div>
-                    <p class="tsum an">A 6 of 6 · B 6 of 6 · the tests cannot separate them</p>
+                <div class="pnl pe">
+                  <div class="duel">
+                    <div class="side sa an">
+                      <div class="patch pa an">
+                        <i class="rim an" aria-hidden="true"></i>
+                        <div class="ph"><i class="tint an" aria-hidden="true"></i><span class="who"><span class="real an"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 13v1M14.5 13v1"/></svg><b>sudo</b><span class="sub">sandbox-1</span><span class="cln"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>clean</span></span><span class="blind an" aria-hidden="true">Patch A</span></span><span class="pm"><span class="a">+22</span> <span class="r">−6</span></span></div>
+                        <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -38,6 +38,8 @@</span><span class="a">+from .locks import KeyedLocks</span><span class="c"> from .tokens import issue_token</span><span class="a">+        self._locks = KeyedLocks()</span><span class="h">@@ -46,6 +48,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with self._locks.hold(session_id):</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="f">tests/auth/test_refresh.py</span><span class="h">@@ -88,0 +88,14 @@</span><span class="a">+def test_concurrent_refresh_issues_one_token(store):</span><span class="a">+    tokens = run_parallel(store.refresh, "s1", n=8)</span><span class="a">+    assert len(set(tokens)) == 1</span></pre>
+                        <p class="pft">6 of 6 affected tests pass · marked clean</p>
+                      </div>
+                    </div>
+                    <div class="side sb an">
+                      <div class="patch pb an">
+                        <i class="rim an" aria-hidden="true"></i>
+                        <div class="ph"><i class="tint an" aria-hidden="true"></i><span class="who"><span class="real an"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg><b>engineer</b><span class="sub">merged in PR #1931</span></span><span class="blind an" aria-hidden="true">Patch B</span></span><span class="pm"><span class="a">+11</span> <span class="r">−6</span></span></div>
+                        <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -1,4 +1,7 @@</span><span class="a">+import threading</span><span class="c"> from .tokens import issue_token</span><span class="a">+</span><span class="a">+_refresh_lock = threading.Lock()</span><span class="h">@@ -46,6 +49,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with _refresh_lock:</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="c">             token = issue_token(session.user_id)</span><span class="c">             self._backend.put(session_id, token)</span></pre>
+                        <p class="pft">6 of 6 affected tests pass · merged in PR #1931</p>
+                      </div>
+                    </div>
+                    <p class="pnote an">Same ticket, same starting commit, same six tests, and both pass, so the tests alone cannot separate them. Ours was written without access to the engineer's.</p>
                   </div>
-                  <div class="box jg">
-                    <p class="bk">Judge · blind</p>
-                    <p class="bs">Reads the ticket and patches A and B in random order. It is never told who wrote which.</p>
+                  <div class="judge an">
+                    <div class="jh"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v16M8 20.5h8M5 6.5h14"/><path d="m5 6.5-3 6.5h6zM19 6.5l-3 6.5h6z"/></svg><p class="bk">Judge · blind</p><p class="bs">Reads the ticket and two patches in random order, labelled only A and B.</p></div>
+                    <div class="slots"><div class="slot sla"><b>A</b><span>2 files · +22 −6</span></div><div class="slot slb"><b>B</b><span>1 file · +11 −6</span></div></div>
                     <div class="crit an" style="--i:0"><span>Fixes the race</span><span class="ch"><i>A</i><i class="on">tie</i><i>B</i></span></div>
                     <div class="crit an" style="--i:1"><span>Lock scope</span><span class="ch"><i class="on">A</i><i>tie</i><i>B</i></span></div>
                     <div class="crit an" style="--i:2"><span>Regression test</span><span class="ch"><i class="on">A</i><i>tie</i><i>B</i></span></div>
                     <div class="crit an" style="--i:3"><span>Readability</span><span class="ch"><i>A</i><i class="on">tie</i><i>B</i></span></div>
-                    <div class="verdict an"><p><span class="pill good">better</span><b>Prefers A</b></p><p>A per-session lock instead of a process-wide one, and a regression test for the race. A was sudo.</p></div>
+                    <div class="verdict an"><p><span class="pill good">better</span><b>Prefers A</b></p><p>A per-session lock instead of a process-wide one, and a regression test for the race.</p></div>
+                    <p class="rv an"><span class="rk">Unblinded after the verdict</span><span class="ua"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 13v1M14.5 13v1"/></svg>A was sudo</span><span class="ub"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg>B was your engineer</span></p>
                   </div>
                 </div>
 
