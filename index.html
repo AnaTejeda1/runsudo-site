@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script>if (!(window.CSS && CSS.supports('animation-timeline: view()'))) document.documentElement.classList.add('no-sdt')</script>
 
 </head>
 <body>
@@ -51,6 +52,168 @@
     </div>
   </section>
 
+  <section id="replay">
+    <div class="head2">
+      <div><p class="eyebrow">Walkthrough</p><h2>One ticket, start to finish</h2></div>
+      <p class="intro2">Scroll to follow three tickets out of Jira, into sealed containers, and through to a verdict. The tickets, code and results below are illustrative.</p>
+    </div>
+    <div class="reel" aria-label="Illustrative walkthrough of a backtest">
+      <div class="stage">
+        <div class="frame">
+
+          <div class="cap c1 an"><p class="eyebrow">01 · Find</p><h3>Read 90 days of closed tickets</h3><p>We start from the tickets your team closed in the last 90 days, straight from Jira.</p></div>
+          <div class="cap c2 an"><p class="eyebrow">02 · Pick</p><h3>Rank the ones we can score</h3><p>A ticket is scorable when a fix was merged and tests touch the changed code. Here we follow three.</p></div>
+          <div class="cap c3 an"><p class="eyebrow">03 · Seal</p><h3>One sealed container per ticket</h3><p>Each ticket gets its own sandbox: your repo, no network beyond the model API, and no view of the real fix.</p></div>
+          <div class="cap c4 an"><p class="eyebrow">04 · Solve</p><h3>Solve it on the repo as it was</h3><p>The repo is checked out at the commit before the fix landed. The agent works from the ticket alone.</p></div>
+          <div class="cap c5 an"><p class="eyebrow">05 · Compare</p><h3>Two patches for the same ticket</h3><p>Our patch on the left. The patch your engineer merged on the right.</p></div>
+          <div class="cap c6 an"><p class="eyebrow">06 · Test and judge</p><h3>Run the affected tests, then a blind judge</h3><p>The harness runs the tests that touch the change on both patches. A judge that sees only A and B picks the better one.</p></div>
+          <div class="cap c7 an"><p class="eyebrow">07 · Report</p><h3>Every ticket, scored honestly</h3><p>Wins, ties and losses side by side, failures first.</p></div>
+
+          <div class="hud" aria-hidden="true">
+            <span class="prog"><i class="an" style="--s:1"></i><i class="an" style="--s:2"></i><i class="an" style="--s:3"></i><i class="an" style="--s:4"></i><i class="an" style="--s:5"></i><i class="an" style="--s:6"></i><i class="an" style="--s:7"></i></span>
+            <span>illustrative data</span>
+          </div>
+
+          <div class="world an">
+            <div class="ground an">
+              <div class="grid an" aria-hidden="true"></div>
+              <p class="mark m1 an" aria-hidden="true">acme/api · jira · resolved in the last 90 days</p>
+              <p class="mark m2 an" aria-hidden="true">sealed sandboxes · one per ticket</p>
+              <svg class="route" viewBox="0 0 1300 400" aria-hidden="true">
+                <path class="an" pathLength="1" d="M0 190 C 260 190 300 120 560 120 S 780 175 660 175"/>
+                <path class="an" pathLength="1" d="M0 190 C 300 190 420 60 780 60 S 960 145 960 145"/>
+                <path class="an" pathLength="1" d="M0 190 C 340 190 640 260 1000 230 S 1260 175 1260 175"/>
+              </svg>
+
+              <div class="board">
+                <div class="jtop"><span class="jlogo"></span><b>Jira</b><span>Your work</span><span>Projects</span><span>Filters</span><span>Dashboards</span><span class="jsearch">Search</span><span class="jav">AT</span></div>
+                <div class="jbody">
+                  <p class="jcrumb">Projects / Acme API / Issues</p>
+                  <div class="jtitle"><h4>Issues</h4><span class="jchip an">41 scorable</span><span class="jcount">1–12 of 87</span></div>
+                  <div class="jql"><span class="jqk">JQL</span><code>project = ACME AND status = Done AND resolved &gt;= -90d <span class="obw"><span class="ob ob1 an">ORDER BY resolved DESC</span><span class="ob ob2 an">ORDER BY scorable DESC</span></span></code></div>
+                  <div class="jth"><span>T</span><span>Key</span><span>Summary</span><span>Status</span><span>Resolved</span><span>Scoring</span></div>
+                  <div class="jrows">
+                    <div class="scan an"></div>
+                    <div class="jr an" style="--i:0;--dy:3"><div class="jri"><span class="ty bug"></span><span class="jk">ACME-511</span><span class="js">Webhook retries duplicate deliveries on 5xx</span><span class="lz">Done</span><span class="jd">Oct 14</span><span class="tag ok an">scorable</span></div></div>
+                    <div class="jr no an" style="--i:1;--dy:5"><div class="jri an"><span class="ty story"></span><span class="jk">ACME-509</span><span class="js">Add CSV export to the billing page</span><span class="lz">Done</span><span class="jd">Oct 11</span><span class="tag an">no tests touched</span></div></div>
+                    <div class="jr pk an" style="--i:2;--dy:0"><div class="jri"><span class="ty bug"></span><span class="jk">ACME-503</span><span class="js">Flaky CSV import on files with a UTF-8 BOM</span><span class="lz">Done</span><span class="jd">Oct 7</span><span class="tag ok an">scorable</span></div></div>
+                    <div class="jr no an" style="--i:3;--dy:4"><div class="jri an"><span class="ty task"></span><span class="jk">ACME-501</span><span class="js">Bump Postgres driver to 3.2</span><span class="lz">Done</span><span class="jd">Oct 2</span><span class="tag an">dependency bump</span></div></div>
+                    <div class="jr pk an" style="--i:4;--dy:-3"><div class="jri"><span class="ty bug"></span><span class="jk">ACME-497</span><span class="js">Pagination off by one on CSV exports</span><span class="lz">Done</span><span class="jd">Sep 26</span><span class="tag ok an">scorable</span></div></div>
+                    <div class="jr no an" style="--i:5;--dy:3"><div class="jri an"><span class="ty story"></span><span class="jk">ACME-494</span><span class="js">Team admins can revoke API keys</span><span class="lz">Done</span><span class="jd">Sep 19</span><span class="tag an">no linked PR</span></div></div>
+                    <div class="jr no an" style="--i:6;--dy:3"><div class="jri an"><span class="ty task"></span><span class="jk">ACME-490</span><span class="js">Rotate staging TLS certificates</span><span class="lz">Done</span><span class="jd">Sep 12</span><span class="tag an">no code change</span></div></div>
+                    <div class="jr an" style="--i:7;--dy:-3"><div class="jri"><span class="ty bug"></span><span class="jk">ACME-488</span><span class="js">Timezone drift in weekly digest emails</span><span class="lz">Done</span><span class="jd">Sep 3</span><span class="tag ok an">scorable</span></div></div>
+                    <div class="jr pk an" style="--i:8;--dy:-8"><div class="jri"><span class="ty bug"></span><span class="jk">ACME-482</span><span class="js">Race in session refresh on token expiry</span><span class="lz">Done</span><span class="jd">Aug 25</span><span class="tag ok an">scorable</span></div></div>
+                    <div class="jr no an" style="--i:9;--dy:1"><div class="jri an"><span class="ty story"></span><span class="jk">ACME-479</span><span class="js">Onboarding checklist v2</span><span class="lz">Done</span><span class="jd">Aug 14</span><span class="tag an">design only</span></div></div>
+                    <div class="jr an" style="--i:10;--dy:-5"><div class="jri"><span class="ty bug"></span><span class="jk">ACME-476</span><span class="js">Search ignores the archived projects filter</span><span class="lz">Done</span><span class="jd">Aug 2</span><span class="tag ok an">scorable</span></div></div>
+                    <div class="jr no an" style="--i:11;--dy:0"><div class="jri an"><span class="ty task"></span><span class="jk">ACME-471</span><span class="js">Update incident runbook links</span><span class="lz">Done</span><span class="jd">Jul 22</span><span class="tag an">docs only</span></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tk t1 an" aria-hidden="true"><div class="tkh"><span class="ty bug"></span><span class="tkk">ACME-482</span><span class="tkl an">picked</span></div><p>Race in session refresh on token expiry</p><div class="tkf"><span>fix merged · PR #1931</span><span>6 tests</span></div></div>
+              <div class="tk t2 an" aria-hidden="true"><div class="tkh"><span class="ty bug"></span><span class="tkk">ACME-497</span><span class="tkl an">picked</span></div><p>Pagination off by one on CSV exports</p><div class="tkf"><span>fix merged · PR #1957</span><span>4 tests</span></div></div>
+              <div class="tk t3 an" aria-hidden="true"><div class="tkh"><span class="ty bug"></span><span class="tkk">ACME-503</span><span class="tkl an">picked</span></div><p>Flaky CSV import on files with a UTF-8 BOM</p><div class="tkf"><span>fix merged · PR #1972</span><span>14 tests</span></div></div>
+
+              <div class="crate x1 an" aria-hidden="true"><i class="fl"></i><i class="bk"></i><i class="lf"></i><i class="rt"></i><div class="fr"><span>sandbox-1</span><b><svg class="shd an" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg>ACME-482</b><span>net: model API only</span></div><div class="lid an"><svg class="shd" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg></div></div>
+              <div class="crate x2 an" aria-hidden="true"><i class="fl"></i><i class="bk"></i><i class="lf"></i><i class="rt"></i><div class="fr"><span>sandbox-2</span><b><svg class="shd an" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg>ACME-497</b><span>net: model API only</span></div><div class="lid an"><svg class="shd" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg></div></div>
+              <div class="crate x3 an" aria-hidden="true"><i class="fl"></i><i class="bk"></i><i class="lf"></i><i class="rt"></i><div class="fr"><span>sandbox-3</span><b><svg class="shd an" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg>ACME-503</b><span>net: model API only</span></div><div class="lid an"><svg class="shd" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg></div></div>
+            </div>
+          </div>
+
+          <ul class="crates2d">
+            <li><svg class="shd" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg><b>ACME-482</b><span>sandbox-1 · net: model API only</span></li>
+            <li><svg class="shd" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg><b>ACME-497</b><span>sandbox-2 · net: model API only</span></li>
+            <li><svg class="shd" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg><b>ACME-503</b><span>sandbox-3 · net: model API only</span></li>
+          </ul>
+
+          <div class="inside an">
+            <div class="ihead an" aria-hidden="true">
+              <span class="ih1 an"><svg class="shd" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v5.8c0 4.6 3.1 8.6 7.5 10.2 4.4-1.6 7.5-5.6 7.5-10.2V5.5z"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6"/></svg>sandbox-1 · ACME-482 · acme/api @ 9c41e0a · network: model API only</span>
+              <span class="ih2 an">report · acme/api · last 90 days</span>
+            </div>
+            <div class="vp">
+              <div class="col an">
+
+                <div class="pnl pd">
+                  <div class="term">
+                    <p class="tl an" style="--i:0"><b>$</b> git checkout 9c41e0a <em># parent of the fix commit</em></p>
+                    <p class="tl an" style="--i:1"><b>$</b> cat TICKET.md</p>
+                    <p class="tl dim an" style="--i:2">ACME-482 · Race in session refresh on token expiry</p>
+                    <p class="tl an" style="--i:3"><b>$</b> rg -n "def refresh" src/</p>
+                    <p class="tl dim an" style="--i:4">src/auth/session.py:46</p>
+                    <p class="tl an" style="--i:5"><b>$</b> pytest tests/auth -k concurrent</p>
+                    <p class="tl fail an" style="--i:6">1 failed · two tokens issued for one session</p>
+                    <p class="tl an" style="--i:7">editing src/auth/session.py</p>
+                    <p class="tl an" style="--i:8"><b>$</b> pytest tests/auth</p>
+                    <p class="tl ok an" style="--i:9">39 passed</p>
+                    <p class="tl done an" style="--i:10">patch ready · 2 files · +22 −6</p>
+                  </div>
+                  <div class="ed">
+                    <div class="edh"><span>session.py</span><span>src/auth · @ 9c41e0a, before the fix</span></div>
+                    <pre class="code"><span class="ln"><i>38</i></span><span class="ln add an" style="--i:0"><i>+</i>from .locks import KeyedLocks</span><span class="ln"><i>39</i>from .tokens import issue_token</span><span class="ln"><i>40</i></span><span class="ln"><i>41</i>class SessionStore:</span><span class="ln"><i>42</i>    def __init__(self, backend):</span><span class="ln"><i>43</i>        self._backend = backend</span><span class="ln add an" style="--i:1"><i>+</i>        self._locks = KeyedLocks()</span><span class="ln"><i>44</i></span><span class="ln"><i>45</i>    def refresh(self, session_id):</span><span class="ln del an"><i>46</i>        session = self._backend.get(session_id)</span><span class="ln del an"><i>47</i>        if not session.expired():</span><span class="ln del an"><i>48</i>            return session.token</span><span class="ln add an" style="--i:2"><i>+</i>        with self._locks.hold(session_id):</span><span class="ln add an" style="--i:3"><i>+</i>            # re-read under the lock: another</span><span class="ln add an" style="--i:4"><i>+</i>            # request may have refreshed already</span><span class="ln add an" style="--i:5"><i>+</i>            session = self._backend.get(session_id)</span><span class="ln add an" style="--i:6"><i>+</i>            if not session.expired():</span><span class="ln add an" style="--i:7"><i>+</i>                return session.token</span><span class="ln del an"><i>49</i>        token = issue_token(session.user_id)</span><span class="ln del an"><i>50</i>        self._backend.put(session_id, token)</span><span class="ln add an" style="--i:8"><i>+</i>            token = issue_token(session.user_id)</span><span class="ln add an" style="--i:9"><i>+</i>            self._backend.put(session_id, token)</span><span class="ln"><i>51</i>        return token</span></pre>
+                  </div>
+                </div>
+
+                <div class="pnl pe">
+                  <div class="patch pa an">
+                    <div class="ph"><span>Patch A · sudo, sandbox-1</span><span class="pm"><span class="a">+22</span> <span class="r">−6</span></span></div>
+                    <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -38,6 +38,8 @@</span><span class="a">+from .locks import KeyedLocks</span><span class="c"> from .tokens import issue_token</span><span class="a">+        self._locks = KeyedLocks()</span><span class="h">@@ -46,6 +48,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with self._locks.hold(session_id):</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="f">tests/auth/test_refresh.py</span><span class="h">@@ -88,0 +88,14 @@</span><span class="a">+def test_concurrent_refresh_issues_one_token(store):</span><span class="a">+    tokens = run_parallel(store.refresh, "s1", n=8)</span><span class="a">+    assert len(set(tokens)) == 1</span></pre>
+                  </div>
+                  <div class="patch pb an">
+                    <div class="ph"><span>Patch B · engineer, merged in PR #1931</span><span class="pm"><span class="a">+11</span> <span class="r">−6</span></span></div>
+                    <pre class="diff"><span class="f">src/auth/session.py</span><span class="h">@@ -1,4 +1,7 @@</span><span class="a">+import threading</span><span class="c"> from .tokens import issue_token</span><span class="a">+</span><span class="a">+_refresh_lock = threading.Lock()</span><span class="h">@@ -46,6 +49,10 @@ def refresh</span><span class="r">-        session = self._backend.get(session_id)</span><span class="r">-        if not session.expired():</span><span class="a">+        with _refresh_lock:</span><span class="a">+            session = self._backend.get(session_id)</span><span class="a">+            if not session.expired():</span><span class="a">+                return session.token</span><span class="c">             token = issue_token(session.user_id)</span><span class="c">             self._backend.put(session_id, token)</span></pre>
+                  </div>
+                  <p class="pnote">Same ticket, same starting commit. Patch A was written without access to patch B.</p>
+                </div>
+
+                <div class="pnl pf">
+                  <div class="box hz">
+                    <p class="bk">Harness · affected tests</p>
+                    <p class="bs">6 of 1,204 tests import the changed code. The same six run against both patches.</p>
+                    <div class="trow th2"><span>Test</span><span>A</span><span>B</span></div>
+                    <div class="trow an" style="--i:0"><span>test_refresh.py::test_refresh_expired</span><b class="an" style="--i:0">pass</b><b class="an" style="--i:0">pass</b></div>
+                    <div class="trow an" style="--i:1"><span>test_refresh.py::test_refresh_valid</span><b class="an" style="--i:1">pass</b><b class="an" style="--i:1">pass</b></div>
+                    <div class="trow an" style="--i:2"><span>test_session.py::test_put_get</span><b class="an" style="--i:2">pass</b><b class="an" style="--i:2">pass</b></div>
+                    <div class="trow an" style="--i:3"><span>test_session.py::test_concurrent_refresh</span><b class="an" style="--i:3">pass</b><b class="an" style="--i:3">pass</b></div>
+                    <div class="trow an" style="--i:4"><span>test_login.py::test_login_rotates_token</span><b class="an" style="--i:4">pass</b><b class="an" style="--i:4">pass</b></div>
+                    <div class="trow an" style="--i:5"><span>test_logout.py::test_logout_revokes</span><b class="an" style="--i:5">pass</b><b class="an" style="--i:5">pass</b></div>
+                    <p class="tsum an">A 6 of 6 · B 6 of 6 · the tests cannot separate them</p>
+                  </div>
+                  <div class="box jg">
+                    <p class="bk">Judge · blind</p>
+                    <p class="bs">Reads the ticket and patches A and B in random order. It is never told who wrote which.</p>
+                    <div class="crit an" style="--i:0"><span>Fixes the race</span><span class="ch"><i>A</i><i class="on">tie</i><i>B</i></span></div>
+                    <div class="crit an" style="--i:1"><span>Lock scope</span><span class="ch"><i class="on">A</i><i>tie</i><i>B</i></span></div>
+                    <div class="crit an" style="--i:2"><span>Regression test</span><span class="ch"><i class="on">A</i><i>tie</i><i>B</i></span></div>
+                    <div class="crit an" style="--i:3"><span>Readability</span><span class="ch"><i>A</i><i class="on">tie</i><i>B</i></span></div>
+                    <div class="verdict an"><p><span class="pill good">better</span><b>Prefers A</b></p><p>A per-session lock instead of a process-wide one, and a regression test for the race. A was sudo.</p></div>
+                  </div>
+                </div>
+
+                <div class="pnl pg">
+                  <div class="report">
+                    <div class="top"><span>backtest · acme/api · 90 days · 3 of 87 tickets shown</span><span>illustrative</span></div>
+                    <div class="strip">
+                      <p class="k">Report headline</p>
+                      <div class="pills"><span class="pill good">1 better</span><span class="pill par">1 par</span><span class="pill bad">1 worse</span></div>
+                    </div>
+                    <div class="sec">Page one · failures first</div>
+                    <div class="row an" style="--i:0"><span class="id">#503</span><span class="t">Flaky CSV import on files with a UTF-8 BOM<small>Our patch fails 2 of 14 tests · engineer patch passes</small></span><span class="pill bad">worse</span></div>
+                    <div class="row an" style="--i:1"><span class="id">#497</span><span class="t">Pagination off by one on CSV exports<small>Both pass · judge calls it equivalent</small></span><span class="pill par">par</span></div>
+                    <div class="row an" style="--i:2"><span class="id">#482</span><span class="t">Race in session refresh on token expiry<small>Both pass · judge prefers ours: narrower lock, adds regression test</small></span><span class="pill good">better</span></div>
+                    <div class="foot">Illustrative. A real report covers every scorable ticket in the window.</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="after">
     <div class="head2">
       <div><p class="eyebrow">Next</p><h2>What comes after the backtest</h2></div>
@@ -81,5 +244,6 @@
     </div>
   </footer>
 </div>
+<script src="replay.js" defer></script>
 </body>
 </html>
