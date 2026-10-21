@@ -1,7 +1,7 @@
 /* Shared styles for runsudo.dev: the homepage and the generated /backtests pages. */
 :root {
   --bg:#0a0a0a; --fg:#f5f5f5; --muted:#9a9a9a; --line:#222; --accent:#f5e900;
-  --good:#8fd9a8; --good-bg:#12231a; --par:#c9c9c9; --par-bg:#1c1c1c;
+  --good:#8fd9a8; --good-bg:#12231a; --par:#c9c9c9; --par-bg:#1c1c1c; --tie:#b9a7f0; --tie-bg:#1c1730;
   --bad:#f0968f; --bad-bg:#2a1614; --warn:#dcb27a; --warn-bg:#271e12;
   --add:#8ab4f8; --add-bg:#101a2b; --del:#e39ad6; --del-bg:#2a1424;
   --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -115,15 +115,15 @@ footer .meta a:hover{color:var(--fg)}
 
 .bar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:#161616}
 .bar span{display:block;height:100%}
-.bar .b-better{background:var(--good)} .bar .b-par{background:var(--par)} .bar .b-worse{background:var(--bad)} .bar .b-error{background:var(--warn)}
+.bar .b-better{background:var(--good)} .bar .b-par{background:var(--par)} .bar .b-tie{background:var(--tie)} .bar .b-worse{background:var(--bad)} .bar .b-error{background:var(--warn)}
 .bar.thin{height:6px}
 .counts{display:flex;flex-wrap:wrap;gap:8px 16px;font-family:var(--mono);font-size:12.5px;margin-top:12px;color:var(--muted)}
 .counts i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
-.counts .better{color:var(--good)} .counts .par{color:var(--par)} .counts .worse{color:var(--bad)} .counts .error{color:var(--warn)}
-.counts .better i{background:var(--good)} .counts .par i{background:var(--par)} .counts .worse i{background:var(--bad)} .counts .error i{background:var(--warn)}
+.counts .better{color:var(--good)} .counts .par{color:var(--par)} .counts .tie{color:var(--tie)} .counts .worse{color:var(--bad)} .counts .error{color:var(--warn)}
+.counts .better i{background:var(--good)} .counts .par i{background:var(--par)} .counts .tie i{background:var(--tie)} .counts .worse i{background:var(--bad)} .counts .error i{background:var(--warn)}
 
 .pill.lg{font-size:15px;padding:7px 16px}
-.pill.better{background:var(--good-bg);color:var(--good)} .pill.par{background:var(--par-bg);color:var(--par)}
+.pill.better{background:var(--good-bg);color:var(--good)} .pill.par{background:var(--par-bg);color:var(--par)} .pill.tie{background:var(--tie-bg);color:var(--tie)}
 .pill.worse{background:var(--bad-bg);color:var(--bad)} .pill.error{background:var(--warn-bg);color:var(--warn)}
 .intro{text-align:center;max-width:1040px;margin:24px auto 0}
 .bt h1.big{font-size:clamp(40px,6vw,76px);font-weight:700;line-height:1.02;letter-spacing:-.035em;margin:0 0 22px}
@@ -153,11 +153,11 @@ footer .meta a:hover{color:var(--fg)}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:12px;color:var(--muted)}
 .chip.ok{color:var(--good);border-color:#1f3a2a} .chip.no{color:var(--bad);border-color:#3f2320}
 
-.verdicts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.verdicts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
 @media (max-width:900px){.verdicts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:480px){.verdicts{grid-template-columns:1fr}}
 .vcard{border:1px solid var(--line);border-radius:12px;padding:18px;background:#0d0d0d;border-top:3px solid var(--line)}
-.vcard.better{border-top-color:var(--good)} .vcard.par{border-top-color:var(--par)} .vcard.worse{border-top-color:var(--bad)} .vcard.error{border-top-color:var(--warn)}
+.vcard.better{border-top-color:var(--good)} .vcard.par{border-top-color:var(--par)} .vcard.tie{border-top-color:var(--tie)} .vcard.worse{border-top-color:var(--bad)} .vcard.error{border-top-color:var(--warn)}
 .vcard .pill{margin-bottom:10px}
 .vcard p{margin:0;color:var(--muted);font-size:14.5px}
 
@@ -181,7 +181,7 @@ footer .meta a:hover{color:var(--fg)}
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
 .filters button{background:#0d0d0d;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:5px 12px;font:inherit;font-family:var(--mono);font-size:12.5px;cursor:pointer}
 .filters button[aria-pressed="true"]{color:var(--fg);border-color:#555}
-.filters button.better[aria-pressed="true"]{color:var(--good)} .filters button.par[aria-pressed="true"]{color:var(--par)}
+.filters button.better[aria-pressed="true"]{color:var(--good)} .filters button.par[aria-pressed="true"]{color:var(--par)} .filters button.tie[aria-pressed="true"]{color:var(--tie)}
 .filters button.worse[aria-pressed="true"]{color:var(--bad)} .filters button.error[aria-pressed="true"]{color:var(--warn)}
 html:not(.js) .filters{display:none}
 .sectionhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 18px}

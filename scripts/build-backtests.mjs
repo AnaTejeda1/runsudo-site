@@ -31,11 +31,13 @@ const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-const VERDICTS = ['better', 'par', 'worse', 'error'];
-const VERDICT_LABEL = { better: 'Better', par: 'Par', worse: 'Worse', error: 'Error' };
+const VERDICTS = ['better', 'par', 'tie', 'worse', 'error'];
+const VERDICT_LABEL = { better: 'Better', par: 'Par', tie: 'Tie', worse: 'Worse', error: 'Error' };
 
-// Anything that is not better/par/worse is displayed as an error (incl. no_patch).
-const displayVerdict = (t) => (['better', 'par', 'worse'].includes(t.verdict) ? t.verdict : 'error');
+// Anything that is not better/par/tie/worse is displayed as an error (incl. no_patch).
+// A tie is a judge panel split evenly between better and worse; like error, it is
+// listed in counts only when a run has one.
+const displayVerdict = (t) => (['better', 'par', 'tie', 'worse'].includes(t.verdict) ? t.verdict : 'error');
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function fmtDate(iso) {
@@ -297,14 +299,14 @@ function pill(verdict, lg = false) {
 }
 
 function stackedBar(c, thin = false) {
-  const total = c.better + c.par + c.worse + c.error || 1;
+  const total = c.better + c.par + (c.tie || 0) + c.worse + c.error || 1;
   const seg = (k) => (c[k] ? `<span class="b-${k}" style="width:${(c[k] / total) * 100}%"></span>` : '');
-  const label = `${c.better} better, ${c.par} par, ${c.worse} worse, ${c.error} error`;
-  return `<div class="bar${thin ? ' thin' : ''}" role="img" aria-label="${esc(label)}">${seg('better')}${seg('par')}${seg('worse')}${seg('error')}</div>`;
+  const label = `${c.better} better, ${c.par} par, ${c.tie ? `${c.tie} tie, ` : ''}${c.worse} worse, ${c.error} error`;
+  return `<div class="bar${thin ? ' thin' : ''}" role="img" aria-label="${esc(label)}">${seg('better')}${seg('par')}${seg('tie')}${seg('worse')}${seg('error')}</div>`;
 }
 
 function countsRow(c, withError = true) {
-  const keys = withError ? VERDICTS : VERDICTS.filter((k) => k !== 'error');
+  const keys = VERDICTS.filter((k) => (k !== 'tie' || c.tie > 0) && (k !== 'error' || withError));
   return '<div class="counts">' + keys.map((k) => `<span class="${k}"><i></i>${c[k]} ${k}</span>`).join('') + '</div>';
 }
 
@@ -332,7 +334,7 @@ for (const repo of index.repos) {
     const file = join(DATA, repo.slug, run.id, 'tickets.json');
     run.ticketList = existsSync(file) ? readJSON(file) : null;
     if (run.ticketList) {
-      const c = { better: 0, par: 0, worse: 0, error: 0 };
+      const c = { better: 0, par: 0, tie: 0, worse: 0, error: 0 };
       for (const t of run.ticketList) c[displayVerdict(t)]++;
       for (const k of VERDICTS) {
         if ((run[k] ?? 0) !== c[k]) warnings.push(`${key}: index.json says ${k}=${run[k] ?? 0}, tickets.json has ${c[k]}; using tickets.json`);
@@ -419,8 +421,8 @@ function chart() {
       parts.push(`<polyline class="line" stroke="${s.color}" points="${pts.map((r) => `${x(runMs(r))},${y(r.pct)}`).join(' ')}"/>`);
     }
     for (const r of pts) {
-      const label = `${fmtDate(r.date)} · ${s.repo.name} · ${r.id}: ${r.pct}% better (${r.better} better, ${r.par} par, ${r.worse} worse, ${r.error} error)${r.notes ? '. ' + r.notes : ''}`;
-      parts.push(`<a href="${runUrl(s.repo, r)}" data-tip data-date="${esc(fmtDate(r.date))}" data-run="${esc(r.id)}" data-repo="${esc(s.repo.name)}" data-pct="${r.pct}" data-better="${r.better}" data-par="${r.par}" data-worse="${r.worse}" data-error="${r.error}" data-notes="${esc(r.notes || '')}"><circle class="hit" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="16"/><circle class="pt" fill="${s.color}" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="7"><title>${esc(label)}</title></circle></a>`);
+      const label = `${fmtDate(r.date)} · ${s.repo.name} · ${r.id}: ${r.pct}% better (${r.better} better, ${r.par} par, ${r.tie ? `${r.tie} tie, ` : ''}${r.worse} worse, ${r.error} error)${r.notes ? '. ' + r.notes : ''}`;
+      parts.push(`<a href="${runUrl(s.repo, r)}" data-tip data-date="${esc(fmtDate(r.date))}" data-run="${esc(r.id)}" data-repo="${esc(s.repo.name)}" data-pct="${r.pct}" data-better="${r.better}" data-par="${r.par}" data-tie="${r.tie}" data-worse="${r.worse}" data-error="${r.error}" data-notes="${esc(r.notes || '')}"><circle class="hit" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="16"/><circle class="pt" fill="${s.color}" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="7"><title>${esc(label)}</title></circle></a>`);
     }
   }
 
@@ -442,7 +444,7 @@ const CHART_JS = `<script>
   function show(a){
     var d=a.dataset;
     tip.innerHTML='<b>'+d.repo+'</b>'+d.date+' · '+d.pct+'% better'+(d.run?'<div class="muted small">'+d.run+'</div>':'')
-      +'<div class="counts"><span class="better"><i></i>'+d.better+'</span><span class="par"><i></i>'+d.par+'</span><span class="worse"><i></i>'+d.worse+'</span><span class="error"><i></i>'+d.error+'</span></div>'
+      +'<div class="counts"><span class="better"><i></i>'+d.better+'</span><span class="par"><i></i>'+d.par+'</span>'+(+d.tie?'<span class="tie"><i></i>'+d.tie+'</span>':'')+'<span class="worse"><i></i>'+d.worse+'</span><span class="error"><i></i>'+d.error+'</span></div>'
       +(d.notes?'<div class="muted" style="margin-top:6px">'+d.notes+'</div>':'');
     var r=a.querySelector('circle.pt').getBoundingClientRect(),cr=c.getBoundingClientRect();
     tip.style.display='block';
@@ -471,6 +473,7 @@ function overviewPage() {
   const verdictCards = `<div class="verdicts">
   <div class="vcard better">${pill('better')}<p>Our patch passes the full test suite and the judge preferred it to the merged fix.</p></div>
   <div class="vcard par">${pill('par')}<p>Both are equally good.</p></div>
+  <div class="vcard tie">${pill('tie')}<p>The judges split evenly: half preferred our patch, half the merged fix.</p></div>
   <div class="vcard worse">${pill('worse')}<p>The merged fix was better, or our patch broke a test that passed before. We show every one.</p></div>
   <div class="vcard error">${pill('error')}<p>The harness couldn't finish the ticket. Counted in the total, never dropped.</p></div>
 </div>`;
@@ -543,10 +546,10 @@ function ticketsTable(repo, run) {
   if (!tickets.length) {
     return `<div class="pending">Ticket details for this run are not published yet.</div>${run.footnote ? `<p class="footnote">${esc(run.footnote)}</p>` : ''}`;
   }
-  const counts = { all: tickets.length, better: run.better, par: run.par, worse: run.worse, error: run.error };
+  const counts = { all: tickets.length, better: run.better, par: run.par, tie: run.tie, worse: run.worse, error: run.error };
   const filters = '<div class="filters" role="group" aria-label="Filter tickets by verdict">'
     + `<button type="button" data-filter="all" aria-pressed="true">All ${counts.all}</button>`
-    + VERDICTS.filter((v) => v !== 'error' || counts.error > 0).map((v) => `<button type="button" class="${v}" data-filter="${v}" aria-pressed="false">${VERDICT_LABEL[v]} ${counts[v]}</button>`).join('')
+    + VERDICTS.filter((v) => (v !== 'tie' && v !== 'error') || counts[v] > 0).map((v) => `<button type="button" class="${v}" data-filter="${v}" aria-pressed="false">${VERDICT_LABEL[v]} ${counts[v]}</button>`).join('')
     + '</div>';
   const rows = tickets.map((t) => {
     const v = displayVerdict(t);
@@ -595,7 +598,7 @@ ${crumbs(crumbItems)}
     return `<details class="run" id="${esc(r.id)}"${open ? ' open' : ''}>
   <summary>
     <span class="date">${fmtDate(r.date)}<span class="runid">${esc(r.id)}</span></span>
-    <span class="bars">${stackedBar(r, true)}<span class="counts"><span class="better">${r.better} better</span><span class="par">${r.par} par</span><span class="worse">${r.worse} worse</span><span class="error">${r.error} error</span></span></span>
+    <span class="bars">${stackedBar(r, true)}<span class="counts"><span class="better">${r.better} better</span><span class="par">${r.par} par</span>${r.tie ? `<span class="tie">${r.tie} tie</span>` : ''}<span class="worse">${r.worse} worse</span><span class="error">${r.error} error</span></span></span>
     <span class="notes">${esc(r.notes || '')}</span>
     <span class="meta">${plural(tickets.length || r.tickets, 'ticket')} · <a href="${runUrl(repo, r)}">permalink</a></span>
   </summary>
@@ -650,6 +653,7 @@ function ticketPage(repo, run, t, prev, next) {
   const verdictLine = {
     better: 'Our patch was judged better than the merged fix.',
     par: 'Our patch was judged on par with the merged fix.',
+    tie: 'The judges split evenly between our patch and the merged fix.',
     worse: 'The merged fix was judged better than our patch.',
     error: "The harness couldn't finish this ticket.",
   }[v];

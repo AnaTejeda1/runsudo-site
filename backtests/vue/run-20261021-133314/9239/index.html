@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>#9239 the div which has the ref attribute inside the v-for, when I v-if toggle them, the ref value.length increase more and more — vuejs/core backtest</title>
-<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #9239 in vuejs/core, run 21 Oct 2026.">
+<meta name="description" content="The judges split evenly between our patch and the merged fix. Issue #9239 in vuejs/core, run 21 Oct 2026.">
 <link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261021-133314/9239/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,8 +30,8 @@
 <h1 class="ticket-title">the div which has the ref attribute inside the v-for, when I v-if toggle them, the ref value.length increase more and more</h1>
 
 <div class="verdict-block">
-  <span class="pill error lg">Error</span>
-  <p class="line">The harness couldn't finish this ticket.</p>
+  <span class="pill tie lg">Tie</span>
+  <p class="line">The judges split evenly between our patch and the merged fix.</p>
   <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
   <pre class="reasoning">Root cause (both identify it correctly): buildProps skips NEED_PATCH when the element is forced into a block by a dynamic :key, and transformFor then demotes that block to a plain vnode for a stable (constant-source) fragment, leaving a ref/directive/vnode-hook-carrying vnode with no patch flag. The parent block never tracks it, so unmount never calls setRef(null) and the ref array grows. Both patches make the demoted vnode carry NEED_PATCH, and all four independent tests pass on both.
 

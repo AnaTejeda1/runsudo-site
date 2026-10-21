@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>#7506 suspense.resolve() is called without a pending branch. — vuejs/core backtest</title>
-<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #7506 in vuejs/core, run 21 Oct 2026.">
+<meta name="description" content="The judges split evenly between our patch and the merged fix. Issue #7506 in vuejs/core, run 21 Oct 2026.">
 <link rel="canonical" href="https://runsudo.dev/backtests/vue/run-20261021-133314/7506/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,8 +30,8 @@
 <h1 class="ticket-title">suspense.resolve() is called without a pending branch.</h1>
 
 <div class="verdict-block">
-  <span class="pill error lg">Error</span>
-  <p class="line">The harness couldn't finish this ticket.</p>
+  <span class="pill tie lg">Tie</span>
+  <p class="line">The judges split evenly between our patch and the merged fix.</p>
   <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
   <pre class="reasoning">Both patches identify the same root cause: when the parent Suspense patches its pending branch with the same root type, a nested suspensible Suspense that flips to synchronous content resolves itself during that patch and immediately decrements the parent&#39;s deps to 0, calling parentSuspense.resolve() mid-patch. The parent then falls through to its own post-patch deps check and calls resolve() again with pendingBranch already cleared, producing the reported warning. Both patches defer the parent&#39;s resolution until the patch completes, and both pass all five independent tests (base fails four of them with the exact warning). The difference is in mechanism and craft. Patch A temporarily increments and decrements suspense.deps around the patch call. This is minimal but overloads the deps counter, which is meant to count registered async dependencies, with a synthetic placeholder; any other code reading deps during the patch (nested boundary creation, devtools, future callers) sees a misleading count, and if patch throws the counter is permanently off by one so the boundary can never resolve. Patch B adds an explicit isPatchingPendingBranch flag on the boundary, initialized in createSuspenseBoundary and checked only in the nested-suspensible resolve path, which is the one path that can fire synchronously during the patch. This matches the existing isFallbackMountPending convention, states intent clearly, and leaves the deps semantics intact. On tests, Patch A&#39;s two tests are good (including a follow-up update that verifies activeBranch isn&#39;t corrupted), but Patch B adds three scenarios: the basic mid-patch resolve, a later sibling registering a new async dep during the same patch (verifying the parent keeps waiting), and a multi-root branch with a plain element mounted after the nested boundary. Both sets would fail before the fix. Scope is equivalent and tightly focused in both. Patch B wins on clarity of intent, consistency with surrounding conventions, and marginally broader test coverage, while A&#39;s deps hack is terse but less principled.</pre>
   <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
