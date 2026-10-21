@@ -644,6 +644,11 @@ const COLLAPSE_JS = `<script>
 })();
 </script>`;
 
+// What the judge saw. A run whose index.json entry has "judge": "panel" was judged by the
+// four-judge panel; any other run by the single blind judge it replaced.
+const SINGLE_NOTE = 'The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.';
+const PANEL_NOTE = "Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.";
+
 function ticketPage(repo, run, t, prev, next) {
   const v = displayVerdict(t);
   const judge = t.judge && typeof t.judge === 'object' ? t.judge : null;
@@ -663,7 +668,7 @@ function ticketPage(repo, run, t, prev, next) {
     judgeBlock = `
   <p class="map">In this judgment, <b>Patch ${agentIs} = our agent</b>, <b>Patch ${mergedIs} = the merged fix</b>.</p>
   <pre class="reasoning">${esc(judge.reasoning)}</pre>
-  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>`;
+  <p class="note">${run.judge === 'panel' ? PANEL_NOTE : SINGLE_NOTE}</p>`;
   } else {
     judgeBlock = `
   <p class="note">${t.error ? esc(t.error) + '. ' : ''}No judgment was produced for this ticket. It counts as an error in the run total.</p>`;

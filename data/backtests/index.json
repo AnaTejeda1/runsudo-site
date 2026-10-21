@@ -325,7 +325,8 @@
           "worse": 4,
           "tie": 2,
           "error": 0,
-          "notes": "Added a test-writing agent to test that the fix fixes the bug; added 4 parallelized judges; cut the setup agent's prompt from 200+ lines to 94.",
+          "notes": "Added a test-writing agent to test that the fix fixes the bug; added 4 parallelized judges; cut the setup agent's prompt from 200+ lines to 94",
+          "judge": "panel",
           "footnote": ""
         },
         {

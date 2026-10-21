@@ -40,7 +40,7 @@ Patch A adds a `resetBlocks()` helper that clears both `blockStack` and `current
 Patch B unwinds blocks locally in `renderSlot` (with a try/catch plus moving `_d = true` into a finally, which is good craft) and in `withCtx`. This is precise and preserves outer blocks, and its v-if test is a nice addition. However, it only covers the two openers it identified; any other block-opening path that throws during SSR vdom fallback would still leak, and it leaves the incomplete `blockStack.length = 0` reset in `renderComponentRoot` untouched, so `currentBlock` can still be stale there on the client. Its test coverage is a single GC file with no direct assertion on block state.
 
 A addresses the problem at the boundary where errors are already handled, fixes the pre-existing partial reset, and ships more diagnostic tests, so it is the more complete and robust fix. B is a reasonable, targeted alternative but narrower.</pre>
-  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
 </div>
 
 <div class="stats">

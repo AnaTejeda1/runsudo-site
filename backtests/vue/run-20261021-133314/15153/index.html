@@ -40,7 +40,7 @@ B goes further on correctness in a way that is tied to the same crash: it moves 
 On tests, A&#39;s test is more deterministic (controlled promise resolution rather than real setTimeout delays), and B&#39;s 5/30/1 ms timing-based tests carry some flake risk. However B&#39;s suite covers more of the issue&#39;s variants table: 3 levels with slow middle, 4 levels with slow intermediates, plain div between levels, a sync middle, and provide/inject propagation at each level, plus the resolved-and-moved case. Both would fail on base.
 
 Scope and craft are comparable; B&#39;s restructure is slightly larger but clearly commented and keeps the fix readable. Net: B resolves the root cause more completely with broader issue-aligned coverage, outweighing A&#39;s cleaner test style.</pre>
-  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
 </div>
 
 <div class="stats">

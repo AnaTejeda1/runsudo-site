@@ -40,7 +40,7 @@ The difference is in how deeply each addresses the root cause the issue names: &
 Tests: A adds considerably broader dts coverage: named and unnamed PropType+factory, object PropType, Function-typed models (where the default is not a factory), `type: Number` with factory, `required: true` plus default, the explicit-generic workaround, plus negative cases (named raw-object default, factory/runtime mismatch for both overloads, scalar type/default mismatch). B adds the two positive cases from the issue and one mismatch negative test. Both sets would fail before and pass after for the issue scenario.
 
 Scope and craft: A&#39;s extra type change is modest, targeted at the exact mechanism the issue identifies, and documented with a clear comment explaining both the naked-union inference and why overload member order matters. B is smaller and lower-risk but relies solely on candidate ordering. On balance A is the more complete, better-tested fix.</pre>
-  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
 </div>
 
 <div class="stats">

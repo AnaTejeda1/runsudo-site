@@ -42,7 +42,7 @@ Patch A addresses the demotion precisely: buildProps reports `needsPatch` and `i
 Tests: both add compiler and compiler+runtime tests that fail on base. A&#39;s suite is broader and covers the const function ref, directive unmounted, vnode unmounted, and both beforeUpdate ordering cases; B covers static ref and directive unmount including repeated toggles.
 
 Scope and craft: A is more invasive (two new optional VNodeCall fields) but the extra work is all the same mechanism and resolves parts of the issue B leaves broken. B is cleaner to read but emits a redundant flag on all forced blocks. A wins on correctness against the issue as stated.</pre>
-  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
 </div>
 
 <div class="stats">

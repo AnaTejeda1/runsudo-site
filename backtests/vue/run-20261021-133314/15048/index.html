@@ -40,7 +40,7 @@ Patch A is more correct. (1) It adds `if (props == null) props = {}` in `renderS
 Scope and craft: Patch A&#39;s compiler change is narrow, adding one branch in `injectProp` only for the single-expression case and leaving existing object-props codegen and snapshots untouched. Patch B reroutes all slot key injection through the new argument, requiring snapshot churn, and includes a misplaced snapshot entry (a `compiler: v-for` snapshot added to `transformElement.spec.ts.snap`, apparently duplicated), which is sloppy. Patch B&#39;s unit tests for `renderSlot` are reasonable, but Patch A also adds end-to-end compiler+runtime tests covering v-if, v-else, template v-if, template v-for, v-for, objects, nullish, reactive arrays, custom-element mode, and branch toggling.
 
 Patch B&#39;s uniform &#39;key is always a separate arg&#39; design is cleaner conceptually, but the nullish regression and the unhandled reactive-array case outweigh that. Patch A is the better fix.</pre>
-  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
 </div>
 
 <div class="stats">

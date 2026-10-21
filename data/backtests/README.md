@@ -16,7 +16,8 @@ generated pages.
 1. Drop the new `tickets.json` into `data/backtests/<repo>/<run-id>/`.
 2. Add the run's entry to `index.json` under that repo's `runs`, with its `id` (the harness
    run id, e.g. `run-20260930-144322`), its `date` (`YYYY-MM-DD`, the day it ran), its
-   `notes` (free text, e.g. "Updated to Opus 5.5") and an optional `footnote`. Newest first
+   `notes` (free text, e.g. "Updated to Opus 5.5") and an optional `footnote`. Add `"judge": "panel"` for a run judged by the four-judge panel; its ticket pages then
+   describe the panel instead of the single judge. Newest first
    is conventional, but the build sorts by date, then by id, anyway.
 3. If it is a major date, add an event to `events` in `index.json`. It shows as a dashed line
    with its label on the chart. `kind` (`product` or `measurement`) is kept in the data but not shown.
