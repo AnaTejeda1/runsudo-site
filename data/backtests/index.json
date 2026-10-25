@@ -188,6 +188,22 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-24",
+          "id": "run-20261024-162305",
+          "source_runs": [
+            "run-20261024-162305"
+          ],
+          "tickets": 30,
+          "better": 27,
+          "par": 0,
+          "worse": 2,
+          "tie": 0,
+          "error": 1,
+          "notes": "sudo-solver 0.5.1 on the foreman lane, first full hugo run with the judge panel",
+          "judge": "panel",
+          "footnote": "The one error is a verdict we threw out, not a crash. Ticket 15228 (upgrading hugo to Go 1.27) was judged better, but the sandbox ran Go 1.27.3, which shipped seven weeks after the real fix. The agent copied in template security fixes that did not exist yet when the maintainer did the work. The harness now runs each ticket on the Go release that was current on the fix date. Two tickets here, 7515 and 15199, were closed by the same commit; future samples keep only one. Every ticket passed verification and audited clean."
+        },
+        {
           "date": "2026-10-13",
           "id": "run-20261013-011256",
           "source_runs": [
