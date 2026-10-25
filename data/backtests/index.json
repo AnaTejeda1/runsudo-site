@@ -11,6 +11,22 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-10-22",
+          "id": "run-20261022-024030",
+          "source_runs": [
+            "run-20261022-024030"
+          ],
+          "tickets": 30,
+          "better": 24,
+          "par": 0,
+          "worse": 2,
+          "tie": 4,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1 on the foreman lane, judged by the four-judge panel",
+          "judge": "panel",
+          "footnote": "The four ties are tickets where the judges split two against two. Two pairs of tickets here were closed by the same commit (8998 and 13207, 13017 and 13089); future samples keep only one ticket per fix. Every ticket passed verification and audited clean."
+        },
+        {
           "date": "2026-10-13",
           "id": "run-20261013-104308",
           "source_runs": [

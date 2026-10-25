@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13908 `ZoneInfo` validation raises `IsADirectoryError`/`OSError` instead of `ValidationError` for some invalid keys — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13908 in pydantic/pydantic, run 22 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261022-024030/13908/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261022-024030/">run-20261022-024030</a><span aria-hidden="true">/</span><span aria-current="page">#13908</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13908" rel="noopener" target="_blank">#13908</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13912" rel="noopener" target="_blank">PR #13912</a></span>
+  <span>Run 22 Oct 2026 · <span class="runid">run-20261022-024030</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title"><code>ZoneInfo</code> validation raises <code>IsADirectoryError</code>/<code>OSError</code> instead of <code>ValidationError</code> for some invalid keys</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The production change is byte-for-byte identical in both patches: adding `OSError` to the caught exceptions in `validate_str_is_valid_iana_tz`, which is the root-cause fix the issue asks for. Both pass all independent tests. The difference is in tests and scope. Patch A deletes `tests/test_types_zoneinfo.py` and recreates it as `tests/types/test_zoneinfo.py`, rewriting every existing test from `BaseModel` to `TypeAdapter` form. That file move and rewrite is unrelated churn that obscures the actual fix in the diff and changes the `loc` and assertions of pre-existing tests for no reason tied to the issue. Its only regression test is environment-dependent: on Python 3.13 `&#39;America&#39;` raises `ZoneInfoNotFoundError` and would pass even without the fix, and whether `&#39;a&#39;*300` hits `ENAMETOOLONG` depends on platform and tzdata presence. Patch B appends to the existing test file, adds the same environment-dependent cases (plus `Etc`), and crucially adds a monkeypatched test that forces `IsADirectoryError` and a plain `OSError` out of `ZoneInfo`, guaranteeing the new except branch is exercised on every CI configuration. The monkeypatch targets the module-global `ZoneInfo` name that the validator looks up at call time, so it works. B also adds a short comment explaining why `OSError` is caught, which helps future readers. B is better on tests, scope, and craft.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">3m 17s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">391 passed · 4 skipped · 395 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">60<small>vs 131 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13908" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>Validating a <code>ZoneInfo</code> field with certain invalid strings raises a raw <code>OSError</code> subclass instead of a <code>ValidationError</code>:</p>
+<ul><li>A tz database <em>directory</em> name such as <code>&#39;America&#39;</code>, <code>&#39;Europe&#39;</code> or <code>&#39;Etc&#39;</code> raises <code>IsADirectoryError</code> on Python 3.10–3.12 when the <code>tzdata</code> package is installed (<code>tzdata</code> is a pydantic dependency on Windows and is also pulled in by e.g. pandas). CPython only started converting this case to <code>ZoneInfoNotFoundError</code> in 3.13 (gh-85702).</li><li>An over-long key (e.g. 300 characters) raises <code>OSError: [Errno 63] File name too long</code> (reproduced on Python 3.12 with <code>tzdata</code>, and on Python 3.13 on macOS without it).</li></ul>
+<p><code>validate_str_is_valid_iana_tz</code> in <code>pydantic/_internal/_validators.py</code> only catches <code>(ZoneInfoNotFoundError, ValueError, TypeError)</code>, so these errors propagate unchanged. Expected: a <code>zoneinfo_str</code> validation error, the same as for <code>&#39;Not/AZone&#39;</code>. For example, in a web API that validates a user-supplied timezone, these inputs currently produce an unhandled exception instead of a validation error.</p>
+<p>Suggested fix: add <code>OSError</code> to the caught exceptions. I have a small patch with a regression test ready if this is welcome.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-python">from zoneinfo import ZoneInfo
+from pydantic import BaseModel
+
+class Model(BaseModel):
+    tz: ZoneInfo
+
+Model(tz=&#39;Not/AZone&#39;)  # ValidationError (expected)
+Model(tz=&#39;America&#39;)    # IsADirectoryError: [Errno 21] Is a directory: &#39;.../site-packages/tzdata/zoneinfo/America&#39;
+Model(tz=&#39;a&#39; * 300)    # OSError: [Errno 63] File name too long: &#39;...&#39;</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code>             pydantic version: 2.14.0b2
+        pydantic-core version: 2.49.0
+          pydantic-core build: profile=release pgo=false
+               python version: 3.12.13 (main, Jun 11 2026, 03:55:21) [Clang 22.1.3 ]
+                     platform: macOS-15.3.1-arm64-arm-64bit
+             related packages: email-validator-2.3.0 typing_extensions-4.16.0
+                       commit: e2ac21dcd</code></pre>
+<p>(tzdata is installed in this environment)</p>
+<p>Disclosure: found, reproduced and the draft fix tested locally with the help of an AI coding agent (Claude Code); reviewed before filing.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+59</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_validators.py</span><span class="h">index aecf34e4..4e6b98b5 100644</span><span class="h">@@ -488,7 +488,9 @@ def validate_str_is_valid_iana_tz(value: Any, /) -&gt; ZoneInfo:</span><span class="c">         return value</span><span class="c">     try:</span><span class="c">         return ZoneInfo(value)</span><span class="r">-    except (ZoneInfoNotFoundError, ValueError, TypeError):</span><span class="a">+    except (ZoneInfoNotFoundError, ValueError, TypeError, OSError):</span><span class="a">+        # `OSError` covers e.g. `IsADirectoryError` for tz database directory names such as `America`</span><span class="a">+        # (Python &lt; 3.13 with `tzdata` installed) and &quot;File name too long&quot; for over-long keys.</span><span class="c">         raise PydanticCustomError(&#39;zoneinfo_str&#39;, &#39;invalid timezone: {value}&#39;, {&#39;value&#39;: value})</span><span class="c"> </span><span class="c"> </span><span class="f">tests/test_types_zoneinfo.py</span><span class="h">index 44ddf5d5..76532678 100644</span><span class="h">@@ -54,3 +54,59 @@ def test_zoneinfo_json_schema():</span><span class="c"> def test_zoneinfo_union() -&gt; None:</span><span class="c">     ta = TypeAdapter(ZoneInfo | timezone, config=ConfigDict(arbitrary_types_allowed=True))</span><span class="c">     assert ta.validate_python(timezone.utc) is timezone.utc</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;value&#39;,</span><span class="a">+    [</span><span class="a">+        pytest.param(&#39;America&#39;, id=&#39;tz-database-directory&#39;),</span><span class="a">+        pytest.param(&#39;Etc&#39;, id=&#39;tz-database-directory-etc&#39;),</span><span class="a">+        pytest.param(&#39;a&#39; * 300, id=&#39;over-long-key&#39;),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_zoneinfo_parsing_fails_for_os_error_keys(value: str) -&gt; None:</span><span class="a">+    with pytest.raises(ValidationError) as ex_info:</span><span class="a">+        ZoneInfoModel(tz=value)</span><span class="a">+</span><span class="a">+    assert ex_info.value.errors() == [</span><span class="a">+        {</span><span class="a">+            &#39;type&#39;: &#39;zoneinfo_str&#39;,</span><span class="a">+            &#39;loc&#39;: (&#39;tz&#39;,),</span><span class="a">+            &#39;msg&#39;: f&#39;invalid timezone: {value}&#39;,</span><span class="a">+            &#39;input&#39;: value,</span><span class="a">+            &#39;ctx&#39;: {&#39;value&#39;: value},</span><span class="a">+        }</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;exc&#39;,</span><span class="a">+    [</span><span class="a">+        pytest.param(IsADirectoryError(21, &#39;Is a directory&#39;), id=&#39;IsADirectoryError&#39;),</span><span class="a">+        pytest.param(OSError(63, &#39;File name too long&#39;), id=&#39;OSError&#39;),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_zoneinfo_os_error_raises_validation_error(monkeypatch: pytest.MonkeyPatch, exc: OSError) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;`ZoneInfo` can raise `OSError` subclasses depending on the Python version, platform and</span><span class="a">+    whether `tzdata` is installed; these must be reported as validation errors.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    from pydantic._internal import _validators</span><span class="a">+</span><span class="a">+    class RaisingZoneInfo(ZoneInfo):</span><span class="a">+        def __new__(cls, key: str) -&gt; ZoneInfo:</span><span class="a">+            raise exc</span><span class="a">+</span><span class="a">+    monkeypatch.setattr(_validators, &#39;ZoneInfo&#39;, RaisingZoneInfo)</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError) as ex_info:</span><span class="a">+        ZoneInfoModel(tz=&#39;America&#39;)</span><span class="a">+</span><span class="a">+    assert ex_info.value.errors() == [</span><span class="a">+        {</span><span class="a">+            &#39;type&#39;: &#39;zoneinfo_str&#39;,</span><span class="a">+            &#39;loc&#39;: (&#39;tz&#39;,),</span><span class="a">+            &#39;msg&#39;: &#39;invalid timezone: America&#39;,</span><span class="a">+            &#39;input&#39;: &#39;America&#39;,</span><span class="a">+            &#39;ctx&#39;: {&#39;value&#39;: &#39;America&#39;},</span><span class="a">+        }</span><span class="a">+    ]</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13912" rel="noopener" target="_blank">PR #13912</a></span><span class="pm"><span class="a">+74</span> <span class="r">−57</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_validators.py</span><span class="h">index aecf34e49..a63b8db1b 100644</span><span class="h">@@ -488,7 +488,7 @@ def validate_str_is_valid_iana_tz(value: Any, /) -&gt; ZoneInfo:</span><span class="c">         return value</span><span class="c">     try:</span><span class="c">         return ZoneInfo(value)</span><span class="r">-    except (ZoneInfoNotFoundError, ValueError, TypeError):</span><span class="a">+    except (ZoneInfoNotFoundError, ValueError, TypeError, OSError):</span><span class="c">         raise PydanticCustomError(&#39;zoneinfo_str&#39;, &#39;invalid timezone: {value}&#39;, {&#39;value&#39;: value})</span><span class="c"> </span><span class="c"> </span><span class="f">tests/test_types_zoneinfo.py</span><span class="h">deleted file mode 100644</span><span class="h">index 44ddf5d53..000000000</span><span class="h">@@ -1,56 +0,0 @@</span><span class="r">-from datetime import timezone</span><span class="r">-from zoneinfo import ZoneInfo</span><span class="r">-</span><span class="r">-import pytest</span><span class="r">-</span><span class="r">-from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError</span><span class="r">-</span><span class="r">-</span><span class="r">-class ZoneInfoModel(BaseModel):</span><span class="r">-    tz: ZoneInfo</span><span class="r">-</span><span class="r">-</span><span class="r">-@pytest.mark.parametrize(</span><span class="r">-    &#39;tz&#39;,</span><span class="r">-    [</span><span class="r">-        pytest.param(ZoneInfo(&#39;America/Los_Angeles&#39;), id=&#39;ZoneInfoObject&#39;),</span><span class="r">-        pytest.param(&#39;America/Los_Angeles&#39;, id=&#39;IanaTimezoneStr&#39;),</span><span class="r">-    ],</span><span class="r">-)</span><span class="r">-def test_zoneinfo_valid_inputs(tz):</span><span class="r">-    model = ZoneInfoModel(tz=tz)</span><span class="r">-    assert model.tz == ZoneInfo(&#39;America/Los_Angeles&#39;)</span><span class="r">-</span><span class="r">-</span><span class="r">-def test_zoneinfo_serialization():</span><span class="r">-    model = ZoneInfoModel(tz=ZoneInfo(&#39;America/Los_Angeles&#39;))</span><span class="r">-    assert model.model_dump_json() == &#39;{&quot;tz&quot;:&quot;America/Los_Angeles&quot;}&#39;</span><span class="r">-</span><span class="r">-</span><span class="r">-def test_zoneinfo_parsing_fails_for_invalid_iana_tz_strs():</span><span class="r">-    with pytest.raises(ValidationError) as ex_info:</span><span class="r">-        ZoneInfoModel(tz=&#39;Zone/That_Does_Not_Exist&#39;)</span><span class="r">-</span><span class="r">-    assert ex_info.value.errors() == [</span><span class="r">-        {</span><span class="r">-            &#39;type&#39;: &#39;zoneinfo_str&#39;,</span><span class="r">-            &#39;loc&#39;: (&#39;tz&#39;,),</span><span class="r">-            &#39;msg&#39;: &#39;invalid timezone: Zone/That_Does_Not_Exist&#39;,</span><span class="r">-            &#39;input&#39;: &#39;Zone/That_Does_Not_Exist&#39;,</span><span class="r">-            &#39;ctx&#39;: {&#39;value&#39;: &#39;Zone/That_Does_Not_Exist&#39;},</span><span class="r">-        }</span><span class="r">-    ]</span><span class="r">-</span><span class="r">-</span><span class="r">-def test_zoneinfo_json_schema():</span><span class="r">-    assert ZoneInfoModel.model_json_schema() == {</span><span class="r">-        &#39;type&#39;: &#39;object&#39;,</span><span class="r">-        &#39;title&#39;: &#39;ZoneInfoModel&#39;,</span><span class="r">-        &#39;properties&#39;: {&#39;tz&#39;: {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;zoneinfo&#39;, &#39;title&#39;: &#39;Tz&#39;}},</span><span class="r">-        &#39;required&#39;: [&#39;tz&#39;],</span><span class="r">-    }</span><span class="r">-</span><span class="r">-</span><span class="r">-def test_zoneinfo_union() -&gt; None:</span><span class="r">-    ta = TypeAdapter(ZoneInfo | timezone, config=ConfigDict(arbitrary_types_allowed=True))</span><span class="r">-    assert ta.validate_python(timezone.utc) is timezone.utc</span><span class="f">tests/types/test_zoneinfo.py</span><span class="h">new file mode 100644</span><span class="h">index 000000000..665afcb9d</span><span class="h">@@ -0,0 +1,73 @@</span><span class="a">+from datetime import timezone</span><span class="a">+from zoneinfo import ZoneInfo</span><span class="a">+</span><span class="a">+import pytest</span><span class="a">+</span><span class="a">+from pydantic import ConfigDict, TypeAdapter, ValidationError</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;tz&#39;,</span><span class="a">+    [</span><span class="a">+        pytest.param(ZoneInfo(&#39;America/Los_Angeles&#39;), id=&#39;ZoneInfoObject&#39;),</span><span class="a">+        pytest.param(&#39;America/Los_Angeles&#39;, id=&#39;IanaTimezoneStr&#39;),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_zoneinfo_valid_inputs(tz: ZoneInfo | str) -&gt; None:</span><span class="a">+    ta = TypeAdapter(ZoneInfo)</span><span class="a">+</span><span class="a">+    assert ta.validate_python(tz) == ZoneInfo(&#39;America/Los_Angeles&#39;)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_zoneinfo_serialization() -&gt; None:</span><span class="a">+    ta = TypeAdapter(ZoneInfo)</span><span class="a">+</span><span class="a">+    assert ta.dump_json(ZoneInfo(&#39;America/Los_Angeles&#39;)) == b&#39;&quot;America/Los_Angeles&quot;&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_zoneinfo_parsing_fails_for_invalid_iana_tz_strs() -&gt; None:</span><span class="a">+    ta = TypeAdapter(ZoneInfo)</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError) as exc_info:</span><span class="a">+        ta.validate_python(&#39;Zone/That_Does_Not_Exist&#39;)</span><span class="a">+</span><span class="a">+    assert exc_info.value.errors(include_url=False) == [</span><span class="a">+        {</span><span class="a">+            &#39;type&#39;: &#39;zoneinfo_str&#39;,</span><span class="a">+            &#39;loc&#39;: (),</span><span class="a">+            &#39;msg&#39;: &#39;invalid timezone: Zone/That_Does_Not_Exist&#39;,</span><span class="a">+            &#39;input&#39;: &#39;Zone/That_Does_Not_Exist&#39;,</span><span class="a">+            &#39;ctx&#39;: {&#39;value&#39;: &#39;Zone/That_Does_Not_Exist&#39;},</span><span class="a">+        }</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;value&#39;, [&#39;America&#39;, &#39;a&#39; * 300])</span><span class="a">+def test_zoneinfo_os_error_is_validation_error(value: str) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13908&quot;&quot;&quot;</span><span class="a">+    ta = TypeAdapter(ZoneInfo)</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError) as exc_info:</span><span class="a">+        ta.validate_python(value)</span><span class="a">+</span><span class="a">+    assert exc_info.value.errors(include_url=False) == [</span><span class="a">+        {</span><span class="a">+            &#39;type&#39;: &#39;zoneinfo_str&#39;,</span><span class="a">+            &#39;loc&#39;: (),</span><span class="a">+            &#39;msg&#39;: f&#39;invalid timezone: {value}&#39;,</span><span class="a">+            &#39;input&#39;: value,</span><span class="a">+            &#39;ctx&#39;: {&#39;value&#39;: value},</span><span class="a">+        }</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_zoneinfo_json_schema() -&gt; None:</span><span class="a">+    ta = TypeAdapter(ZoneInfo)</span><span class="a">+</span><span class="a">+    assert ta.json_schema() == {&#39;type&#39;: &#39;string&#39;, &#39;format&#39;: &#39;zoneinfo&#39;}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_zoneinfo_union() -&gt; None:</span><span class="a">+    ta = TypeAdapter(ZoneInfo | timezone, config=ConfigDict(arbitrary_types_allowed=True))</span><span class="a">+</span><span class="a">+    assert ta.validate_python(timezone.utc) is timezone.utc</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261022-024030/13868/">Previous · #13868</a>
+  <a class="mid" href="/backtests/pydantic/run-20261022-024030/">All tickets in this run</a>
+  <span class="disabled">Next</span>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
