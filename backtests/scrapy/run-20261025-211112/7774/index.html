@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#7774 Document `urlparse_cached()`? — scrapy/scrapy backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #7774 in scrapy/scrapy, run 25 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/scrapy/run-20261025-211112/7774/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/">scrapy</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/run-20261025-211112/">run-20261025-211112</a><span aria-hidden="true">/</span><span aria-current="page">#7774</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/scrapy/scrapy/issues/7774" rel="noopener" target="_blank">#7774</a></span>
+  <span>Merged fix <a href="https://github.com/scrapy/scrapy/pull/7777" rel="noopener" target="_blank">PR #7777</a></span>
+  <span>Run 25 Oct 2026 · <span class="runid">run-20261025-211112</span></span>
+  <span>scrapy/scrapy</span>
+</div>
+<h1 class="ticket-title">Document <code>urlparse_cached()</code>?</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical, correct fix at the root: they add `.. autofunction:: scrapy.utils.httpobj.urlparse_cached` to the existing &#39;Other functions related to requests&#39; section of request-response.rst, and both independent tests pass on both. The difference is in the docstring quality and tests. Patch A&#39;s docstring explains what is returned, that the cache is per-object (same ParseResult instance returned), that weak references mean objects are not kept alive, and includes a short worked example showing `.path` and `.netloc`, which directly mirrors the media-pipeline usage cited in the issue; the doctest values are correct. Patch B&#39;s docstring is also accurate and adds a useful &#39;prefer this over urlparse(x.url)&#39; hint, but is shorter and has no example. Patch A additionally adds focused tests covering Response objects (previously only Request was tested) and the weak-reference non-retention property it now documents; these are non-tautological and exercise behavior the docstring claims, which is a reasonable accompaniment to a docs change rather than churn. The &#39;1 line removed&#39; in A&#39;s test file is just the import line being widened to include Response. Neither patch adds risk. On craft and tests A edges out B; correctness and scope are equal.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2m 53s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">162 passed · 0 skipped · 163 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">50<small>vs 13 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/scrapy/scrapy/issues/7774" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>It seems useful, is used in some other related projects and used in a code sample on <a href="https://docs.scrapy.org/en/latest/topics/media-pipeline.html#scrapy.pipelines.files.FilesPipeline.file_path" rel="noopener nofollow" target="_blank">https://docs.scrapy.org/en/latest/topics/media-pipeline.html#scrapy.pipelines.files.FilesPipeline.file_path</a> but not documented.</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+47</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">docs/topics/request-response.rst</span><span class="h">index 7468f1b64..b83a04032 100644</span><span class="h">@@ -342,6 +342,8 @@ Other functions related to requests</span><span class="c"> </span><span class="c"> .. autofunction:: scrapy.utils.request.request_from_dict</span><span class="c"> </span><span class="a">+.. autofunction:: scrapy.utils.httpobj.urlparse_cached</span><span class="a">+</span><span class="c"> </span><span class="c"> .. _topics-request-response-ref-request-callback-arguments:</span><span class="c"> </span><span class="f">scrapy/utils/httpobj.py</span><span class="h">index 58b4539bf..7745cea4d 100644</span><span class="h">@@ -16,8 +16,24 @@ _urlparse_cache: WeakKeyDictionary[Request | Response, ParseResult] = (</span><span class="c"> </span><span class="c"> </span><span class="c"> def urlparse_cached(request_or_response: Request | Response) -&gt; ParseResult:</span><span class="r">-    &quot;&quot;&quot;Return urlparse.urlparse caching the result, where the argument can be a</span><span class="r">-    Request or Response object</span><span class="a">+    &quot;&quot;&quot;Return the result of :func:`urllib.parse.urlparse` on the URL of</span><span class="a">+    *request_or_response*, a :class:`~scrapy.Request` or</span><span class="a">+    :class:`~scrapy.http.Response` object.</span><span class="a">+</span><span class="a">+    The result is cached per object, so subsequent calls with the same object</span><span class="a">+    return the same :class:`~urllib.parse.ParseResult` instance without</span><span class="a">+    parsing the URL again. The cache holds weak references, so it does not</span><span class="a">+    keep requests or responses alive.</span><span class="a">+</span><span class="a">+    For example:</span><span class="a">+</span><span class="a">+    &gt;&gt;&gt; from scrapy import Request</span><span class="a">+    &gt;&gt;&gt; from scrapy.utils.httpobj import urlparse_cached</span><span class="a">+    &gt;&gt;&gt; request = Request(&quot;https://example.com/a/b/foo.png?x=1&quot;)</span><span class="a">+    &gt;&gt;&gt; urlparse_cached(request).path</span><span class="a">+    &#39;/a/b/foo.png&#39;</span><span class="a">+    &gt;&gt;&gt; urlparse_cached(request).netloc</span><span class="a">+    &#39;example.com&#39;</span><span class="c">     &quot;&quot;&quot;</span><span class="c">     if request_or_response not in _urlparse_cache:</span><span class="c">         _urlparse_cache[request_or_response] = urlparse(request_or_response.url)</span><span class="f">tests/test_utils_httpobj.py</span><span class="h">index 0eb330461..1d940ca68 100644</span><span class="h">@@ -1,7 +1,9 @@</span><span class="a">+import weakref</span><span class="c"> from urllib.parse import urlparse</span><span class="c"> </span><span class="r">-from scrapy.http import Request</span><span class="a">+from scrapy.http import Request, Response</span><span class="c"> from scrapy.utils.httpobj import urlparse_cached</span><span class="a">+from scrapy.utils.python import garbage_collect</span><span class="c"> </span><span class="c"> </span><span class="c"> def test_urlparse_cached():</span><span class="h">@@ -18,3 +20,27 @@ def test_urlparse_cached():</span><span class="c">     assert req1a is req1b</span><span class="c">     assert req1a is not req2</span><span class="c">     assert req1b is not req2</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_urlparse_cached_response():</span><span class="a">+    url = &quot;https://example.com/a/b/foo.png?x=1&quot;</span><span class="a">+    response1 = Response(url)</span><span class="a">+    response2 = Response(url)</span><span class="a">+    resp1a = urlparse_cached(response1)</span><span class="a">+    resp1b = urlparse_cached(response1)</span><span class="a">+    resp2 = urlparse_cached(response2)</span><span class="a">+</span><span class="a">+    assert resp1a == urlparse(url)</span><span class="a">+    assert resp1a.path == &quot;/a/b/foo.png&quot;</span><span class="a">+    assert resp1a is resp1b</span><span class="a">+    assert resp1a is not resp2</span><span class="a">+    assert resp1a == resp2</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_urlparse_cached_does_not_keep_objects_alive():</span><span class="a">+    request = Request(&quot;http://www.example.com/index.html&quot;)</span><span class="a">+    urlparse_cached(request)</span><span class="a">+    ref = weakref.ref(request)</span><span class="a">+    del request</span><span class="a">+    garbage_collect()</span><span class="a">+    assert ref() is None</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/scrapy/scrapy/pull/7777" rel="noopener" target="_blank">PR #7777</a></span><span class="pm"><span class="a">+11</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">docs/topics/request-response.rst</span><span class="h">index 7468f1b64..b83a04032 100644</span><span class="h">@@ -342,6 +342,8 @@ Other functions related to requests</span><span class="c"> </span><span class="c"> .. autofunction:: scrapy.utils.request.request_from_dict</span><span class="c"> </span><span class="a">+.. autofunction:: scrapy.utils.httpobj.urlparse_cached</span><span class="a">+</span><span class="c"> </span><span class="c"> .. _topics-request-response-ref-request-callback-arguments:</span><span class="c"> </span><span class="f">scrapy/utils/httpobj.py</span><span class="h">index 58b4539bf..5965e1f21 100644</span><span class="h">@@ -16,8 +16,15 @@ _urlparse_cache: WeakKeyDictionary[Request | Response, ParseResult] = (</span><span class="c"> </span><span class="c"> </span><span class="c"> def urlparse_cached(request_or_response: Request | Response) -&gt; ParseResult:</span><span class="r">-    &quot;&quot;&quot;Return urlparse.urlparse caching the result, where the argument can be a</span><span class="r">-    Request or Response object</span><span class="a">+    &quot;&quot;&quot;Return the result of parsing the URL of *request_or_response*, a</span><span class="a">+    :class:`~scrapy.Request` or :class:`~scrapy.http.Response` object, with</span><span class="a">+    :func:`urllib.parse.urlparse`.</span><span class="a">+</span><span class="a">+    The result is cached, using a :class:`weakref.WeakKeyDictionary` keyed on</span><span class="a">+    *request_or_response*, so that the URL of a given object is parsed only</span><span class="a">+    once. Prefer this function over calling :func:`urllib.parse.urlparse` on</span><span class="a">+    ``request_or_response.url`` directly when the same URL may be parsed more</span><span class="a">+    than once.</span><span class="c">     &quot;&quot;&quot;</span><span class="c">     if request_or_response not in _urlparse_cache:</span><span class="c">         _urlparse_cache[request_or_response] = urlparse(request_or_response.url)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/scrapy/run-20261025-211112/7766/">Previous · #7766</a>
+  <a class="mid" href="/backtests/scrapy/run-20261025-211112/">All tickets in this run</a>
+  <a href="/backtests/scrapy/run-20261025-211112/7796/">Next · #7796</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

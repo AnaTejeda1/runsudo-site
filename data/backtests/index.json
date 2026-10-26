@@ -501,6 +501,32 @@
           "footnote": ""
         }
       ]
+    },
+    {
+      "slug": "scrapy",
+      "name": "scrapy/scrapy",
+      "description": "Fast, high-level web crawling and scraping framework for Python.",
+      "languages": [
+        "Python"
+      ],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-10-25",
+          "id": "run-20261025-211112",
+          "source_runs": [
+            "run-20261025-211112"
+          ],
+          "tickets": 30,
+          "better": 29,
+          "par": 0,
+          "worse": 1,
+          "error": 0,
+          "notes": "First run on GitHub Actions: 5 tickets in parallel, each change checked against its related tests; judged by the four-judge panel",
+          "footnote": "Ticket 5046 (HTTP/2) has a verdict from the judges but no test evidence: every test it selected was skipped because the build had HTTP/2 support turned off. The other 29 tickets passed verification.",
+          "judge": "panel"
+        }
+      ]
     }
   ],
   "events": []

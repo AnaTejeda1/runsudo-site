@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#7743 Add Request.to_curl() method as the inverse of Request.from_curl() — scrapy/scrapy backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #7743 in scrapy/scrapy, run 25 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/scrapy/run-20261025-211112/7743/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/">scrapy</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/run-20261025-211112/">run-20261025-211112</a><span aria-hidden="true">/</span><span aria-current="page">#7743</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/scrapy/scrapy/issues/7743" rel="noopener" target="_blank">#7743</a></span>
+  <span>Merged fix <a href="https://github.com/scrapy/scrapy/pull/7802" rel="noopener" target="_blank">PR #7802</a></span>
+  <span>Run 25 Oct 2026 · <span class="runid">run-20261025-211112</span></span>
+  <span>scrapy/scrapy</span>
+</div>
+<h1 class="ticket-title">Add Request.to_curl() method as the inverse of Request.from_curl()</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches add an identical core implementation: a `Request.to_curl()` method that lazily imports and delegates to `scrapy.utils.request.request_to_curl`, with the same circular-import workaround, and both register the method in the request-response docs. Independent tests pass identically on both. The differences are in tests and documentation. Patch B&#39;s tests are stronger: `test_to_curl` checks concrete output fragments (method/URL prefix, `--data-raw`, `-H`, `--cookie`) in addition to equality with the helper, and `test_to_curl_from_curl_roundtrip` directly verifies the &#39;inverse of from_curl&#39; property the issue title asks for. Patch A&#39;s base-class test is purely tautological (`r.to_curl() == request_to_curl(r)`), and its only substantive test is a single POST-with-body string comparison in `test_utils_request.py`. On craft, Patch B&#39;s docstring is more informative (lists what is included and notes that downloader-middleware changes are not reflected, which is useful for the issue&#39;s stated debugging use case) and it adds a release-notes entry; its extra `autofunction` for `request_to_curl` is adjacent but harmless scope. Patch A&#39;s `versionadded:: VERSION` placeholder is ignored per the rules. No correctness difference, but B wins on test quality and documentation.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">11m 32s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">252 passed · 45 skipped · 300 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">61<small>vs 36 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/scrapy/scrapy/issues/7743" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Summary</h2>
+<p>Add a <code>to_curl()</code> method to <code>scrapy.Request</code> that turns the request into a curl cmd</p>
+<h2>Motivation</h2>
+<p><code>Request.from_curl()</code> already exists, but to go the other way you have to use a separate function, <code>scrapy.utils.request.request_to_curl()</code> (added in 2.9 #5892)</p>
+<p>When I&#39;m debugging a spider with <code>inspect_response()</code>, I often want to run a request outside Scrapy — from the terminal or in tools like Postman. Today I have to remember the import path to use it, I forget it often enough that I end up looking it up in the source:</p>
+<pre><code class="lang-python">&gt;&gt;&gt; from scrapy.utils.request import request_to_curl
+&gt;&gt;&gt; print(request_to_curl(request))</code></pre>
+<p>With a <code>to_curl()</code> method this is easier to find and matches <code>from_curl()</code>:</p>
+<pre><code class="lang-python">&gt;&gt;&gt; print(request.to_curl())</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+61</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">docs/news.rst</span><span class="h">index 8f8477eaa..b3ac8d350 100644</span><span class="h">@@ -25,6 +25,13 @@ Backward-incompatible changes</span><span class="c"> </span><span class="c">     (:issue:`6585`, :issue:`7731`)</span><span class="c"> </span><span class="a">+New features</span><span class="a">+~~~~~~~~~~~~</span><span class="a">+</span><span class="a">+-   Added :meth:`Request.to_curl() &lt;scrapy.Request.to_curl&gt;`, the inverse of</span><span class="a">+    :meth:`Request.from_curl() &lt;scrapy.Request.from_curl&gt;`, as a shortcut for</span><span class="a">+    :func:`scrapy.utils.request.request_to_curl`.</span><span class="a">+</span><span class="c"> .. _release-2.17.0:</span><span class="c"> </span><span class="c"> Scrapy 2.17.0 (2026-07-07)</span><span class="f">docs/topics/request-response.rst</span><span class="h">index b83a04032..312bae98d 100644</span><span class="h">@@ -260,6 +260,8 @@ Request objects</span><span class="c"> </span><span class="c">     .. automethod:: from_curl</span><span class="c"> </span><span class="a">+    .. automethod:: to_curl</span><span class="a">+</span><span class="c">     .. automethod:: to_dict</span><span class="c"> </span><span class="c"> </span><span class="h">@@ -342,6 +344,8 @@ Other functions related to requests</span><span class="c"> </span><span class="c"> .. autofunction:: scrapy.utils.request.request_from_dict</span><span class="c"> </span><span class="a">+.. autofunction:: scrapy.utils.request.request_to_curl</span><span class="a">+</span><span class="c"> .. autofunction:: scrapy.utils.httpobj.urlparse_cached</span><span class="c"> </span><span class="c"> </span><span class="f">scrapy/http/request/__init__.py</span><span class="h">index 57517a65b..44897b7be 100644</span><span class="h">@@ -387,6 +387,25 @@ class Request(object_ref):</span><span class="c">         request_kwargs.update(kwargs)</span><span class="c">         return cls(**request_kwargs)</span><span class="c"> </span><span class="a">+    def to_curl(self) -&gt; str:</span><span class="a">+        &quot;&quot;&quot;Return a string containing a `cURL &lt;https://curl.se/&gt;`_ command</span><span class="a">+        equivalent to this request, including the HTTP method, the URL, the</span><span class="a">+        headers, the cookies and the body.</span><span class="a">+</span><span class="a">+        This is the inverse of :meth:`from_curl`, and is equivalent to</span><span class="a">+        :func:`scrapy.utils.request.request_to_curl`.</span><span class="a">+</span><span class="a">+        .. note:: The command only reflects the request as it currently is.</span><span class="a">+                  Changes that :ref:`downloader middlewares</span><span class="a">+                  &lt;topics-downloader-middleware&gt;` would make to the request</span><span class="a">+                  when it is sent, such as adding default headers, are not</span><span class="a">+                  included.</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        # circular import</span><span class="a">+        from scrapy.utils.request import request_to_curl  # noqa: PLC0415</span><span class="a">+</span><span class="a">+        return request_to_curl(self)</span><span class="a">+</span><span class="c">     def to_dict(self, *, spider: scrapy.Spider | None = None) -&gt; dict[str, Any]:</span><span class="c">         &quot;&quot;&quot;Return a dictionary containing the Request&#39;s data.</span><span class="c"> </span><span class="f">tests/utils/bases/http_request.py</span><span class="h">index c255b5e4c..06eed1b2c 100644</span><span class="h">@@ -6,6 +6,7 @@ import pytest</span><span class="c"> </span><span class="c"> from scrapy.http import Headers, Request</span><span class="c"> from scrapy.http.request import NO_CALLBACK</span><span class="a">+from scrapy.utils.request import request_to_curl</span><span class="c"> </span><span class="c"> </span><span class="c"> class TestRequestBase(ABC):</span><span class="h">@@ -463,6 +464,36 @@ class TestRequestBase(ABC):</span><span class="c">             b&quot;Connection&quot;: [b&quot;keep-alive&quot;],</span><span class="c">         }</span><span class="c"> </span><span class="a">+    def test_to_curl(self):</span><span class="a">+        r = self.request_class(</span><span class="a">+            &quot;https://www.example.com/post&quot;,</span><span class="a">+            method=&quot;POST&quot;,</span><span class="a">+            body=b&quot;foo=bar&quot;,</span><span class="a">+            headers={&quot;X-Foo&quot;: &quot;bar&quot;},</span><span class="a">+            cookies={&quot;name&quot;: &quot;value&quot;},</span><span class="a">+        )</span><span class="a">+        curl_command = r.to_curl()</span><span class="a">+        assert curl_command == request_to_curl(r)</span><span class="a">+        assert curl_command.startswith(&quot;curl -X POST https://www.example.com/post &quot;)</span><span class="a">+        assert &quot;--data-raw &#39;foo=bar&#39;&quot; in curl_command</span><span class="a">+        assert &quot;-H &#39;X-Foo: bar&#39;&quot; in curl_command</span><span class="a">+        assert &quot;--cookie &#39;name=value&#39;&quot; in curl_command</span><span class="a">+</span><span class="a">+    def test_to_curl_from_curl_roundtrip(self):</span><span class="a">+        r = self.request_class(</span><span class="a">+            &quot;https://www.example.com/post&quot;,</span><span class="a">+            method=&quot;PUT&quot;,</span><span class="a">+            body=b&quot;foo=bar&quot;,</span><span class="a">+            headers={&quot;X-Foo&quot;: &quot;bar&quot;},</span><span class="a">+            cookies={&quot;name&quot;: &quot;value&quot;},</span><span class="a">+        )</span><span class="a">+        r2 = Request.from_curl(r.to_curl())</span><span class="a">+        assert r2.method == r.method</span><span class="a">+        assert r2.url == r.url</span><span class="a">+        assert r2.body == r.body</span><span class="a">+        assert r2.headers.get(&quot;X-Foo&quot;) == b&quot;bar&quot;</span><span class="a">+        assert r2.cookies == {&quot;name&quot;: &quot;value&quot;}</span><span class="a">+</span><span class="c">     def test_from_curl_with_kwargs(self):</span><span class="c">         r = self.request_class.from_curl(</span><span class="c">             &#39;curl -X PATCH &quot;http://example.org&quot;&#39;, method=&quot;POST&quot;, meta={&quot;key&quot;: &quot;value&quot;}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/scrapy/scrapy/pull/7802" rel="noopener" target="_blank">PR #7802</a></span><span class="pm"><span class="a">+36</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">docs/topics/request-response.rst</span><span class="h">index b83a04032..8e565907f 100644</span><span class="h">@@ -260,6 +260,8 @@ Request objects</span><span class="c"> </span><span class="c">     .. automethod:: from_curl</span><span class="c"> </span><span class="a">+    .. automethod:: to_curl</span><span class="a">+</span><span class="c">     .. automethod:: to_dict</span><span class="c"> </span><span class="c"> </span><span class="f">scrapy/http/request/__init__.py</span><span class="h">index 57517a65b..68847283a 100644</span><span class="h">@@ -387,6 +387,20 @@ class Request(object_ref):</span><span class="c">         request_kwargs.update(kwargs)</span><span class="c">         return cls(**request_kwargs)</span><span class="c"> </span><span class="a">+    def to_curl(self) -&gt; str:</span><span class="a">+        &quot;&quot;&quot;Return a string with a `cURL &lt;https://curl.se/&gt;`_ command equivalent</span><span class="a">+        to this request.</span><span class="a">+</span><span class="a">+        Inverse of :meth:`from_curl`. See also</span><span class="a">+        :func:`scrapy.utils.request.request_to_curl`.</span><span class="a">+</span><span class="a">+        .. versionadded:: VERSION</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        # Imported here to avoid a circular import.</span><span class="a">+        from scrapy.utils.request import request_to_curl  # noqa: PLC0415</span><span class="a">+</span><span class="a">+        return request_to_curl(self)</span><span class="a">+</span><span class="c">     def to_dict(self, *, spider: scrapy.Spider | None = None) -&gt; dict[str, Any]:</span><span class="c">         &quot;&quot;&quot;Return a dictionary containing the Request&#39;s data.</span><span class="c"> </span><span class="f">tests/test_utils_request.py</span><span class="h">index eb95be06c..935447bc4 100644</span><span class="h">@@ -475,3 +475,14 @@ class TestRequestToCurl:</span><span class="c">             &quot; --data-raw &#39;{\&quot;foo\&quot;: \&quot;bar\&quot;}&#39; --cookie &#39;foo=1&#39;&quot;</span><span class="c">         )</span><span class="c">         self._test_request(request_object, expected_curl_command)</span><span class="a">+</span><span class="a">+    def test_request_to_curl_method(self) -&gt; None:</span><span class="a">+        request_object = Request(</span><span class="a">+            &quot;https://www.httpbin.org/post&quot;,</span><span class="a">+            method=&quot;POST&quot;,</span><span class="a">+            body=json.dumps({&quot;foo&quot;: &quot;bar&quot;}),</span><span class="a">+        )</span><span class="a">+        expected_curl_command = (</span><span class="a">+            &#39;curl -X POST https://www.httpbin.org/post --data-raw \&#39;{&quot;foo&quot;: &quot;bar&quot;}\&#39;&#39;</span><span class="a">+        )</span><span class="a">+        assert request_object.to_curl() == expected_curl_command</span><span class="f">tests/utils/bases/http_request.py</span><span class="h">index c255b5e4c..3a1e588ef 100644</span><span class="h">@@ -6,6 +6,7 @@ import pytest</span><span class="c"> </span><span class="c"> from scrapy.http import Headers, Request</span><span class="c"> from scrapy.http.request import NO_CALLBACK</span><span class="a">+from scrapy.utils.request import request_to_curl</span><span class="c"> </span><span class="c"> </span><span class="c"> class TestRequestBase(ABC):</span><span class="h">@@ -488,3 +489,11 @@ class TestRequestBase(ABC):</span><span class="c">                 &#39;curl -X PATCH &quot;http://example.org&quot; --foo -z&#39;,</span><span class="c">                 ignore_unknown_options=False,</span><span class="c">             )</span><span class="a">+</span><span class="a">+    def test_to_curl(self):</span><span class="a">+        # Note: more curated tests regarding curl conversion are in</span><span class="a">+        # `test_utils_request.py`</span><span class="a">+        r = self.request_class(</span><span class="a">+            &quot;http://www.example.com/&quot;, method=&quot;POST&quot;, body=b&quot;foo=bar&quot;</span><span class="a">+        )</span><span class="a">+        assert r.to_curl() == request_to_curl(r)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/scrapy/run-20261025-211112/7167/">Previous · #7167</a>
+  <a class="mid" href="/backtests/scrapy/run-20261025-211112/">All tickets in this run</a>
+  <a href="/backtests/scrapy/run-20261025-211112/7759/">Next · #7759</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

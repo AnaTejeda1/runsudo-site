@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#7759 BaseSettings.update() does not accept iterable key-value pairs — scrapy/scrapy backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #7759 in scrapy/scrapy, run 25 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/scrapy/run-20261025-211112/7759/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/">scrapy</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/run-20261025-211112/">run-20261025-211112</a><span aria-hidden="true">/</span><span aria-current="page">#7759</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/scrapy/scrapy/issues/7759" rel="noopener" target="_blank">#7759</a></span>
+  <span>Merged fix <a href="https://github.com/scrapy/scrapy/pull/7763" rel="noopener" target="_blank">PR #7763</a></span>
+  <span>Run 25 Oct 2026 · <span class="runid">run-20261025-211112</span></span>
+  <span>scrapy/scrapy</span>
+</div>
+<h1 class="ticket-title">BaseSettings.update() does not accept iterable key-value pairs</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical functional change: extend the _SettingsInput alias with Iterable[tuple[str, Any]] and branch on hasattr(values, &#39;items&#39;) so non-mapping iterables are consumed directly as pairs. Both preserve the BaseSettings per-key-priority path and the JSON-string path, and the independent tests confirm both resolve every scenario (lists, tuples of two-item lists, generators, repeated keys, priority handling, Settings subclass). So correctness is a wash and the difference lies in tests and craft.
+
+Tests: Patch A is noticeably stronger. It un-xfails the existing test and makes it assert both an overwrite and a new key with default priority, adds a priority test using a plain iterator (not just a list) that checks a higher-priority existing value is not overridden, and adds tests for setdict() and the BaseSettings/Settings constructors taking iterables, which are real entry points that delegate to update() and are now typed as accepting iterables. Patch B un-xfails the single test and adds a value + priority assertion, which is adequate but minimal and only exercises a list.
+
+Craft: Patch B&#39;s single-loop structure with an `items` variable is slightly tidier than A&#39;s duplicated loop body, and B correctly narrows the stale &#39;doesn&#39;t support all inputs&#39; comment to the remaining kwargs gap, whereas A leaves that comment unchanged (still technically true, just less precise). On the other hand, A&#39;s docstring explicitly explains the new iterable form and references dict.update, while B only tweaks the :type: line. These craft points roughly cancel.
+
+Scope is equivalent for both. Given tests rank above craft and A&#39;s tests cover more of the surface the type change actually opens up, A is the better patch by a modest margin.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">13m 59s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">303 passed · 66 skipped · 376 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">45<small>vs 25 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/scrapy/scrapy/issues/7759" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p><code>BaseSettings</code> inherits from <code>MutableMapping</code>, but <code>BaseSettings.update()</code> does not accept iterable key-value pairs like <code>dict.update()</code> does.</p>
+<h3>Example:</h3>
+<pre><code class="lang-python">from scrapy.settings import BaseSettings
+
+settings = BaseSettings({&quot;KEY&quot;: 0})
+settings.update([(&quot;KEY&quot;, 1)])</code></pre>
+<h3>This raises:</h3>
+<pre><code class="lang-text">AttributeError: &#39;list&#39; object has no attribute &#39;items&#39;</code></pre>
+<p>There is already an xfailed test for this in <code>tests/test_settings/__init__.py::TestBaseSettings::test_update_iterable</code>.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+37</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">scrapy/settings/__init__.py</span><span class="h">index 27b0f1187..b8b8135d4 100644</span><span class="h">@@ -25,7 +25,9 @@ if TYPE_CHECKING:</span><span class="c">     # typing.Self requires Python 3.11</span><span class="c">     from typing_extensions import Self</span><span class="c"> </span><span class="r">-    _SettingsInput: TypeAlias = SupportsItems[str, Any] | str | None</span><span class="a">+    _SettingsInput: TypeAlias = (</span><span class="a">+        SupportsItems[str, Any] | Iterable[tuple[str, Any]] | str | None</span><span class="a">+    )</span><span class="c"> </span><span class="c"> </span><span class="c"> SETTINGS_PRIORITIES: dict[str, int] = {</span><span class="h">@@ -569,6 +571,9 @@ class BaseSettings(MutableMapping[str, Any]):</span><span class="c">         :meth:`~scrapy.settings.BaseSettings.set` for every item of ``values``</span><span class="c">         with the provided ``priority``.</span><span class="c"> </span><span class="a">+        ``values`` can be a mapping or, like :meth:`dict.update`, an iterable</span><span class="a">+        of key/value pairs.</span><span class="a">+</span><span class="c">         If ``values`` is a string, it is assumed to be JSON-encoded and parsed</span><span class="c">         into a dict with ``json.loads()`` first. If it is a</span><span class="c">         :class:`~scrapy.settings.BaseSettings` instance, the per-key priorities</span><span class="h">@@ -577,7 +582,8 @@ class BaseSettings(MutableMapping[str, Any]):</span><span class="c">         command.</span><span class="c"> </span><span class="c">         :param values: the settings names and values</span><span class="r">-        :type values: dict or string or :class:`~scrapy.settings.BaseSettings`</span><span class="a">+        :type values: dict or iterable of key/value pairs or string or</span><span class="a">+            :class:`~scrapy.settings.BaseSettings`</span><span class="c"> </span><span class="c">         :param priority: the priority of the settings. Should be a key of</span><span class="c">             :attr:`~scrapy.settings.SETTINGS_PRIORITIES` or an integer</span><span class="h">@@ -590,9 +596,12 @@ class BaseSettings(MutableMapping[str, Any]):</span><span class="c">             if isinstance(values, BaseSettings):</span><span class="c">                 for name, value in values.items():</span><span class="c">                     self.set(name, value, cast(&quot;int&quot;, values.getpriority(name)))</span><span class="r">-            else:</span><span class="a">+            elif hasattr(values, &quot;items&quot;):</span><span class="c">                 for name, value in values.items():</span><span class="c">                     self.set(name, value, priority)</span><span class="a">+            else:</span><span class="a">+                for name, value in cast(&quot;Iterable[tuple[str, Any]]&quot;, values):</span><span class="a">+                    self.set(name, value, priority)</span><span class="c"> </span><span class="c">     def delete(self, name: str, priority: int | str = &quot;project&quot;) -&gt; None:</span><span class="c">         if name not in self:</span><span class="f">tests/test_settings/__init__.py</span><span class="h">index 3282b0591..bcba36495 100644</span><span class="h">@@ -221,13 +221,33 @@ class TestBaseSettings:</span><span class="c">         settings = BaseSettings({&quot;key&quot;: 0})</span><span class="c">         settings.update(key=1)  # pylint: disable=unexpected-keyword-arg</span><span class="c"> </span><span class="r">-    @pytest.mark.xfail(</span><span class="r">-        raises=AttributeError,</span><span class="r">-        reason=&quot;BaseSettings.update doesn&#39;t support iterable input&quot;,</span><span class="r">-    )</span><span class="c">     def test_update_iterable(self):</span><span class="c">         settings = BaseSettings({&quot;key&quot;: 0})</span><span class="r">-        settings.update([(&quot;key&quot;, 1)])</span><span class="a">+        settings.update([(&quot;key&quot;, 1), (&quot;newkey&quot;, 2)])</span><span class="a">+        assert settings[&quot;key&quot;] == 1</span><span class="a">+        assert settings[&quot;newkey&quot;] == 2</span><span class="a">+        assert settings.getpriority(&quot;newkey&quot;) == SETTINGS_PRIORITIES[&quot;project&quot;]</span><span class="a">+</span><span class="a">+    def test_update_iterable_priority(self):</span><span class="a">+        settings = BaseSettings({&quot;key&quot;: 0}, priority=&quot;cmdline&quot;)</span><span class="a">+        settings.update(iter([(&quot;key&quot;, 1), (&quot;newkey&quot;, 2)]), priority=&quot;spider&quot;)</span><span class="a">+        assert settings[&quot;key&quot;] == 0</span><span class="a">+        assert settings[&quot;newkey&quot;] == 2</span><span class="a">+        assert settings.getpriority(&quot;newkey&quot;) == SETTINGS_PRIORITIES[&quot;spider&quot;]</span><span class="a">+</span><span class="a">+    def test_setdict_iterable(self):</span><span class="a">+        settings = BaseSettings()</span><span class="a">+        settings.setdict([(&quot;key&quot;, 1)], priority=&quot;spider&quot;)</span><span class="a">+        assert settings[&quot;key&quot;] == 1</span><span class="a">+        assert settings.getpriority(&quot;key&quot;) == SETTINGS_PRIORITIES[&quot;spider&quot;]</span><span class="a">+</span><span class="a">+    def test_init_iterable(self):</span><span class="a">+        settings = BaseSettings([(&quot;key&quot;, 1)], priority=&quot;spider&quot;)</span><span class="a">+        assert settings[&quot;key&quot;] == 1</span><span class="a">+        assert settings.getpriority(&quot;key&quot;) == SETTINGS_PRIORITIES[&quot;spider&quot;]</span><span class="a">+        settings = Settings([(&quot;key&quot;, 1)])</span><span class="a">+        assert settings[&quot;key&quot;] == 1</span><span class="a">+        assert settings.getpriority(&quot;key&quot;) == SETTINGS_PRIORITIES[&quot;project&quot;]</span><span class="c"> </span><span class="c">     def test_update_jsonstring(self):</span><span class="c">         settings = BaseSettings({&quot;number&quot;: 0, &quot;dict&quot;: BaseSettings({&quot;key&quot;: &quot;val&quot;})})</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/scrapy/scrapy/pull/7763" rel="noopener" target="_blank">PR #7763</a></span><span class="pm"><span class="a">+15</span> <span class="r">−10</span></span></div><pre class="diff"><span class="f">scrapy/settings/__init__.py</span><span class="h">index 27b0f1187..5c5edf101 100644</span><span class="h">@@ -25,7 +25,9 @@ if TYPE_CHECKING:</span><span class="c">     # typing.Self requires Python 3.11</span><span class="c">     from typing_extensions import Self</span><span class="c"> </span><span class="r">-    _SettingsInput: TypeAlias = SupportsItems[str, Any] | str | None</span><span class="a">+    _SettingsInput: TypeAlias = (</span><span class="a">+        SupportsItems[str, Any] | Iterable[tuple[str, Any]] | str | None</span><span class="a">+    )</span><span class="c"> </span><span class="c"> </span><span class="c"> SETTINGS_PRIORITIES: dict[str, int] = {</span><span class="h">@@ -560,7 +562,7 @@ class BaseSettings(MutableMapping[str, Any]):</span><span class="c">             if key.isupper():</span><span class="c">                 self.set(key, getattr(module, key), priority)</span><span class="c"> </span><span class="r">-    # BaseSettings.update() doesn&#39;t support all inputs that MutableMapping.update() supports</span><span class="a">+    # BaseSettings.update() doesn&#39;t support kwargs input like MutableMapping.update().</span><span class="c">     def update(self, values: _SettingsInput, priority: int | str = &quot;project&quot;) -&gt; None:  # type: ignore[override]</span><span class="c">         &quot;&quot;&quot;</span><span class="c">         Store key/value pairs with a given priority.</span><span class="h">@@ -577,7 +579,7 @@ class BaseSettings(MutableMapping[str, Any]):</span><span class="c">         command.</span><span class="c"> </span><span class="c">         :param values: the settings names and values</span><span class="r">-        :type values: dict or string or :class:`~scrapy.settings.BaseSettings`</span><span class="a">+        :type values: dict, iterable, string or :class:`~scrapy.settings.BaseSettings`</span><span class="c"> </span><span class="c">         :param priority: the priority of the settings. Should be a key of</span><span class="c">             :attr:`~scrapy.settings.SETTINGS_PRIORITIES` or an integer</span><span class="h">@@ -591,7 +593,12 @@ class BaseSettings(MutableMapping[str, Any]):</span><span class="c">                 for name, value in values.items():</span><span class="c">                     self.set(name, value, cast(&quot;int&quot;, values.getpriority(name)))</span><span class="c">             else:</span><span class="r">-                for name, value in values.items():</span><span class="a">+                items: Iterable[tuple[str, Any]]</span><span class="a">+                if hasattr(values, &quot;items&quot;):</span><span class="a">+                    items = cast(&quot;SupportsItems[str, Any]&quot;, values).items()</span><span class="a">+                else:</span><span class="a">+                    items = values</span><span class="a">+                for name, value in items:</span><span class="c">                     self.set(name, value, priority)</span><span class="c"> </span><span class="c">     def delete(self, name: str, priority: int | str = &quot;project&quot;) -&gt; None:</span><span class="f">tests/test_settings/__init__.py</span><span class="h">index 3282b0591..97c095ae0 100644</span><span class="h">@@ -221,13 +221,11 @@ class TestBaseSettings:</span><span class="c">         settings = BaseSettings({&quot;key&quot;: 0})</span><span class="c">         settings.update(key=1)  # pylint: disable=unexpected-keyword-arg</span><span class="c"> </span><span class="r">-    @pytest.mark.xfail(</span><span class="r">-        raises=AttributeError,</span><span class="r">-        reason=&quot;BaseSettings.update doesn&#39;t support iterable input&quot;,</span><span class="r">-    )</span><span class="c">     def test_update_iterable(self):</span><span class="r">-        settings = BaseSettings({&quot;key&quot;: 0})</span><span class="r">-        settings.update([(&quot;key&quot;, 1)])</span><span class="a">+        settings = BaseSettings({&quot;key&quot;: 0}, priority=0)</span><span class="a">+        settings.update([(&quot;key&quot;, 1)], priority=10)</span><span class="a">+        assert settings[&quot;key&quot;] == 1</span><span class="a">+        assert settings.getpriority(&quot;key&quot;) == 10</span><span class="c"> </span><span class="c">     def test_update_jsonstring(self):</span><span class="c">         settings = BaseSettings({&quot;number&quot;: 0, &quot;dict&quot;: BaseSettings({&quot;key&quot;: &quot;val&quot;})})</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/scrapy/run-20261025-211112/7743/">Previous · #7743</a>
+  <a class="mid" href="/backtests/scrapy/run-20261025-211112/">All tickets in this run</a>
+  <a href="/backtests/scrapy/run-20261025-211112/7766/">Next · #7766</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

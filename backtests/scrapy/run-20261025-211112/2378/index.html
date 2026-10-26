@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#2378 get_project_settings of doesn&#39;t reflect per-spider settings — scrapy/scrapy backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #2378 in scrapy/scrapy, run 25 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/scrapy/run-20261025-211112/2378/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/">scrapy</a><span aria-hidden="true">/</span><a href="/backtests/scrapy/run-20261025-211112/">run-20261025-211112</a><span aria-hidden="true">/</span><span aria-current="page">#2378</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/scrapy/scrapy/issues/2378" rel="noopener" target="_blank">#2378</a></span>
+  <span>Merged fix <a href="https://github.com/scrapy/scrapy/pull/8051" rel="noopener" target="_blank">PR #8051</a></span>
+  <span>Run 25 Oct 2026 · <span class="runid">run-20261025-211112</span></span>
+  <span>scrapy/scrapy</span>
+</div>
+<h1 class="ticket-title">get_project_settings of doesn&#39;t reflect per-spider settings</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The issue is a user misunderstanding with two components: get_project_settings() is documented nowhere and does not include spider settings, and custom_settings assigned in __init__ is silently ignored because spider settings are read from the class before instantiation. Patch A only adds a docstring and a brief docs mention of get_project_settings; it does nothing about the silent-ignore half, which is what actually confused the reporter, and adds no tests. Patch B documents both points explicitly (a note in settings.rst stating custom_settings must be a class attribute and that get_project_settings excludes spider settings, plus a fuller docstring), and adds a targeted runtime UserWarning in Crawler._create_spider when custom_settings is found on the instance and differs from the class attribute. The check is narrow and low-risk (vars() membership plus identity comparison), covers both the __init__ case and the spider-argument case, and points users at the correct alternatives (class attribute, update_settings, from_crawler with priority=&#39;spider&#39;). It is backed by four tests that would fail before the change and pass after, including a full crawl_async run. The independent evidence confirms this: only Patch B passes the &#39;not silently ignored&#39; test, while the &#39;override in __init__&#39; test fails on both since neither (correctly) changes the settings model. The warning is a modest behavior addition beyond pure docs, but it directly targets the reported confusion rather than being unrelated churn. B is the more complete and better-verified fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">10m 36s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">808 passed · 268 skipped · 1,082 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">107<small>vs 12 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/scrapy/scrapy/issues/2378" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>It&#39;s possible I&#39;m using this wrong. But I&#39;m doing the following:</p>
+<pre><code>class MySpider (Spider)
+  def __init__(self):
+		custom_settings = {
+			&#39;AUTOTHROTTLE_ENABLED&#39;: False
+		}
+
+  a = scrapy.utils.project.get_project_settings()
+  print(a.copy_to_dict())</code></pre>
+<p>My <strong>settings.py</strong> has <code>AUTOTHROTTLE_ENABLED: True</code>.</p>
+<p>Based on my reading of <a href="https://doc.scrapy.org/en/latest/topics/settings.html#populating-the-settings" rel="noopener nofollow" target="_blank">https://doc.scrapy.org/en/latest/topics/settings.html#populating-the-settings</a> - the custom_settings value should override the value of settings.py. But the result of the above is:</p>
+<blockquote><p>....<br>AUTOTHROTTLE_ENABLED: True<br>...</p></blockquote>
+<p>It&#39;s using the value from settings.py - am I misunderstanding this or is it a bug? I was hoping to load and alter settings dynamically during the <strong>init</strong>.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+106</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">docs/topics/settings.rst</span><span class="h">index 06a03e69e..fb465b529 100644</span><span class="h">@@ -128,6 +128,17 @@ arguments &lt;spiderargs&gt;` or other logic:</span><span class="c">                 )</span><span class="c">             return spider</span><span class="c"> </span><span class="a">+.. note:: Spider settings are applied to the settings of the</span><span class="a">+    :class:`~scrapy.crawler.Crawler` before the spider is instantiated, so</span><span class="a">+    :attr:`~scrapy.Spider.custom_settings` must be defined as a class</span><span class="a">+    attribute: setting it on the spider instance, e.g. in ``__init__()``, has</span><span class="a">+    no effect and triggers a warning.</span><span class="a">+</span><span class="a">+    Spider settings are also not part of the settings returned by</span><span class="a">+    :func:`scrapy.utils.project.get_project_settings`, which only include</span><span class="a">+    project settings. To read the settings that apply to a running spider, use</span><span class="a">+    :attr:`Spider.settings &lt;scrapy.Spider.settings&gt;`.</span><span class="a">+</span><span class="c"> .. _project-settings:</span><span class="c"> </span><span class="c"> 3. Project settings</span><span class="f">scrapy/crawler.py</span><span class="h">index 304b63d37..2545b8d97 100644</span><span class="h">@@ -324,7 +324,29 @@ class Crawler:</span><span class="c">             raise</span><span class="c"> </span><span class="c">     def _create_spider(self, *args: Any, **kwargs: Any) -&gt; Spider:</span><span class="r">-        return self.spidercls.from_crawler(self, *args, **kwargs)</span><span class="a">+        spider = self.spidercls.from_crawler(self, *args, **kwargs)</span><span class="a">+        self._warn_instance_custom_settings(spider)</span><span class="a">+        return spider</span><span class="a">+</span><span class="a">+    def _warn_instance_custom_settings(self, spider: Spider) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;Warn if *spider* defines :attr:`~scrapy.Spider.custom_settings` on</span><span class="a">+        the instance (e.g. in ``__init__()`` or as a spider argument), since</span><span class="a">+        spider settings are read from the spider class before the spider is</span><span class="a">+        instantiated, and hence such a value is ignored.&quot;&quot;&quot;</span><span class="a">+        if &quot;custom_settings&quot; not in vars(spider):</span><span class="a">+            return</span><span class="a">+        if spider.custom_settings is self.spidercls.custom_settings:</span><span class="a">+            return</span><span class="a">+        warnings.warn(</span><span class="a">+            f&quot;{self.spidercls.__qualname__}.custom_settings was set on the &quot;</span><span class="a">+            f&quot;spider instance (e.g. in __init__() or as a spider argument), &quot;</span><span class="a">+            f&quot;so it is ignored: spider settings are applied before the &quot;</span><span class="a">+            f&quot;spider is instantiated. Define custom_settings as a class &quot;</span><span class="a">+            f&quot;attribute, implement the update_settings() class method, or &quot;</span><span class="a">+            f&quot;set settings with priority=&#39;spider&#39; in from_crawler() instead.&quot;,</span><span class="a">+            category=UserWarning,</span><span class="a">+            stacklevel=3,</span><span class="a">+        )</span><span class="c"> </span><span class="c">     def _create_engine(self) -&gt; ExecutionEngine:</span><span class="c">         return ExecutionEngine(self, lambda _: self.stop_async())</span><span class="f">scrapy/utils/project.py</span><span class="h">index 3e75c7729..46e063830 100644</span><span class="h">@@ -64,6 +64,16 @@ def data_path(path: str | os.PathLike[str], createdir: bool = False) -&gt; str:</span><span class="c"> </span><span class="c"> </span><span class="c"> def get_project_settings() -&gt; Settings:</span><span class="a">+    &quot;&quot;&quot;Return a :class:`~scrapy.settings.Settings` object with the</span><span class="a">+    :ref:`project settings &lt;project-settings&gt;` of the current project, on top</span><span class="a">+    of the :ref:`global default settings &lt;default-settings&gt;`.</span><span class="a">+</span><span class="a">+    The returned settings do not include :ref:`spider settings</span><span class="a">+    &lt;spider-settings&gt;` or :ref:`add-on settings &lt;addon-settings&gt;`, which are</span><span class="a">+    only applied to the settings of a :class:`~scrapy.crawler.Crawler` when it</span><span class="a">+    is created for a given spider class. To read the settings that apply to a</span><span class="a">+    running spider, use :attr:`Spider.settings &lt;scrapy.Spider.settings&gt;`.</span><span class="a">+    &quot;&quot;&quot;</span><span class="c">     if ENVVAR not in os.environ:</span><span class="c">         project = os.environ.get(&quot;SCRAPY_PROJECT&quot;, &quot;default&quot;)</span><span class="c">         init_env(project)</span><span class="f">tests/test_crawler.py</span><span class="h">index 9e22839a1..156780aaa 100644</span><span class="h">@@ -539,6 +539,68 @@ class TestSpiderSettings:</span><span class="c">         enabled_exts = [e.__class__ for e in crawler.extensions.middlewares]</span><span class="c">         assert AutoThrottle in enabled_exts</span><span class="c"> </span><span class="a">+    def test_spider_custom_settings_class_attribute_no_warning(</span><span class="a">+        self, recwarn: pytest.WarningsRecorder</span><span class="a">+    ) -&gt; None:</span><span class="a">+        class MySpider(scrapy.Spider):</span><span class="a">+            name = &quot;spider&quot;</span><span class="a">+            custom_settings = {&quot;AUTOTHROTTLE_ENABLED&quot;: False}</span><span class="a">+</span><span class="a">+        crawler = get_raw_crawler(MySpider, BASE_SETTINGS)</span><span class="a">+        crawler._create_spider()</span><span class="a">+        assert not [w for w in recwarn if &quot;custom_settings&quot; in str(w.message)]</span><span class="a">+        assert crawler.settings.getbool(&quot;AUTOTHROTTLE_ENABLED&quot;) is False</span><span class="a">+</span><span class="a">+    def test_spider_custom_settings_set_in_init_warns(self) -&gt; None:</span><span class="a">+        class MySpider(scrapy.Spider):</span><span class="a">+            name = &quot;spider&quot;</span><span class="a">+</span><span class="a">+            def __init__(self, *args: Any, **kwargs: Any):</span><span class="a">+                super().__init__(*args, **kwargs)</span><span class="a">+                self.custom_settings = {&quot;AUTOTHROTTLE_ENABLED&quot;: True}</span><span class="a">+</span><span class="a">+        crawler = get_raw_crawler(MySpider, BASE_SETTINGS)</span><span class="a">+        with pytest.warns(</span><span class="a">+            UserWarning, match=r&quot;MySpider\.custom_settings was set on the spider&quot;</span><span class="a">+        ):</span><span class="a">+            crawler._create_spider()</span><span class="a">+        assert crawler.settings.getbool(&quot;AUTOTHROTTLE_ENABLED&quot;) is False</span><span class="a">+</span><span class="a">+    def test_spider_custom_settings_spider_argument_warns(self) -&gt; None:</span><span class="a">+        class MySpider(scrapy.Spider):</span><span class="a">+            name = &quot;spider&quot;</span><span class="a">+</span><span class="a">+        crawler = get_raw_crawler(MySpider, BASE_SETTINGS)</span><span class="a">+        with pytest.warns(UserWarning, match=r&quot;custom_settings was set on the spider&quot;):</span><span class="a">+            crawler._create_spider(custom_settings=&quot;{&#39;AUTOTHROTTLE_ENABLED&#39;: True}&quot;)</span><span class="a">+        assert crawler.settings.getbool(&quot;AUTOTHROTTLE_ENABLED&quot;) is False</span><span class="a">+</span><span class="a">+    @coroutine_test</span><span class="a">+    async def test_spider_custom_settings_set_in_init_warns_crawl(</span><span class="a">+        self, recwarn: pytest.WarningsRecorder</span><span class="a">+    ) -&gt; None:</span><span class="a">+        class MySpider(NoRequestsSpider):</span><span class="a">+            custom_settings = {&quot;AUTOTHROTTLE_ENABLED&quot;: False}</span><span class="a">+</span><span class="a">+            def __init__(self, *args: Any, **kwargs: Any):</span><span class="a">+                super().__init__(*args, **kwargs)</span><span class="a">+                self.custom_settings = {&quot;AUTOTHROTTLE_ENABLED&quot;: True}</span><span class="a">+</span><span class="a">+        crawler = get_raw_crawler(MySpider, BASE_SETTINGS)</span><span class="a">+        # recwarn instead of pytest.warns(), which would re-emit unrelated</span><span class="a">+        # warnings (e.g. a ResourceWarning at an arbitrary GC point during the</span><span class="a">+        # crawl) and fail the test.</span><span class="a">+        await crawler.crawl_async()</span><span class="a">+        assert [</span><span class="a">+            w</span><span class="a">+            for w in recwarn</span><span class="a">+            if issubclass(w.category, UserWarning)</span><span class="a">+            and &quot;MySpider.custom_settings was set on the spider&quot; in str(w.message)</span><span class="a">+        ]</span><span class="a">+        assert crawler.settings.getbool(&quot;AUTOTHROTTLE_ENABLED&quot;) is False</span><span class="a">+        enabled_exts = [e.__class__ for e in crawler.extensions.middlewares]</span><span class="a">+        assert AutoThrottle not in enabled_exts</span><span class="a">+</span><span class="c"> </span><span class="c"> class TestCrawlerLogging:</span><span class="c">     def test_no_root_handler_installed(self) -&gt; None:</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/scrapy/scrapy/pull/8051" rel="noopener" target="_blank">PR #8051</a></span><span class="pm"><span class="a">+12</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">docs/topics/api.rst</span><span class="h">index 24f46f656..d6e8a54f9 100644</span><span class="h">@@ -166,6 +166,8 @@ Settings API</span><span class="c"> </span><span class="c"> .. autofunction:: get_settings_priority</span><span class="c"> </span><span class="a">+.. autofunction:: scrapy.utils.project.get_project_settings</span><span class="a">+</span><span class="c"> .. autoclass:: Settings</span><span class="c">    :show-inheritance:</span><span class="c">    :members:</span><span class="f">docs/topics/settings.rst</span><span class="h">index 06a03e69e..90d2eca29 100644</span><span class="h">@@ -137,6 +137,10 @@ Scrapy projects include a settings module, usually a file called</span><span class="c"> ``settings.py``, where you should populate most settings that apply to all your</span><span class="c"> spiders.</span><span class="c"> </span><span class="a">+:func:`scrapy.utils.project.get_project_settings` returns these settings, e.g.</span><span class="a">+to pass them to :class:`~scrapy.crawler.AsyncCrawlerProcess` when :ref:`running</span><span class="a">+Scrapy from a script &lt;run-from-script&gt;`.</span><span class="a">+</span><span class="c"> .. seealso:: :ref:`topics-settings-module-envvar`</span><span class="c"> </span><span class="c"> .. _addon-settings:</span><span class="f">scrapy/utils/project.py</span><span class="h">index 3e75c7729..831ac7770 100644</span><span class="h">@@ -64,6 +64,12 @@ def data_path(path: str | os.PathLike[str], createdir: bool = False) -&gt; str:</span><span class="c"> </span><span class="c"> </span><span class="c"> def get_project_settings() -&gt; Settings:</span><span class="a">+    &quot;&quot;&quot;Return a :class:`~scrapy.settings.Settings` object with the</span><span class="a">+    :ref:`project settings &lt;project-settings&gt;` of the current project.</span><span class="a">+</span><span class="a">+    Settings from sources with a higher precedence, such as :ref:`spider</span><span class="a">+    settings &lt;spider-settings&gt;`, are applied when a crawl starts.</span><span class="a">+    &quot;&quot;&quot;</span><span class="c">     if ENVVAR not in os.environ:</span><span class="c">         project = os.environ.get(&quot;SCRAPY_PROJECT&quot;, &quot;default&quot;)</span><span class="c">         init_env(project)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/scrapy/run-20261025-211112/1900/">Previous · #1900</a>
+  <a class="mid" href="/backtests/scrapy/run-20261025-211112/">All tickets in this run</a>
+  <a href="/backtests/scrapy/run-20261025-211112/2578/">Next · #2578</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
