@@ -359,7 +359,7 @@ const featured = index.repos.find((r) => r.latest) || null;
 // Chart (inline SVG)
 // ---------------------------------------------------------------------------
 
-const PALETTE = ['#f5e900', '#8ab4f8', '#e39ad6', '#7fd1d1', '#f0b27a', '#b5a7f5'];
+const PALETTE = ['#f5e900', '#8ab4f8', '#e39ad6', '#7fd1d1', '#f0b27a', '#b5a7f5', '#a8e05f'];
 
 function chart() {
   const series = index.repos.filter((r) => r.runs.length).map((r, k) => ({ repo: r, color: PALETTE[k % PALETTE.length] }));
