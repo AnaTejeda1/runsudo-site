@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#3990 Responses WebSocket `server_error` frames bypass model retry policies — openai/openai-agents-python backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #3990 in openai/openai-agents-python, run 24 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261024-184640/3990/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/run-20261024-184640/">run-20261024-184640</a><span aria-hidden="true">/</span><span aria-current="page">#3990</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/openai/openai-agents-python/issues/3990" rel="noopener" target="_blank">#3990</a></span>
+  <span>Merged fix <a href="https://github.com/openai/openai-agents-python/pull/3991" rel="noopener" target="_blank">PR #3991</a></span>
+  <span>Run 24 Oct 2026 · <span class="runid">run-20261024-184640</span></span>
+  <span>openai/openai-agents-python</span>
+</div>
+<h1 class="ticket-title">Responses WebSocket <code>server_error</code> frames bypass model retry policies</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches touch the same condition in OpenAIResponsesWSModel.get_retry_advice and both pass every independent test, so the difference lies in how faithfully each matches the issue&#39;s specification and in test quality. The issue states that a pre-response frame with event_type=&quot;error&quot; and error_type=&quot;server_error&quot; should yield suggested=True, analogous to an HTTP 500, with no qualification on the code field. Patch B implements exactly that (`error_type == &quot;server_error&quot;`). Patch A adds an unrequested `code is None` restriction, so a server_error frame carrying any non-null code would still fall through to the common classifier and terminate the run, recreating the reported failure mode for a slightly different frame. Patch A even codifies this narrowing in a test asserting that `server_error` with code `invalid_request_error` is not retried, but that combination is not what the issue&#39;s &#39;invalid-request errors remain unaffected&#39; boundary refers to; invalid-request frames have error_type=&quot;invalid_request_error&quot;, which neither patch matches. The existing `server_is_overloaded` branch, by contrast, keys on a code because that frame&#39;s type is service_unavailable_error, so B&#39;s type-based match is the consistent generalization. On tests, A only adds unit checks on get_retry_advice (plus a parametrized rewrite of the partial-overload test). B adds the same unit coverage for both stateless and previous_response_id cases, a partial-response unsafe case, and three end-to-end tests through stream_response_with_retry with provider_suggested() that verify the real retry path: stateless retry succeeds on a second connection, stateful request with previous_response_id is not replayed, and a server_error after response.created is not retried. Those exercise the exact runtime scenarios the issue enumerates and would fail on base. Scope and craft are otherwise comparable; B&#39;s extra test helpers are contained and reuse existing DummyWSConnection fixtures. B is the better fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 27s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">380 passed · 0 skipped · 380 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">185<small>vs 79 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/openai/openai-agents-python/issues/3990" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Please read this first</h3>
+<ul><li><input type="checkbox" disabled checked> I read the Agents SDK model retry and Responses WebSocket documentation.</li><li><input type="checkbox" disabled checked> I searched open and closed issues for <code>server_error</code>, <code>ResponsesWebSocketError</code>, and related retry behavior.</li><li><input type="checkbox" disabled checked> I reviewed #3969 and its fix in #3978.</li></ul>
+<h3>Describe the bug</h3>
+<p>When a Responses WebSocket returns a <code>server_error</code> frame before any <code>response.*</code> event for the current request, <code>Runner.run_streamed()</code> terminates with <code>ResponsesWebSocketError</code> instead of applying the configured model retry policy.</p>
+<p>We captured the following raw server frame in four production occurrences within approximately three hours:</p>
+<pre><code class="lang-json">{
+  &quot;type&quot;: &quot;error&quot;,
+  &quot;error&quot;: {
+    &quot;type&quot;: &quot;server_error&quot;,
+    &quot;code&quot;: null,
+    &quot;message&quot;: &quot;Sorry, something went wrong.&quot;,
+    &quot;param&quot;: null
+  },
+  &quot;sequence_number&quot;: 2
+}</code></pre>
+<p>The run had <code>ModelRetrySettings(max_retries=2)</code> configured with policies covering:</p>
+<ul><li><code>retry_policies.provider_suggested()</code></li><li>network errors</li><li>transient HTTP statuses</li></ul>
+<p>The upstream failure is intermittent, but the missing retry classification is deterministic.</p>
+<p>Version 0.19.0 added retry advice for pre-response WebSocket errors whose code is exactly <code>server_is_overloaded</code>. This related error instead has:</p>
+<ul><li><code>event_type=&quot;error&quot;</code></li><li><code>error_type=&quot;server_error&quot;</code></li><li><code>code=None</code></li><li>no HTTP status</li><li>no retry headers</li></ul>
+<p>Consequently, <code>OpenAIResponsesWSModel.get_retry_advice()</code> delegates to the common OpenAI classifier, which returns no retry advice. Network and HTTP-status policies cannot match because this WebSocket error frame carries neither a network-error classification nor the equivalent 5xx status.</p>
+<h3>Debug information</h3>
+<ul><li>Agents SDK version when observed: <code>0.18.2</code></li><li>Behavior also appears unhandled by the <code>0.19.0</code> retry classifier</li><li><code>openai</code> package version: <code>2.45.0</code></li><li>Python version: <code>3.14.6</code></li><li>Transport: OpenAI Responses WebSocket</li><li>API interface: streaming</li></ul>
+<h3>Reproduction</h3>
+<p>The provider error itself is intermittent, but the classifier behavior can be reproduced without making an API request:</p>
+<pre><code class="lang-python">from openai import AsyncOpenAI
+
+from agents.models.openai_responses import (
+    OpenAIResponsesWSModel,
+    ResponsesWebSocketError,
+)
+from agents.retry import ModelRetryAdviceRequest
+
+
+error = ResponsesWebSocketError(
+    {
+        &quot;type&quot;: &quot;error&quot;,
+        &quot;error&quot;: {
+            &quot;type&quot;: &quot;server_error&quot;,
+            &quot;code&quot;: None,
+            &quot;message&quot;: &quot;Sorry, something went wrong.&quot;,
+            &quot;param&quot;: None,
+        },
+        &quot;sequence_number&quot;: 2,
+    }
+)
+
+model = OpenAIResponsesWSModel(
+    model=&quot;gpt-5.4&quot;,
+    openai_client=AsyncOpenAI(api_key=&quot;test&quot;),
+)
+
+for previous_response_id in (None, &quot;resp_existing&quot;):
+    advice = model.get_retry_advice(
+        ModelRetryAdviceRequest(
+            error=error,
+            attempt=1,
+            stream=True,
+            previous_response_id=previous_response_id,
+        )
+    )
+    print(advice)</code></pre>
+<p>Actual output:</p>
+<pre><code class="lang-text">None
+None</code></pre>
+<p>At runtime, <code>retry_policies.provider_suggested()</code> therefore receives no positive provider advice. The error terminates a stateless streamed run without applying the configured retry and backoff policy.</p>
+<h3>Expected behavior</h3>
+<p>A Responses WebSocket error with <code>event_type=&quot;error&quot;</code> and <code>error_type=&quot;server_error&quot;</code> received before any <code>response.*</code> event should produce positive provider retry advice, analogous to a transient HTTP 500 error.</p>
+<p>Semantically, the advice should be equivalent to:</p>
+<pre><code class="lang-python">ModelRetryAdvice(
+    suggested=True,
+    replay_safety=None,
+)</code></pre>
+<p>This should allow stateless requests using <code>retry_policies.provider_suggested()</code> to retry without universally declaring stateful requests replay-safe.</p>
+<p>Existing retry-safety boundaries should remain unchanged:</p>
+<ul><li>Stateless pre-response requests may retry through <code>provider_suggested()</code>.</li><li>Errors received after response processing begins must remain non-retryable.</li><li>Requests using <code>previous_response_id</code>, <code>conversation_id</code>, or other stateful continuation remain subject to the existing replay-safety gate.</li><li>Invalid-request and other non-transient WebSocket errors remain unaffected.</li></ul>
+<h3>Additional context</h3>
+<p>This is related to, but distinct from, #3969 and #3978.</p>
+<p>That fix matches only:</p>
+<pre><code class="lang-python">request.error.event_type == &quot;error&quot;
+and request.error.code == &quot;server_is_overloaded&quot;</code></pre>
+<p>The production frame reported here instead uses <code>error.type=&quot;server_error&quot;</code> with <code>code=null</code>, so it still falls through the retry classifier.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+183</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">src/agents/models/openai_responses.py</span><span class="h">index 55808eda..f2c75502 100644</span><span class="h">@@ -1034,7 +1034,10 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):</span><span class="c">         if (</span><span class="c">             isinstance(request.error, ResponsesWebSocketError)</span><span class="c">             and request.error.event_type == &quot;error&quot;</span><span class="r">-            and request.error.code == &quot;server_is_overloaded&quot;</span><span class="a">+            and (</span><span class="a">+                request.error.code == &quot;server_is_overloaded&quot;</span><span class="a">+                or request.error.error_type == &quot;server_error&quot;</span><span class="a">+            )</span><span class="c">         ):</span><span class="c">             return ModelRetryAdvice(</span><span class="c">                 suggested=True,</span><span class="f">tests/models/test_openai_responses.py</span><span class="h">index bd555fdc..6ba729e6 100644</span><span class="h">@@ -38,7 +38,13 @@ from agents.models.openai_responses import (</span><span class="c">     ResponsesWebSocketError,</span><span class="c">     _should_retry_pre_event_websocket_disconnect,</span><span class="c"> )</span><span class="r">-from agents.retry import ModelRetryAdviceRequest</span><span class="a">+from agents.retry import (</span><span class="a">+    ModelRetryAdviceRequest,</span><span class="a">+    ModelRetryBackoffSettings,</span><span class="a">+    ModelRetrySettings,</span><span class="a">+    retry_policies,</span><span class="a">+)</span><span class="a">+from agents.run_internal.model_retry import stream_response_with_retry</span><span class="c"> from agents.usage import Usage</span><span class="c"> from tests.fake_model import get_response_obj</span><span class="c"> from tests.testing_processor import fetch_ordered_spans</span><span class="h">@@ -4094,6 +4100,178 @@ def test_websocket_get_retry_advice_ignores_other_pre_response_error_codes() -&gt;</span><span class="c">     assert advice is None</span><span class="c"> </span><span class="c"> </span><span class="a">+def _server_error_frame(sequence_number: int) -&gt; str:</span><span class="a">+    return json.dumps(</span><span class="a">+        {</span><span class="a">+            &quot;type&quot;: &quot;error&quot;,</span><span class="a">+            &quot;error&quot;: {</span><span class="a">+                &quot;type&quot;: &quot;server_error&quot;,</span><span class="a">+                &quot;code&quot;: None,</span><span class="a">+                &quot;message&quot;: &quot;Sorry, something went wrong.&quot;,</span><span class="a">+                &quot;param&quot;: None,</span><span class="a">+            },</span><span class="a">+            &quot;sequence_number&quot;: sequence_number,</span><span class="a">+        }</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.allow_call_model_methods</span><span class="a">+@pytest.mark.parametrize(&quot;previous_response_id&quot;, [None, &quot;resp_prev&quot;])</span><span class="a">+def test_websocket_get_retry_advice_marks_pre_response_server_error_retryable(</span><span class="a">+    previous_response_id: str | None,</span><span class="a">+) -&gt; None:</span><span class="a">+    model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="a">+    error = ResponsesWebSocketError(json.loads(_server_error_frame(2)))</span><span class="a">+</span><span class="a">+    advice = model.get_retry_advice(</span><span class="a">+        ModelRetryAdviceRequest(</span><span class="a">+            error=error,</span><span class="a">+            attempt=1,</span><span class="a">+            stream=True,</span><span class="a">+            previous_response_id=previous_response_id,</span><span class="a">+        )</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert advice is not None</span><span class="a">+    assert advice.suggested is True</span><span class="a">+    assert advice.replay_safety is None</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.allow_call_model_methods</span><span class="a">+def test_websocket_get_retry_advice_keeps_partial_server_error_unsafe() -&gt; None:</span><span class="a">+    model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="a">+    error = ResponsesWebSocketError(json.loads(_server_error_frame(2)))</span><span class="a">+    setattr(error, &quot;_openai_agents_ws_replay_safety&quot;, &quot;unsafe&quot;)  # noqa: B010</span><span class="a">+    setattr(error, &quot;_openai_agents_ws_response_started&quot;, True)  # noqa: B010</span><span class="a">+</span><span class="a">+    advice = model.get_retry_advice(</span><span class="a">+        ModelRetryAdviceRequest(</span><span class="a">+            error=error,</span><span class="a">+            attempt=1,</span><span class="a">+            stream=True,</span><span class="a">+        )</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert advice is not None</span><span class="a">+    assert advice.suggested is False</span><span class="a">+    assert advice.replay_safety == &quot;unsafe&quot;</span><span class="a">+</span><span class="a">+</span><span class="a">+def _patch_websocket_connections(</span><span class="a">+    monkeypatch: pytest.MonkeyPatch,</span><span class="a">+    model: OpenAIResponsesWSModel,</span><span class="a">+    connections: list[DummyWSConnection],</span><span class="a">+) -&gt; list[DummyWSConnection]:</span><span class="a">+    opened: list[DummyWSConnection] = []</span><span class="a">+</span><span class="a">+    async def fake_open(</span><span class="a">+        ws_url: str, headers: dict[str, str], *, connect_timeout: float | None = None</span><span class="a">+    ) -&gt; DummyWSConnection:</span><span class="a">+        connection = connections.pop(0)</span><span class="a">+        opened.append(connection)</span><span class="a">+        return connection</span><span class="a">+</span><span class="a">+    monkeypatch.setattr(model, &quot;_open_websocket_connection&quot;, fake_open)</span><span class="a">+    return opened</span><span class="a">+</span><span class="a">+</span><span class="a">+def _stream_with_provider_suggested_retry(</span><span class="a">+    model: OpenAIResponsesWSModel,</span><span class="a">+    *,</span><span class="a">+    previous_response_id: str | None = None,</span><span class="a">+):</span><span class="a">+    async def rewind() -&gt; None:</span><span class="a">+        return None</span><span class="a">+</span><span class="a">+    return stream_response_with_retry(</span><span class="a">+        get_stream=lambda: model.stream_response(</span><span class="a">+            system_instructions=None,</span><span class="a">+            input=&quot;hi&quot;,</span><span class="a">+            model_settings=ModelSettings(),</span><span class="a">+            tools=[],</span><span class="a">+            output_schema=None,</span><span class="a">+            handoffs=[],</span><span class="a">+            tracing=ModelTracing.DISABLED,</span><span class="a">+            previous_response_id=previous_response_id,</span><span class="a">+        ),</span><span class="a">+        rewind=rewind,</span><span class="a">+        retry_settings=ModelRetrySettings(</span><span class="a">+            max_retries=2,</span><span class="a">+            backoff=ModelRetryBackoffSettings(initial_delay=0, jitter=False),</span><span class="a">+            policy=retry_policies.provider_suggested(),</span><span class="a">+        ),</span><span class="a">+        get_retry_advice=model.get_retry_advice,</span><span class="a">+        previous_response_id=previous_response_id,</span><span class="a">+        conversation_id=None,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.allow_call_model_methods</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_websocket_stream_retries_stateless_pre_response_server_error(monkeypatch):</span><span class="a">+    model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="a">+    opened = _patch_websocket_connections(</span><span class="a">+        monkeypatch,</span><span class="a">+        model,</span><span class="a">+        [</span><span class="a">+            DummyWSConnection([_server_error_frame(2)]),</span><span class="a">+            DummyWSConnection([_response_completed_frame(&quot;resp_ok&quot;, 1)]),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    events = [event async for event in _stream_with_provider_suggested_retry(model)]</span><span class="a">+</span><span class="a">+    assert len(opened) == 2</span><span class="a">+    assert [event.type for event in events] == [&quot;response.completed&quot;]</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.allow_call_model_methods</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_websocket_stream_does_not_retry_stateful_pre_response_server_error(monkeypatch):</span><span class="a">+    model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="a">+    opened = _patch_websocket_connections(</span><span class="a">+        monkeypatch,</span><span class="a">+        model,</span><span class="a">+        [</span><span class="a">+            DummyWSConnection([_server_error_frame(2)]),</span><span class="a">+            DummyWSConnection([_response_completed_frame(&quot;resp_ok&quot;, 1)]),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    with pytest.raises(ResponsesWebSocketError, match=&quot;server_error&quot;):</span><span class="a">+        async for _event in _stream_with_provider_suggested_retry(</span><span class="a">+            model, previous_response_id=&quot;resp_prev&quot;</span><span class="a">+        ):</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+    assert len(opened) == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.allow_call_model_methods</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_websocket_stream_does_not_retry_server_error_after_response_started(monkeypatch):</span><span class="a">+    model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="a">+    opened = _patch_websocket_connections(</span><span class="a">+        monkeypatch,</span><span class="a">+        model,</span><span class="a">+        [</span><span class="a">+            DummyWSConnection(</span><span class="a">+                [</span><span class="a">+                    _response_event_frame(&quot;response.created&quot;, &quot;resp_partial&quot;, 1),</span><span class="a">+                    _server_error_frame(2),</span><span class="a">+                ]</span><span class="a">+            ),</span><span class="a">+            DummyWSConnection([_response_completed_frame(&quot;resp_ok&quot;, 1)]),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    with pytest.raises(ResponsesWebSocketError, match=&quot;server_error&quot;):</span><span class="a">+        async for _event in _stream_with_provider_suggested_retry(model):</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+    assert len(opened) == 1</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_get_client_disables_provider_managed_retries_when_requested() -&gt; None:</span><span class="c">     class DummyClient:</span><span class="c">         def __init__(self):</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/openai/openai-agents-python/pull/3991" rel="noopener" target="_blank">PR #3991</a></span><span class="pm"><span class="a">+74</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">src/agents/models/openai_responses.py</span><span class="h">index 55808eda1..006aa203a 100644</span><span class="h">@@ -1034,7 +1034,10 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):</span><span class="c">         if (</span><span class="c">             isinstance(request.error, ResponsesWebSocketError)</span><span class="c">             and request.error.event_type == &quot;error&quot;</span><span class="r">-            and request.error.code == &quot;server_is_overloaded&quot;</span><span class="a">+            and (</span><span class="a">+                request.error.code == &quot;server_is_overloaded&quot;</span><span class="a">+                or (request.error.error_type == &quot;server_error&quot; and request.error.code is None)</span><span class="a">+            )</span><span class="c">         ):</span><span class="c">             return ModelRetryAdvice(</span><span class="c">                 suggested=True,</span><span class="f">tests/models/test_openai_responses.py</span><span class="h">index bd555fdcd..bc1d33c64 100644</span><span class="h">@@ -4041,15 +4041,81 @@ def test_websocket_get_retry_advice_marks_pre_response_overload_retryable(</span><span class="c"> </span><span class="c"> </span><span class="c"> @pytest.mark.allow_call_model_methods</span><span class="r">-def test_websocket_get_retry_advice_keeps_partial_overload_unsafe() -&gt; None:</span><span class="a">+@pytest.mark.parametrize(&quot;previous_response_id&quot;, [None, &quot;resp_prev&quot;])</span><span class="a">+def test_websocket_get_retry_advice_marks_pre_response_server_error_retryable(</span><span class="a">+    previous_response_id: str | None,</span><span class="a">+) -&gt; None:</span><span class="c">     model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="c">     error = ResponsesWebSocketError(</span><span class="c">         {</span><span class="c">             &quot;type&quot;: &quot;error&quot;,</span><span class="c">             &quot;error&quot;: {</span><span class="r">-                &quot;type&quot;: &quot;service_unavailable_error&quot;,</span><span class="r">-                &quot;code&quot;: &quot;server_is_overloaded&quot;,</span><span class="r">-                &quot;message&quot;: &quot;Our servers are currently overloaded. Please try again later.&quot;,</span><span class="a">+                &quot;type&quot;: &quot;server_error&quot;,</span><span class="a">+                &quot;code&quot;: None,</span><span class="a">+                &quot;message&quot;: &quot;Sorry, something went wrong.&quot;,</span><span class="a">+            },</span><span class="a">+        }</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    advice = model.get_retry_advice(</span><span class="a">+        ModelRetryAdviceRequest(</span><span class="a">+            error=error,</span><span class="a">+            attempt=1,</span><span class="a">+            stream=True,</span><span class="a">+            previous_response_id=previous_response_id,</span><span class="a">+        )</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert advice is not None</span><span class="a">+    assert advice.suggested is True</span><span class="a">+    assert advice.replay_safety is None</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.allow_call_model_methods</span><span class="a">+def test_websocket_get_retry_advice_does_not_override_non_transient_error_code() -&gt; None:</span><span class="a">+    model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="a">+    error = ResponsesWebSocketError(</span><span class="a">+        {</span><span class="a">+            &quot;type&quot;: &quot;error&quot;,</span><span class="a">+            &quot;error&quot;: {</span><span class="a">+                &quot;type&quot;: &quot;server_error&quot;,</span><span class="a">+                &quot;code&quot;: &quot;invalid_request_error&quot;,</span><span class="a">+                &quot;message&quot;: &quot;Invalid request.&quot;,</span><span class="a">+            },</span><span class="a">+        }</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    advice = model.get_retry_advice(</span><span class="a">+        ModelRetryAdviceRequest(</span><span class="a">+            error=error,</span><span class="a">+            attempt=1,</span><span class="a">+            stream=True,</span><span class="a">+        )</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert advice is None</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.allow_call_model_methods</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    (&quot;error_type&quot;, &quot;code&quot;),</span><span class="a">+    [</span><span class="a">+        (&quot;service_unavailable_error&quot;, &quot;server_is_overloaded&quot;),</span><span class="a">+        (&quot;server_error&quot;, None),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_websocket_get_retry_advice_keeps_partial_transient_error_unsafe(</span><span class="a">+    error_type: str,</span><span class="a">+    code: str | None,</span><span class="a">+) -&gt; None:</span><span class="a">+    model = OpenAIResponsesWSModel(model=&quot;gpt-4&quot;, openai_client=cast(Any, DummyWSClient()))</span><span class="a">+    error = ResponsesWebSocketError(</span><span class="a">+        {</span><span class="a">+            &quot;type&quot;: &quot;error&quot;,</span><span class="a">+            &quot;error&quot;: {</span><span class="a">+                &quot;type&quot;: error_type,</span><span class="a">+                &quot;code&quot;: code,</span><span class="a">+                &quot;message&quot;: &quot;Transient provider error.&quot;,</span><span class="c">             },</span><span class="c">         }</span><span class="c">     )</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/openai-agents-python/run-20261024-184640/3969/">Previous · #3969</a>
+  <a class="mid" href="/backtests/openai-agents-python/run-20261024-184640/">All tickets in this run</a>
+  <a href="/backtests/openai-agents-python/run-20261024-184640/4014/">Next · #4014</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

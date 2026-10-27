@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#5072 Realtime: agent_end names the post-handoff agent instead of the agent whose turn ended — openai/openai-agents-python backtest</title>
+<meta name="description" content="The judges split evenly between our patch and the merged fix. Issue #5072 in openai/openai-agents-python, run 24 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261024-184640/5072/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/run-20261024-184640/">run-20261024-184640</a><span aria-hidden="true">/</span><span aria-current="page">#5072</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/openai/openai-agents-python/issues/5072" rel="noopener" target="_blank">#5072</a></span>
+  <span>Merged fix <a href="https://github.com/openai/openai-agents-python/pull/5073" rel="noopener" target="_blank">PR #5073</a></span>
+  <span>Run 24 Oct 2026 · <span class="runid">run-20261024-184640</span></span>
+  <span>openai/openai-agents-python</span>
+</div>
+<h1 class="ticket-title">Realtime: agent_end names the post-handoff agent instead of the agent whose turn ended</h1>
+
+<div class="verdict-block">
+  <span class="pill tie lg">Tie</span>
+  <p class="line">The judges split evenly between our patch and the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical core fix: in the turn_ended branch they capture `self._active_output_response_agent or self._current_agent` before the guardrail state is cleared and pass it to RealtimeAgentEndEvent. This is exactly the root cause the issue identifies (the snapshot taken at turn_started is the agent that produced the turn, and it was being cleared one line before the end event was built). All five independent tests fail on base and pass on both patches, so on the issue&#39;s core scenarios they are equivalent.
+
+The differences are in tests and in one adjacent change. Patch A adds a single test that mirrors the repro (start A, handoff A-&gt;B, end A, and asserts `_current_agent` is B). Patch B adds two tests: one that also drives the follow-up turn and asserts the full paired sequence (start A, handoff, end A, start B, end B), which directly exercises the per-agent pairing the issue says consumers depend on, and one for a late turn_started arriving after output and a handoff for the same response. Patch B&#39;s second source change makes agent_start use the same snapshot when turn_started arrives after the response was already activated by earlier output; in that ordering base would name B as the starter of A&#39;s response, the same misattribution class the issue describes, so the change is consistent with the fix and the guardrail precedent rather than unrelated churn, and it is covered by a test. It is low risk because a fresh response re-assigns the snapshot in the same branch.
+
+Craft is a minor wash: A&#39;s test sits in test_session.py with top-level imports, while B uses function-local imports in a handoff test file, which is slightly less tidy. Overall B wins on test strength (verifies the next-turn pairing the issue motivates) with equal correctness on the reported bug and a coherent, low-risk adjacent consistency fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">3m 56s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">411 passed · 0 skipped · 411 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">102<small>vs 39 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/openai/openai-agents-python/issues/5072" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Please read this first</h3>
+<ul><li><strong>Have you read the docs?</strong> Yes.</li><li><strong>Have you searched for related issues?</strong> Yes. No open or closed issue covers which agent <code>agent_end</code> names after an in-response handoff.</li></ul>
+<h3>Describe the bug</h3>
+<p>When a Realtime response contains a handoff tool call, the handoff completes before the model&#39;s <code>turn_ended</code> event and moves <code>_current_agent</code> to the target agent. The <code>turn_ended</code> branch in <code>RealtimeSession</code> then emits <code>RealtimeAgentEndEvent(agent=self._current_agent)</code>, so the caller sees:</p>
+<pre><code class="lang-text">agent_start(A)  →  handoff(A → B)  →  agent_end(B)  →  agent_start(B)  →  agent_end(B)</code></pre>
+<p><code>RealtimeAgentEndEvent.agent</code> is documented as &quot;The agent that ended&quot;, but A never ends and B ends without having started. Any consumer that pairs <code>agent_start</code> / <code>agent_end</code> per agent (turn markers in a UI, per-agent timing, per-agent usage attribution read on <code>agent_end</code>) attributes A&#39;s turn to B.</p>
+<p>The session already knows which agent produced the turn: <code>_active_output_response_agent</code> is captured at <code>turn_started</code> and is what the output guardrails use for the same reason. It is cleared one line before the <code>agent_end</code> event is built.</p>
+<h3>Debug information</h3>
+<ul><li>Agents SDK version: <code>main</code> at 58a6d2c9 (also present in v0.22.2)</li><li>Python version: 3.12.13</li><li>Operating system: macOS 15</li><li>Model and model provider: any Realtime model; reproduced with <code>ScriptedRealtimeModel</code> from <code>agents.realtime.testing</code></li><li>Does the issue reproduce with the latest Agents SDK release? Yes</li><li>Does the issue occur consistently or intermittently? Consistently, whenever a handoff runs inside a response</li></ul>
+<h3>Repro steps</h3>
+<p>Self-contained, no network.</p>
+<pre><code class="lang-python">import asyncio
+
+from agents.realtime.agent import RealtimeAgent
+from agents.realtime.events import RealtimeAgentEndEvent, RealtimeAgentStartEvent, RealtimeHandoffEvent
+from agents.realtime.model_events import (
+    RealtimeModelToolCallEvent,
+    RealtimeModelTurnEndedEvent,
+    RealtimeModelTurnStartedEvent,
+)
+from agents.realtime.session import RealtimeSession
+from agents.realtime.testing import ScriptedRealtimeModel
+
+
+async def main():
+    agent_b = RealtimeAgent(name=&quot;b&quot;)
+    agent_a = RealtimeAgent(name=&quot;a&quot;, handoffs=[agent_b])
+    model = ScriptedRealtimeModel(strict=False)
+    session = RealtimeSession(model, agent_a, None, run_config={&quot;async_tool_calls&quot;: False})
+    await session.enter()
+
+    await model.emit(RealtimeModelTurnStartedEvent(response_id=&quot;response_1&quot;))
+    await model.emit(RealtimeModelToolCallEvent(name=&quot;transfer_to_b&quot;, call_id=&quot;call_1&quot;, arguments=&quot;{}&quot;))
+    await model.emit(RealtimeModelTurnEndedEvent(response_id=&quot;response_1&quot;))
+
+    while not session._event_queue.empty():
+        event = session._event_queue.get_nowait()
+        if isinstance(event, RealtimeAgentStartEvent):
+            print(&quot;agent_start&quot;, event.agent.name)
+        elif isinstance(event, RealtimeHandoffEvent):
+            print(&quot;handoff&quot;, event.from_agent.name, &quot;-&gt;&quot;, event.to_agent.name)
+        elif isinstance(event, RealtimeAgentEndEvent):
+            print(&quot;agent_end&quot;, event.agent.name)
+    await session.close()
+
+
+asyncio.run(main())</code></pre>
+<p>Output on <code>main</code>:</p>
+<pre><code class="lang-text">agent_start a
+handoff a -&gt; b
+agent_end b</code></pre>
+<h3>Expected behavior</h3>
+<pre><code class="lang-text">agent_start a
+handoff a -&gt; b
+agent_end a</code></pre>
+<p>The turn that ended was produced by A; the handoff only decides who speaks next. I have a one-line fix with a regression test ready and will open a PR referencing this issue.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+100</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">src/agents/realtime/session.py</span><span class="h">index f4f2792f..ded8b8e4 100644</span><span class="h">@@ -602,9 +602,12 @@ class RealtimeSession(RealtimeModelListener):</span><span class="c">                 self._active_output_response_generation = self._latest_output_response_generation</span><span class="c">                 self._active_output_response_id = event.response_id</span><span class="c">                 self._active_output_response_agent = self._current_agent</span><span class="a">+            # Name the agent that owns the response; a handoff may already have moved</span><span class="a">+            # _current_agent if this start arrives after the response began.</span><span class="a">+            started_agent = self._active_output_response_agent or self._current_agent</span><span class="c">             await self._put_event(</span><span class="c">                 RealtimeAgentStartEvent(</span><span class="r">-                    agent=self._current_agent,</span><span class="a">+                    agent=started_agent,</span><span class="c">                     info=self._event_info,</span><span class="c">                 )</span><span class="c">             )</span><span class="h">@@ -620,6 +623,9 @@ class RealtimeSession(RealtimeModelListener):</span><span class="c">                 event.response_id is None or event.response_id == self._active_output_response_id</span><span class="c">             )</span><span class="c">             if is_active_response_ended:</span><span class="a">+                # The turn belongs to the agent that produced it, even if a handoff</span><span class="a">+                # during the response has already moved _current_agent.</span><span class="a">+                ended_agent = self._active_output_response_agent or self._current_agent</span><span class="c">                 # Clear guardrail state for next turn.</span><span class="c">                 self._item_transcripts.clear()</span><span class="c">                 self._item_guardrail_run_counts.clear()</span><span class="h">@@ -629,7 +635,7 @@ class RealtimeSession(RealtimeModelListener):</span><span class="c"> </span><span class="c">                 await self._put_event(</span><span class="c">                     RealtimeAgentEndEvent(</span><span class="r">-                        agent=self._current_agent,</span><span class="a">+                        agent=ended_agent,</span><span class="c">                         info=self._event_info,</span><span class="c">                     )</span><span class="c">                 )</span><span class="f">tests/realtime/test_realtime_handoffs.py</span><span class="h">index 652f5de6..bbeacfa2 100644</span><span class="h">@@ -353,3 +353,95 @@ async def test_realtime_handoff_strict_json_rejects_type_coercion():</span><span class="c">     valid_json = &#39;{&quot;name&quot;: &quot;Alice&quot;, &quot;age&quot;: 25}&#39;</span><span class="c">     result = await handoff_obj.on_invoke_handoff(RunContextWrapper(None), valid_json)</span><span class="c">     assert result is rt</span><span class="a">+</span><span class="a">+</span><span class="a">+def _drain_lifecycle_events(session: Any) -&gt; list[tuple[str, ...]]:</span><span class="a">+    from agents.realtime.events import (</span><span class="a">+        RealtimeAgentEndEvent,</span><span class="a">+        RealtimeAgentStartEvent,</span><span class="a">+        RealtimeHandoffEvent,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    lifecycle: list[tuple[str, ...]] = []</span><span class="a">+    while not session._event_queue.empty():</span><span class="a">+        event = session._event_queue.get_nowait()</span><span class="a">+        if isinstance(event, RealtimeAgentStartEvent):</span><span class="a">+            lifecycle.append((&quot;agent_start&quot;, event.agent.name))</span><span class="a">+        elif isinstance(event, RealtimeHandoffEvent):</span><span class="a">+            lifecycle.append((&quot;handoff&quot;, event.from_agent.name, event.to_agent.name))</span><span class="a">+        elif isinstance(event, RealtimeAgentEndEvent):</span><span class="a">+            lifecycle.append((&quot;agent_end&quot;, event.agent.name))</span><span class="a">+    return lifecycle</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_agent_end_names_agent_whose_turn_ended_after_in_response_handoff() -&gt; None:</span><span class="a">+    from agents.realtime.model_events import (</span><span class="a">+        RealtimeModelToolCallEvent,</span><span class="a">+        RealtimeModelTurnEndedEvent,</span><span class="a">+        RealtimeModelTurnStartedEvent,</span><span class="a">+    )</span><span class="a">+    from agents.realtime.session import RealtimeSession</span><span class="a">+    from agents.realtime.testing import ScriptedRealtimeModel</span><span class="a">+</span><span class="a">+    agent_b = RealtimeAgent(name=&quot;b&quot;)</span><span class="a">+    agent_a = RealtimeAgent(name=&quot;a&quot;, handoffs=[agent_b])</span><span class="a">+    model = ScriptedRealtimeModel(strict=False)</span><span class="a">+    session = RealtimeSession(model, agent_a, None, run_config={&quot;async_tool_calls&quot;: False})</span><span class="a">+    await session.enter()</span><span class="a">+    try:</span><span class="a">+        await model.emit(RealtimeModelTurnStartedEvent(response_id=&quot;response_1&quot;))</span><span class="a">+        await model.emit(</span><span class="a">+            RealtimeModelToolCallEvent(name=&quot;transfer_to_b&quot;, call_id=&quot;call_1&quot;, arguments=&quot;{}&quot;)</span><span class="a">+        )</span><span class="a">+        await model.emit(RealtimeModelTurnEndedEvent(response_id=&quot;response_1&quot;))</span><span class="a">+</span><span class="a">+        # The next turn is produced by the handoff target.</span><span class="a">+        await model.emit(RealtimeModelTurnStartedEvent(response_id=&quot;response_2&quot;))</span><span class="a">+        await model.emit(RealtimeModelTurnEndedEvent(response_id=&quot;response_2&quot;))</span><span class="a">+</span><span class="a">+        assert _drain_lifecycle_events(session) == [</span><span class="a">+            (&quot;agent_start&quot;, &quot;a&quot;),</span><span class="a">+            (&quot;handoff&quot;, &quot;a&quot;, &quot;b&quot;),</span><span class="a">+            (&quot;agent_end&quot;, &quot;a&quot;),</span><span class="a">+            (&quot;agent_start&quot;, &quot;b&quot;),</span><span class="a">+            (&quot;agent_end&quot;, &quot;b&quot;),</span><span class="a">+        ]</span><span class="a">+    finally:</span><span class="a">+        await session.close()</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_late_agent_start_names_response_agent_after_in_response_handoff() -&gt; None:</span><span class="a">+    from agents.realtime.model_events import (</span><span class="a">+        RealtimeModelToolCallEvent,</span><span class="a">+        RealtimeModelTranscriptDeltaEvent,</span><span class="a">+        RealtimeModelTurnEndedEvent,</span><span class="a">+        RealtimeModelTurnStartedEvent,</span><span class="a">+    )</span><span class="a">+    from agents.realtime.session import RealtimeSession</span><span class="a">+    from agents.realtime.testing import ScriptedRealtimeModel</span><span class="a">+</span><span class="a">+    agent_b = RealtimeAgent(name=&quot;b&quot;)</span><span class="a">+    agent_a = RealtimeAgent(name=&quot;a&quot;, handoffs=[agent_b])</span><span class="a">+    model = ScriptedRealtimeModel(strict=False)</span><span class="a">+    session = RealtimeSession(model, agent_a, None, run_config={&quot;async_tool_calls&quot;: False})</span><span class="a">+    await session.enter()</span><span class="a">+    try:</span><span class="a">+        # Output from A&#39;s response arrives before its turn_started event.</span><span class="a">+        await model.emit(</span><span class="a">+            RealtimeModelTranscriptDeltaEvent(item_id=&quot;item_1&quot;, delta=&quot;hi&quot;, response_id=&quot;r1&quot;)</span><span class="a">+        )</span><span class="a">+        await model.emit(</span><span class="a">+            RealtimeModelToolCallEvent(name=&quot;transfer_to_b&quot;, call_id=&quot;call_1&quot;, arguments=&quot;{}&quot;)</span><span class="a">+        )</span><span class="a">+        await model.emit(RealtimeModelTurnStartedEvent(response_id=&quot;r1&quot;))</span><span class="a">+        await model.emit(RealtimeModelTurnEndedEvent(response_id=&quot;r1&quot;))</span><span class="a">+</span><span class="a">+        assert _drain_lifecycle_events(session) == [</span><span class="a">+            (&quot;handoff&quot;, &quot;a&quot;, &quot;b&quot;),</span><span class="a">+            (&quot;agent_start&quot;, &quot;a&quot;),</span><span class="a">+            (&quot;agent_end&quot;, &quot;a&quot;),</span><span class="a">+        ]</span><span class="a">+    finally:</span><span class="a">+        await session.close()</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/openai/openai-agents-python/pull/5073" rel="noopener" target="_blank">PR #5073</a></span><span class="pm"><span class="a">+38</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">src/agents/realtime/session.py</span><span class="h">index f4f2792fe..7e5f4aebb 100644</span><span class="h">@@ -620,6 +620,11 @@ class RealtimeSession(RealtimeModelListener):</span><span class="c">                 event.response_id is None or event.response_id == self._active_output_response_id</span><span class="c">             )</span><span class="c">             if is_active_response_ended:</span><span class="a">+                # A handoff inside the response has already moved _current_agent to the</span><span class="a">+                # new agent, so the agent that produced this turn is the one captured at</span><span class="a">+                # turn_started, the same snapshot the output guardrails use.</span><span class="a">+                ended_agent = self._active_output_response_agent or self._current_agent</span><span class="a">+</span><span class="c">                 # Clear guardrail state for next turn.</span><span class="c">                 self._item_transcripts.clear()</span><span class="c">                 self._item_guardrail_run_counts.clear()</span><span class="h">@@ -629,7 +634,7 @@ class RealtimeSession(RealtimeModelListener):</span><span class="c"> </span><span class="c">                 await self._put_event(</span><span class="c">                     RealtimeAgentEndEvent(</span><span class="r">-                        agent=self._current_agent,</span><span class="a">+                        agent=ended_agent,</span><span class="c">                         info=self._event_info,</span><span class="c">                     )</span><span class="c">                 )</span><span class="f">tests/realtime/test_session.py</span><span class="h">index d302c9c48..be2366e0f 100644</span><span class="h">@@ -23,6 +23,7 @@ from agents.realtime.events import (</span><span class="c">     RealtimeAudioEnd,</span><span class="c">     RealtimeAudioInterrupted,</span><span class="c">     RealtimeError,</span><span class="a">+    RealtimeHandoffEvent,</span><span class="c">     RealtimeRawModelEvent,</span><span class="c">     RealtimeToolEnd,</span><span class="c">     RealtimeToolStart,</span><span class="h">@@ -54,6 +55,7 @@ from agents.realtime.session import (</span><span class="c">     RealtimeSession,</span><span class="c">     _PendingToolOutputSendError,</span><span class="c"> )</span><span class="a">+from agents.realtime.testing import ScriptedRealtimeModel</span><span class="c"> from agents.run_context import RunContextWrapper</span><span class="c"> from agents.tool import FunctionTool, function_tool, tool_namespace</span><span class="c"> from agents.tool_context import ToolContext</span><span class="h">@@ -330,6 +332,36 @@ async def test_close_clears_response_bookkeeping_when_model_close_fails():</span><span class="c">     assert session._responses_awaiting_guardrail_cleanup == set()</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_agent_end_names_the_agent_whose_turn_ended_after_handoff():</span><span class="a">+    agent_b = RealtimeAgent(name=&quot;b&quot;)</span><span class="a">+    agent_a = RealtimeAgent(name=&quot;a&quot;, handoffs=[agent_b])</span><span class="a">+    model = ScriptedRealtimeModel(strict=False)</span><span class="a">+    session = RealtimeSession(model, agent_a, None, run_config={&quot;async_tool_calls&quot;: False})</span><span class="a">+    await session.enter()</span><span class="a">+    try:</span><span class="a">+        await model.emit(RealtimeModelTurnStartedEvent(response_id=&quot;response_1&quot;))</span><span class="a">+        await model.emit(</span><span class="a">+            RealtimeModelToolCallEvent(name=&quot;transfer_to_b&quot;, call_id=&quot;call_1&quot;, arguments=&quot;{}&quot;)</span><span class="a">+        )</span><span class="a">+        await model.emit(RealtimeModelTurnEndedEvent(response_id=&quot;response_1&quot;))</span><span class="a">+</span><span class="a">+        events: list[Any] = []</span><span class="a">+        while not session._event_queue.empty():</span><span class="a">+            events.append(session._event_queue.get_nowait())</span><span class="a">+    finally:</span><span class="a">+        await session.close()</span><span class="a">+</span><span class="a">+    starts = [event for event in events if isinstance(event, RealtimeAgentStartEvent)]</span><span class="a">+    handoffs = [event for event in events if isinstance(event, RealtimeHandoffEvent)]</span><span class="a">+    ends = [event for event in events if isinstance(event, RealtimeAgentEndEvent)]</span><span class="a">+    assert [event.agent for event in starts] == [agent_a]</span><span class="a">+    assert [(event.from_agent, event.to_agent) for event in handoffs] == [(agent_a, agent_b)]</span><span class="a">+    # The turn that ended was produced by agent A; the handoff only changes who speaks next.</span><span class="a">+    assert [event.agent for event in ends] == [agent_a]</span><span class="a">+    assert session._current_agent is agent_b</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.asyncio</span><span class="c"> async def test_cancelling_one_close_waiter_does_not_cancel_cleanup():</span><span class="c">     class BlockingCloseModel(_DummyModel):</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/openai-agents-python/run-20261024-184640/5054/">Previous · #5054</a>
+  <a class="mid" href="/backtests/openai-agents-python/run-20261024-184640/">All tickets in this run</a>
+  <a href="/backtests/openai-agents-python/run-20261024-184640/5181/">Next · #5181</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

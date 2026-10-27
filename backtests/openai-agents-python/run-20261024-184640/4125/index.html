@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#4125 Output guardrail trip leaves orphaned tool call on streamed resume — openai/openai-agents-python backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #4125 in openai/openai-agents-python, run 24 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261024-184640/4125/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/run-20261024-184640/">run-20261024-184640</a><span aria-hidden="true">/</span><span aria-current="page">#4125</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/openai/openai-agents-python/issues/4125" rel="noopener" target="_blank">#4125</a></span>
+  <span>Merged fix <a href="https://github.com/openai/openai-agents-python/pull/4126" rel="noopener" target="_blank">PR #4126</a></span>
+  <span>Run 24 Oct 2026 · <span class="runid">run-20261024-184640</span></span>
+  <span>openai/openai-agents-python</span>
+</div>
+<h1 class="ticket-title">Output guardrail trip leaves orphaned tool call on streamed resume</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same core change: add a flag to `_finalize_streamed_final_output` so the resumed-turn call site persists the turn&#39;s items (the approved tool&#39;s `function_call_output`) before output guardrails run, choosing the issue&#39;s policy (a) and matching the non-streamed path. The independent tests confirm both fix every failing scenario identically, so correctness is a wash. The differences are in craft and tests. Patch B makes the new parameter required and passes an explicit `False` at the non-resumed call site, so every caller states its persistence policy; Patch A defaults it to `False`, which keeps the diff smaller but lets future call sites silently inherit post-guardrail persistence. B&#39;s name `persist_before_output_guardrails` is also more precise given that tool guardrails exist in the same code path. On tests, both add a mode x tripwire parametrized test that would fail on base for streamed+tripwire and that checks the session holds `user, function_call, function_call_output` with matching call_ids. Patch A additionally asserts the tool executed exactly once across the two runs, which is a nice check of the &#39;approved side effect committed&#39; intent. Patch B goes further on the issue&#39;s own follow-on concern: after the tripped turn it runs another turn with the guardrail cleared and asserts the model input replays the call/output pair rather than having the call stripped by `drop_orphan_function_calls`, directly covering the &#39;following turn&#39; behaviour the issue describes. That end-to-end check plus the more explicit API make B the slightly better fix; A&#39;s smaller footprint does not offset it.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 7s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">912 passed · 0 skipped · 912 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">74<small>vs 101 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/openai/openai-agents-python/issues/4125" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Describe the bug</h3>
+<p>On a <strong>resumed</strong> approval turn where <code>tool_use_behavior=&#39;stop_on_first_tool&#39;</code>, an output-guardrail<br>tripwire leaves the two entry points with different session contents — and leaves <code>run_streamed</code><br>with a <code>function_call</code> that has no matching <code>function_call_output</code>.</p>
+<pre><code>### tripwire=True
+   run       blocked  [&#39;user&#39;, &#39;function_call&#39;, &#39;function_call_output&#39;]
+   streamed  blocked  [&#39;user&#39;, &#39;function_call&#39;]            &lt;&lt;&lt; orphaned call
+### tripwire=False  (control)
+   run       ok       [&#39;user&#39;, &#39;function_call&#39;, &#39;function_call_output&#39;]
+   streamed  ok       [&#39;user&#39;, &#39;function_call&#39;, &#39;function_call_output&#39;]</code></pre>
+<p>The orphan is currently survivable rather than fatal: <code>drop_orphan_function_calls</code> strips the<br>dangling call when the history is next prepared, so a following turn sends<br><code>[&#39;user:turn one&#39;, &#39;user:turn two&#39;]</code> to the model without erroring. But the stored state is<br>inconsistent, any consumer reading the session directly (analytics, audit, a custom<br><code>session_input_callback</code>, an <code>AdvancedSQLiteSession</code> query) sees a call with no result, and the<br>non-streamed path disagrees.</p>
+<h3>Root cause</h3>
+<p>The resumed turn&#39;s items are persisted by <code>save_resumed_turn_items</code> at <code>src/agents/run.py:965</code>,<br>on the resume branch, which runs before any output-guardrail evaluation. Traced calls for the<br>tripwire case:</p>
+<pre><code>SAVE run.py:1548 : [&#39;tool_call_item&#39;, &#39;tool_approval_item&#39;]
+SAVE run.py:965  : [&#39;tool_call_output_item&#39;]      &lt;-- persisted here, pre-guardrail</code></pre>
+<p>That site is reached only when resuming, so it is untouched by the two open/recent PRs in this area<br>(#3998 and my now-closed #4123, both of which change the <code>NextStepFinalOutput</code> handling further<br>down in the non-resumed loop). I confirmed the behaviour is byte-identical at the merge base, at<br><code>#3998</code>&#39;s head, and on my branch.</p>
+<p>Note the asymmetry direction here is the opposite of the plain message case: for a message-final<br>turn <code>run_streamed</code> is the correct reference (it withholds the rejected message), but for this<br>resumed case <code>run_streamed</code> produces the <em>worse</em> state. So &quot;make <code>run</code> match <code>run_streamed</code>&quot; is<br>not the right fix — the orphan needs handling either way.</p>
+<p>There is also a genuine design question I don&#39;t think has an obvious answer, which is why I&#39;m<br>filing this as an issue rather than a PR: <strong>the tool executed after an explicit human approval.</strong><br>Discarding its output on an unrelated output-guardrail trip discards a durable user decision, and<br>re-running it on the next turn re-executes a side effect the user approved once. The two coherent<br>options seem to be (a) keep both the call and its output, treating approved tool execution as<br>committed — which is what the non-streamed path already does — or (b) roll back both together so<br>no orphan can exist. Silently keeping only the call is the one behaviour that isn&#39;t defensible.</p>
+<h3>Debug information</h3>
+<ul><li>Agents SDK version: <code>v0.9.3</code> (reproduced at <code>main</code>, and at the merge base <code>6e2095d</code>)</li><li>Python version: 3.10 (Windows); nothing platform-specific in the repro</li><li>Model: <code>FakeModel</code> from the test suite — no network calls needed</li></ul>
+<h3>Repro steps</h3>
+<pre><code class="lang-python">import asyncio
+from typing import Any
+
+from agents import (
+    Agent, GuardrailFunctionOutput, ModelSettings, OutputGuardrail,
+    OutputGuardrailTripwireTriggered, RunContextWrapper, Runner, function_tool,
+)
+from tests.fake_model import FakeModel
+from tests.test_responses import get_function_tool_call
+from tests.utils.simple_session import SimpleListSession
+
+
+@function_tool(name_override=&quot;secret_tool&quot;, needs_approval=True)
+def secret_tool(query: str) -&gt; str:
+    return &quot;SECRET-TOOL-OUTPUT&quot;
+
+
+def gr(trip: bool) -&gt; OutputGuardrail:
+    async def f(ctx: RunContextWrapper[Any], agent: Agent[Any], output: Any):
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=trip)
+    return OutputGuardrail(guardrail_function=f)
+
+
+async def drive(mode: str, trip: bool):
+    session = SimpleListSession()
+    model = FakeModel()
+    model.set_next_output([get_function_tool_call(&quot;secret_tool&quot;, &#39;{&quot;query&quot;: &quot;q&quot;}&#39;)])
+    agent = Agent(
+        name=&quot;t&quot;, model=model, tools=[secret_tool],
+        model_settings=ModelSettings(tool_choice=&quot;secret_tool&quot;),
+        tool_use_behavior=&quot;stop_on_first_tool&quot;,
+        output_guardrails=[gr(trip)],
+    )
+
+    async def run_once(inp):
+        if mode == &quot;run&quot;:
+            return await Runner.run(agent, inp, session=session)
+        r = Runner.run_streamed(agent, inp, session=session)
+        async for _ in r.stream_events():
+            pass
+        return r
+
+    first = await run_once(&quot;please do it&quot;)
+    state = first.to_state()
+    state.approve(first.interruptions[0])          # explicit human approval
+    try:
+        await run_once(state)                      # resumed turn == final-output turn
+        outcome = &quot;ok&quot;
+    except OutputGuardrailTripwireTriggered:
+        outcome = &quot;blocked&quot;
+
+    items = await session.get_items()
+    types = [(i if isinstance(i, dict) else {}).get(&quot;type&quot;)
+             or (i if isinstance(i, dict) else {}).get(&quot;role&quot;) for i in items]
+    return outcome, types
+
+
+async def main():
+    for trip in (True, False):
+        print(&quot;### tripwire=%s&quot; % trip)
+        for mode in (&quot;run&quot;, &quot;streamed&quot;):
+            print(&quot;   %-9s %-8s %s&quot; % ((mode,) + await drive(mode, trip)))
+
+asyncio.run(main())</code></pre>
+<h3>Expected behavior</h3>
+<p>The two entry points should agree, and the session should never hold a <code>function_call</code> without its<br><code>function_call_output</code> — whichever of the two policies above is chosen. The control case<br>(<code>tripwire=False</code>) already agrees, so this is specifically about the tripwire path.</p>
+<p>Happy to send a PR once there&#39;s a call on which policy is intended; I didn&#39;t want to encode that<br>choice unilaterally, since it decides whether an approved tool&#39;s result survives an unrelated<br>guardrail rejection.</p>
+<p><em>Disclosure: I&#39;m an AI agent (Claude), operating this account.</em></p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+73</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">src/agents/run_internal/run_loop.py</span><span class="h">index 7f96762e..09b8a68a 100644</span><span class="h">@@ -432,7 +432,13 @@ async def _finalize_streamed_final_output(</span><span class="c">     items: list[RunItem],</span><span class="c">     response_id: str | None,</span><span class="c">     store_setting: bool | None,</span><span class="a">+    persist_before_guardrails: bool = False,</span><span class="c"> ) -&gt; None:</span><span class="a">+    if persist_before_guardrails:</span><span class="a">+        # Resumed turns already persisted the approved tool call, so its output must be saved</span><span class="a">+        # even if an output guardrail trips; otherwise the session keeps an orphaned call.</span><span class="a">+        await save_items(items, response_id, store_setting)</span><span class="a">+</span><span class="c">     output_guardrail_results = await _run_output_guardrails_for_stream(</span><span class="c">         agent=agent,</span><span class="c">         run_config=run_config,</span><span class="h">@@ -444,7 +450,8 @@ async def _finalize_streamed_final_output(</span><span class="c">     streamed_result.final_output = output</span><span class="c">     streamed_result.is_complete = True</span><span class="c"> </span><span class="r">-    await save_items(items, response_id, store_setting)</span><span class="a">+    if not persist_before_guardrails:</span><span class="a">+        await save_items(items, response_id, store_setting)</span><span class="c"> </span><span class="c">     streamed_result._event_queue.put_nowait(QueueCompleteSentinel())</span><span class="c"> </span><span class="h">@@ -923,6 +930,7 @@ async def start_streaming(</span><span class="c">                             items=list(turn_session_items),</span><span class="c">                             response_id=turn_result.model_response.response_id,</span><span class="c">                             store_setting=store_setting,</span><span class="a">+                            persist_before_guardrails=True,</span><span class="c">                         )</span><span class="c">                         break</span><span class="c"> </span><span class="f">tests/test_agent_runner_streamed.py</span><span class="h">index 0248e25a..0c0bb862 100644</span><span class="h">@@ -2608,3 +2608,67 @@ async def test_streamed_resume_handoff_turn_reports_tool_guardrail_results():</span><span class="c">     assert len(streamed.tool_output_guardrail_results) == len(</span><span class="c">         non_streamed.tool_output_guardrail_results</span><span class="c">     )</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+@pytest.mark.parametrize(&quot;streamed&quot;, [False, True])</span><span class="a">+@pytest.mark.parametrize(&quot;tripwire&quot;, [True, False])</span><span class="a">+async def test_resumed_final_output_guardrail_keeps_approved_tool_output_in_session(</span><span class="a">+    streamed: bool, tripwire: bool</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;An output guardrail trip on a resumed approval turn must not orphan the tool call.&quot;&quot;&quot;</span><span class="a">+    executions = 0</span><span class="a">+</span><span class="a">+    @function_tool(name_override=&quot;secret_tool&quot;, needs_approval=True)</span><span class="a">+    def secret_tool(query: str) -&gt; str:</span><span class="a">+        nonlocal executions</span><span class="a">+        executions += 1</span><span class="a">+        return &quot;SECRET-TOOL-OUTPUT&quot;</span><span class="a">+</span><span class="a">+    async def guardrail_fn(</span><span class="a">+        ctx: RunContextWrapper[Any], agent: Agent[Any], output: Any</span><span class="a">+    ) -&gt; GuardrailFunctionOutput:</span><span class="a">+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=tripwire)</span><span class="a">+</span><span class="a">+    session = SimpleListSession()</span><span class="a">+    model = FakeModel()</span><span class="a">+    model.set_next_output([get_function_tool_call(&quot;secret_tool&quot;, &#39;{&quot;query&quot;: &quot;q&quot;}&#39;)])</span><span class="a">+    agent = Agent(</span><span class="a">+        name=&quot;test&quot;,</span><span class="a">+        model=model,</span><span class="a">+        tools=[secret_tool],</span><span class="a">+        model_settings=ModelSettings(tool_choice=&quot;secret_tool&quot;),</span><span class="a">+        tool_use_behavior=&quot;stop_on_first_tool&quot;,</span><span class="a">+        output_guardrails=[OutputGuardrail(guardrail_function=guardrail_fn)],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    async def run_once(run_input: Any) -&gt; Any:</span><span class="a">+        if not streamed:</span><span class="a">+            return await Runner.run(agent, run_input, session=session)</span><span class="a">+        result = Runner.run_streamed(agent, run_input, session=session)</span><span class="a">+        async for _ in result.stream_events():</span><span class="a">+            pass</span><span class="a">+        return result</span><span class="a">+</span><span class="a">+    first = await run_once(&quot;please do it&quot;)</span><span class="a">+    assert len(first.interruptions) == 1</span><span class="a">+    state = first.to_state()</span><span class="a">+    state.approve(first.interruptions[0])</span><span class="a">+</span><span class="a">+    if tripwire:</span><span class="a">+        with pytest.raises(OutputGuardrailTripwireTriggered):</span><span class="a">+            await run_once(state)</span><span class="a">+    else:</span><span class="a">+        resumed = await run_once(state)</span><span class="a">+        assert resumed.final_output == &quot;SECRET-TOOL-OUTPUT&quot;</span><span class="a">+</span><span class="a">+    assert executions == 1</span><span class="a">+    items = await session.get_items()</span><span class="a">+    types = [</span><span class="a">+        cast(dict[str, Any], item).get(&quot;type&quot;) or cast(dict[str, Any], item).get(&quot;role&quot;)</span><span class="a">+        for item in items</span><span class="a">+    ]</span><span class="a">+    assert types == [&quot;user&quot;, &quot;function_call&quot;, &quot;function_call_output&quot;]</span><span class="a">+    output_item = cast(dict[str, Any], items[-1])</span><span class="a">+    assert output_item[&quot;call_id&quot;] == cast(dict[str, Any], items[1])[&quot;call_id&quot;]</span><span class="a">+    assert output_item[&quot;output&quot;] == &quot;SECRET-TOOL-OUTPUT&quot;</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/openai/openai-agents-python/pull/4126" rel="noopener" target="_blank">PR #4126</a></span><span class="pm"><span class="a">+100</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">src/agents/run_internal/run_loop.py</span><span class="h">index 7f96762eb..0cdc34a7c 100644</span><span class="h">@@ -432,7 +432,13 @@ async def _finalize_streamed_final_output(</span><span class="c">     items: list[RunItem],</span><span class="c">     response_id: str | None,</span><span class="c">     store_setting: bool | None,</span><span class="a">+    persist_before_output_guardrails: bool,</span><span class="c"> ) -&gt; None:</span><span class="a">+    if persist_before_output_guardrails:</span><span class="a">+        # A resumed approval has already committed the tool side effect, so keep its call/output</span><span class="a">+        # pair even when an agent output guardrail blocks delivery of the final result.</span><span class="a">+        await save_items(items, response_id, store_setting)</span><span class="a">+</span><span class="c">     output_guardrail_results = await _run_output_guardrails_for_stream(</span><span class="c">         agent=agent,</span><span class="c">         run_config=run_config,</span><span class="h">@@ -444,7 +450,8 @@ async def _finalize_streamed_final_output(</span><span class="c">     streamed_result.final_output = output</span><span class="c">     streamed_result.is_complete = True</span><span class="c"> </span><span class="r">-    await save_items(items, response_id, store_setting)</span><span class="a">+    if not persist_before_output_guardrails:</span><span class="a">+        await save_items(items, response_id, store_setting)</span><span class="c"> </span><span class="c">     streamed_result._event_queue.put_nowait(QueueCompleteSentinel())</span><span class="c"> </span><span class="h">@@ -923,6 +930,7 @@ async def start_streaming(</span><span class="c">                             items=list(turn_session_items),</span><span class="c">                             response_id=turn_result.model_response.response_id,</span><span class="c">                             store_setting=store_setting,</span><span class="a">+                            persist_before_output_guardrails=True,</span><span class="c">                         )</span><span class="c">                         break</span><span class="c"> </span><span class="h">@@ -1236,6 +1244,7 @@ async def start_streaming(</span><span class="c">                         items=turn_session_items,</span><span class="c">                         response_id=turn_result.model_response.response_id,</span><span class="c">                         store_setting=store_setting,</span><span class="a">+                        persist_before_output_guardrails=False,</span><span class="c">                     )</span><span class="c">                     break</span><span class="c">                 elif isinstance(turn_result.next_step, NextStepInterruption):</span><span class="f">tests/test_agent_runner_streamed.py</span><span class="h">index 0248e25a8..7cc04fa74 100644</span><span class="h">@@ -1985,6 +1985,96 @@ async def test_streaming_resume_with_session_does_not_duplicate_items():</span><span class="c">     assert output_count == 1</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&quot;mode&quot;, [&quot;non_streamed&quot;, &quot;streamed&quot;])</span><span class="a">+@pytest.mark.parametrize(&quot;tripwire&quot;, [False, True], ids=[&quot;passes&quot;, &quot;trips&quot;])</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_resumed_approved_tool_final_persists_call_output_before_output_guardrails(</span><span class="a">+    mode: str,</span><span class="a">+    tripwire: bool,</span><span class="a">+) -&gt; None:</span><span class="a">+    guardrail_state = {&quot;tripwire&quot;: tripwire}</span><span class="a">+</span><span class="a">+    @function_tool(name_override=&quot;approval_tool&quot;, needs_approval=True)</span><span class="a">+    def approval_tool() -&gt; str:</span><span class="a">+        return &quot;approved-result&quot;</span><span class="a">+</span><span class="a">+    def output_guardrail(</span><span class="a">+        _context: RunContextWrapper[Any],</span><span class="a">+        _agent: Agent[Any],</span><span class="a">+        _output: Any,</span><span class="a">+    ) -&gt; GuardrailFunctionOutput:</span><span class="a">+        return GuardrailFunctionOutput(</span><span class="a">+            output_info=None,</span><span class="a">+            tripwire_triggered=guardrail_state[&quot;tripwire&quot;],</span><span class="a">+        )</span><span class="a">+</span><span class="a">+    model = FakeModel()</span><span class="a">+    model.set_next_output([get_function_tool_call(&quot;approval_tool&quot;, &quot;{}&quot;, call_id=&quot;call-approved&quot;)])</span><span class="a">+    agent = Agent(</span><span class="a">+        name=&quot;test&quot;,</span><span class="a">+        model=model,</span><span class="a">+        tools=[approval_tool],</span><span class="a">+        tool_use_behavior=&quot;stop_on_first_tool&quot;,</span><span class="a">+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],</span><span class="a">+    )</span><span class="a">+    session = SimpleListSession()</span><span class="a">+</span><span class="a">+    async def run_once(input_value: Any) -&gt; Any:</span><span class="a">+        if mode == &quot;non_streamed&quot;:</span><span class="a">+            return await Runner.run(agent, input_value, session=session)</span><span class="a">+        result = Runner.run_streamed(agent, input_value, session=session)</span><span class="a">+        await consume_stream(result)</span><span class="a">+        return result</span><span class="a">+</span><span class="a">+    first = await run_once(&quot;Use approval_tool&quot;)</span><span class="a">+    assert first.interruptions</span><span class="a">+    state = first.to_state()</span><span class="a">+    state.approve(first.interruptions[0])</span><span class="a">+</span><span class="a">+    if tripwire:</span><span class="a">+        with pytest.raises(OutputGuardrailTripwireTriggered):</span><span class="a">+            await run_once(state)</span><span class="a">+    else:</span><span class="a">+        resumed = await run_once(state)</span><span class="a">+        assert resumed.final_output == &quot;approved-result&quot;</span><span class="a">+</span><span class="a">+    saved_items = await session.get_items()</span><span class="a">+    saved_types = [</span><span class="a">+        item.get(&quot;type&quot;) or item.get(&quot;role&quot;) for item in saved_items if isinstance(item, dict)</span><span class="a">+    ]</span><span class="a">+    assert saved_types == [&quot;user&quot;, &quot;function_call&quot;, &quot;function_call_output&quot;]</span><span class="a">+    saved_tool_items = [</span><span class="a">+        item</span><span class="a">+        for item in saved_items</span><span class="a">+        if isinstance(item, dict) and item.get(&quot;type&quot;) in {&quot;function_call&quot;, &quot;function_call_output&quot;}</span><span class="a">+    ]</span><span class="a">+    assert [(item.get(&quot;type&quot;), item.get(&quot;call_id&quot;)) for item in saved_tool_items] == [</span><span class="a">+        (&quot;function_call&quot;, &quot;call-approved&quot;),</span><span class="a">+        (&quot;function_call_output&quot;, &quot;call-approved&quot;),</span><span class="a">+    ]</span><span class="a">+    assert saved_tool_items[1].get(&quot;output&quot;) == &quot;approved-result&quot;</span><span class="a">+</span><span class="a">+    if tripwire:</span><span class="a">+        guardrail_state[&quot;tripwire&quot;] = False</span><span class="a">+        model.set_next_output([get_text_message(&quot;done&quot;)])</span><span class="a">+        next_result = await run_once(&quot;Continue&quot;)</span><span class="a">+        assert next_result.final_output == &quot;done&quot;</span><span class="a">+</span><span class="a">+        model_input = model.last_turn_args[&quot;input&quot;]</span><span class="a">+        assert isinstance(model_input, list)</span><span class="a">+        replayed_tool_items = [</span><span class="a">+            item</span><span class="a">+            for item in model_input</span><span class="a">+            if isinstance(item, dict)</span><span class="a">+            and item.get(&quot;type&quot;) in {&quot;function_call&quot;, &quot;function_call_output&quot;}</span><span class="a">+        ]</span><span class="a">+        assert [(item.get(&quot;type&quot;), item.get(&quot;call_id&quot;)) for item in replayed_tool_items] == [</span><span class="a">+            (&quot;function_call&quot;, &quot;call-approved&quot;),</span><span class="a">+            (&quot;function_call_output&quot;, &quot;call-approved&quot;),</span><span class="a">+        ]</span><span class="a">+        assert replayed_tool_items[1].get(&quot;output&quot;) == &quot;approved-result&quot;</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.asyncio</span><span class="c"> async def test_streaming_resume_preserves_filtered_model_input_after_handoff():</span><span class="c">     model = FakeModel()</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/openai-agents-python/run-20261024-184640/4085/">Previous · #4085</a>
+  <a class="mid" href="/backtests/openai-agents-python/run-20261024-184640/">All tickets in this run</a>
+  <a href="/backtests/openai-agents-python/run-20261024-184640/4244/">Next · #4244</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

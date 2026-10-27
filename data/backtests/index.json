@@ -542,6 +542,33 @@
           "judge": "panel"
         }
       ]
+    },
+    {
+      "slug": "openai-agents-python",
+      "name": "openai/openai-agents-python",
+      "description": "Lightweight Python framework for building multi-agent workflows with OpenAI models.",
+      "languages": [
+        "Python"
+      ],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-10-24",
+          "id": "run-20261024-184640",
+          "source_runs": [
+            "run-20261024-184640"
+          ],
+          "tickets": 30,
+          "better": 22,
+          "par": 0,
+          "worse": 6,
+          "tie": 2,
+          "error": 0,
+          "notes": "Run on GitHub Actions: 5 tickets in parallel, each change checked against its related tests; judged by the four-judge panel",
+          "footnote": "",
+          "judge": "panel"
+        }
+      ]
     }
   ],
   "events": []
