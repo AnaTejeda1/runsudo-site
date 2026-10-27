@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#7713 Error during Serialization (`model_dump`) — pydantic/pydantic backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #7713 in pydantic/pydantic, run 27 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261027-165153/7713/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261027-165153/">run-20261027-165153</a><span aria-hidden="true">/</span><span aria-current="page">#7713</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/7713" rel="noopener" target="_blank">#7713</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13922" rel="noopener" target="_blank">PR #13922</a></span>
+  <span>Run 27 Oct 2026 · <span class="runid">run-20261027-165153</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Error during Serialization (<code>model_dump</code>)</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way: when inference (or the polymorphism trampoline) hits a `__pydantic_serializer__` that is a `MockValSer`, call its `rebuild()` and use the resulting `SchemaSerializer`. Both pass all six independent tests, including the issue&#39;s exact example and the function-scope variant. The difference is in how the rebuild resolves names. Patch A threads a `parent_namespace_depth` parameter through `MockValSer.rebuild()` and the `attempt_rebuild` handlers and passes 0 from Rust, so the rebuild uses the class&#39;s stored parent namespace rather than walking five Python frames up from a call stack that originates in Rust and has nothing to do with where the class was defined. Patch B calls `rebuild()` with the default depth of 5, which from the Rust call site lands on an arbitrary frame (the Rust-to-Python hop adds the `MockValSer.rebuild` frame, so the usual count is off). A&#39;s `test_serialization_inference_unbuildable_model` demonstrates the concrete hazard: a name in the serializing caller&#39;s locals must not silently satisfy the forward ref. B&#39;s own tests (`test_serialize_instance_of_incomplete_model_by_inference`, `test_polymorphic_serialization_of_incomplete_subclass`) define the forward-referenced class after the model inside a function and expect the Rust-triggered rebuild to find it; that only works if depth 5 happens to hit the test frame, and A&#39;s test comment explicitly notes classes must be module-level for this path, so B&#39;s tests are at real risk of not passing as written. B does have one nicer edge: when the mock has no rebuild hook it touches `to_python` so the mock raises its own descriptive error instead of the raw cast `TypeError`, whereas A falls through to the `TypeError` in that case. B&#39;s trampoline change (only swallowing `AttributeError`) is clean, but A achieves the same via the `Option` return and a shared `py_get_attrs` helper. A&#39;s xfail `model_construct` test is unrelated churn but harmless. On correctness at the frame-namespace edge and on tests that are more likely to hold, A is the better fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">10m 4s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">1,292 passed · 127 skipped · 1,419 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">177<small>vs 202 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/7713" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>Hello,</p>
+<p>During migration of our code from V1 to V2 we encountered the following error .</p>
+<pre><code>File &quot;/scratch/envs/pydantic-v2/lib/python3.11/site-packages/pydantic/main.py&quot;, line 308, in model_dump
+    return self.__pydantic_serializer__.to_python(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: &#39;MockValSer&#39; object cannot be converted to &#39;SchemaSerializer&#39;</code></pre>
+<p>After some debugging i found two scenarios where the <code>model_dump</code> works</p>
+<ol><li>when <code>exclude_unset=True</code> is set</li><li>or when one of the fields in the base classes is modified from <code>default=[]</code> to <code>default=None</code> </li></ol>
+<pre><code>step_settings: Union[ StepConstant, StepEstimation] = Field(default=[])</code></pre>
+<p>if the default of the above field is modified to <code>None</code> , then the code works.</p>
+<p>The same works without modifications in V1. I have attached the sample code(apologies for the longer file but i  wasn&#39;t able to reliably shorten it) that generates the error.</p>
+<p>NOTE: I have also  tried with <code>model_rebuild</code> instead of <code>update_forward_refs</code> and <code>model_dump</code> instead of <code>dict</code>. The code below should work in both V1 and V2.</p>
+<p>It would be helpful for debugging if there is a more detailed stack trace for the serialization error. It&#39;s not directly clear where the issue lies.</p>
+<p>Thanks in advance!</p>
+<h3>Example Code</h3>
+<pre><code class="lang-py"># serialization_err.py
+
+from pydantic import BaseModel, Field, PositiveFloat
+from typing import ForwardRef, Literal, Union
+
+
+class Base(BaseModel):
+    type: str
+    name: str
+
+
+class BaseSettings(BaseModel):
+    geo: str
+
+
+class CoupledBodySettings(BaseSettings):
+    coupled_body: list[BaseSettings] = Field(default=[])
+
+
+class StepConstant(BaseModel):
+    type: Literal[&quot;constant&quot;]
+    init_step_size: float
+
+
+class StepEstimation(BaseModel):
+    type: Literal[&quot;estimation&quot;]
+    init_step_size: int
+
+
+class Body(Base):
+    type: Literal[&quot;body&quot;]
+    settings: BaseSettings
+    step_settings: Union[StepConstant, StepEstimation] = Field(default=[])
+
+
+class CoupledBody(Base):
+    type: Literal[&quot;coupled_body&quot;]
+    parameter_type: Literal[&quot;shape&quot;] = Field(default=&quot;shape&quot;)
+    settings: CoupledBodySettings
+    step_settings: Union[StepConstant, StepEstimation] = Field(default=[])
+
+
+class Glue(BaseModel):
+    radius: PositiveFloat
+
+
+class SubBase(BaseModel):
+    type: str
+    name: str
+    glue: Glue
+
+
+class SubCoupledBody(CoupledBody, SubBase):
+    type: Literal[&quot;coupled_body&quot;]
+
+
+class SubBody(Body, SubBase):
+    type: Literal[&quot;body&quot;]
+
+
+class NestedBodySettings(BaseSettings):
+    nested: list[
+        Union[
+            SubBody,
+            SubCoupledBody,
+            ForwardRef(&quot;SubNestedBody&quot;),
+            ForwardRef(&quot;SubNestedSeqBody&quot;),
+        ]
+    ]
+
+
+class NestedBody(Base):
+    type: Literal[&quot;nested&quot;]
+    parameter_type: Literal[&quot;shape&quot;] = Field(
+        default=&quot;shape&quot;,
+    )
+    settings: NestedBodySettings
+    step_settings: Union[StepConstant, StepEstimation] = Field(default=[])
+
+
+class NestedSeqBodySettings(NestedBodySettings):
+    iterations_per_parameterization: list[int] = Field(default=[1, 1])
+    nested_step_settings: Union[StepConstant, StepEstimation] = Field(default=[])
+
+
+class NestedSeqBody(Base):
+    type: Literal[&quot;nested_sequential_body&quot;]
+    settings: NestedSeqBodySettings
+    step_settings: Union[StepConstant, StepEstimation] = Field(
+        default=[],
+    )
+
+
+class SubNestedBody(NestedBody, SubBase):
+    type: Literal[&quot;nested&quot;]
+
+
+class SubNestedSeqBody(NestedSeqBody, SubBase):
+    type: Literal[&quot;nested_sequential_body&quot;]
+
+
+NestedBodySettings.update_forward_refs()
+NestedSeqBodySettings.update_forward_refs()
+
+
+class Base(BaseModel):
+    name: str
+    param: list[NestedBody | NestedSeqBody]
+
+
+data = {
+    &quot;name&quot;: &quot;test&quot;,
+    &quot;param&quot;: [
+        {
+            &quot;type&quot;: &quot;nested&quot;,
+            &quot;name&quot;: &quot;parent_rb&quot;,
+            &quot;settings&quot;: {
+                &quot;geo&quot;: &quot;plate&quot;,
+                &quot;nested&quot;: [
+                    {
+                        &quot;type&quot;: &quot;body&quot;,
+                        &quot;name&quot;: &quot;child1_rb&quot;,
+                        &quot;glue&quot;: {&quot;radius&quot;: 10.0},
+                        &quot;settings&quot;: {
+                            &quot;geo&quot;: &quot;bla&quot;,
+                        },
+                    }
+                ],
+            },
+        }
+    ],
+}
+
+model = Base(**data)
+print(model.dict(exclude_unset=False))
+</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.4.2
+pydantic-core version: 2.10.1
+pydantic-core build: profile=release pgo=false
+install path: /scratch/envs/pydantic-v2/lib/python3.11/site-packages/pydantic
+python version: 3.11.5 | packaged by conda-forge | (main, Aug 27 2023, 03:34:09) [GCC 12.3.0]
+platform: Linux-3.10.0-1160.45.1.el7.x86_64-x86_64-with-glibc2.17
+related packages: typing_extensions-4.8.0</code></pre>
+<p>Update 10/03/23:  Modified the script to be able to run it as a single file</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+168</span> <span class="r">−9</span></span></div><pre class="diff"><span class="f">pydantic-core/src/serializers/infer.rs</span><span class="h">index a99b22ba..45589c96 100644</span><span class="h">@@ -660,9 +660,26 @@ pub(crate) fn infer_json_key_known&lt;&#39;a, &#39;py&gt;(</span><span class="c">     }</span><span class="c"> }</span><span class="c"> </span><span class="a">+/// Fetch the `__pydantic_serializer__` of `value`.</span><span class="a">+///</span><span class="a">+/// For models and dataclasses which were not fully defined at creation time, this attribute is a</span><span class="a">+/// `MockValSer` placeholder rather than a `SchemaSerializer`; in that case its `rebuild()` method</span><span class="a">+/// is called, which either returns the rebuilt `SchemaSerializer` or raises an error explaining</span><span class="a">+/// why the class is not fully defined.</span><span class="c"> pub(crate) fn get_pydantic_serializer&lt;&#39;py&gt;(value: &amp;Bound&lt;&#39;py, PyAny&gt;) -&gt; PyResult&lt;Bound&lt;&#39;py, SchemaSerializer&gt;&gt; {</span><span class="c">     let py = value.py();</span><span class="c">     let py_serializer = value.getattr(intern!(py, &quot;__pydantic_serializer__&quot;))?;</span><span class="a">+    if py_serializer.is_exact_instance_of::&lt;SchemaSerializer&gt;() {</span><span class="a">+        return py_serializer.cast_into_exact().map_err(Into::into);</span><span class="a">+    }</span><span class="a">+    if let Some(rebuild) = py_serializer.getattr_opt(intern!(py, &quot;rebuild&quot;))? {</span><span class="a">+        let rebuilt = rebuild.call0()?;</span><span class="a">+        if !rebuilt.is_none() {</span><span class="a">+            return rebuilt.cast_into_exact().map_err(Into::into);</span><span class="a">+        }</span><span class="a">+        // no rebuild was possible; accessing an attribute makes the placeholder raise its own error</span><span class="a">+        py_serializer.getattr(intern!(py, &quot;to_python&quot;))?;</span><span class="a">+    }</span><span class="c">     py_serializer.cast_into_exact().map_err(Into::into)</span><span class="c"> }</span><span class="c"> </span><span class="h">@@ -674,9 +691,8 @@ fn serialize_pydantic_serializable&lt;&#39;py, S: DoSerialize&gt;(</span><span class="c">     state: &amp;mut SerializationState&lt;&#39;py&gt;,</span><span class="c">     do_serialize: S,</span><span class="c"> ) -&gt; Result&lt;S::Ok, S::Error&gt; {</span><span class="r">-    let py = value.py();</span><span class="r">-    let py_serializer = value.getattr(intern!(py, &quot;__pydantic_serializer__&quot;))?;</span><span class="r">-    call_pydantic_serializer(py_serializer.cast().map_err(Into::into)?, value, state, do_serialize)</span><span class="a">+    let serializer = get_pydantic_serializer(value)?;</span><span class="a">+    call_pydantic_serializer(&amp;serializer, value, state, do_serialize)</span><span class="c"> }</span><span class="c"> </span><span class="c"> pub(crate) fn call_pydantic_serializer&lt;&#39;py, S: DoSerialize&gt;(</span><span class="f">pydantic-core/src/serializers/polymorphism_trampoline.rs</span><span class="h">index badab29d..1f563350 100644</span><span class="h">@@ -1,6 +1,6 @@</span><span class="c"> use std::{borrow::Cow, sync::Arc};</span><span class="c"> </span><span class="r">-use pyo3::{prelude::*, types::PyType};</span><span class="a">+use pyo3::{exceptions::PyAttributeError, prelude::*, types::PyType};</span><span class="c"> </span><span class="c"> use crate::serializers::{</span><span class="c">     CombinedSerializer, SerializationState,</span><span class="h">@@ -49,13 +49,15 @@ impl PolymorphismTrampoline {</span><span class="c">         if state.check != SerCheck::Strict // strict disables polymorphism</span><span class="c">             &amp;&amp; runtime_polymorphic.unwrap_or(self.enabled_from_config)</span><span class="c">             &amp;&amp; self.is_subclass(value)?</span><span class="r">-            // stdlib dataclasses do not have a `__pydantic_serializer__`</span><span class="r">-            &amp;&amp; let Ok(serializer) = get_pydantic_serializer(value)</span><span class="c">         {</span><span class="r">-            call_pydantic_serializer(&amp;serializer, value, state, do_serialize)</span><span class="r">-        } else {</span><span class="r">-            do_serialize.serialize_no_infer(&amp;self.serializer, value, state)</span><span class="a">+            match get_pydantic_serializer(value) {</span><span class="a">+                Ok(serializer) =&gt; return call_pydantic_serializer(&amp;serializer, value, state, do_serialize),</span><span class="a">+                // stdlib dataclasses do not have a `__pydantic_serializer__`</span><span class="a">+                Err(err) if err.is_instance_of::&lt;PyAttributeError&gt;(value.py()) =&gt; {}</span><span class="a">+                Err(err) =&gt; return Err(err.into()),</span><span class="a">+            }</span><span class="c">         }</span><span class="a">+        do_serialize.serialize_no_infer(&amp;self.serializer, value, state)</span><span class="c">     }</span><span class="c"> }</span><span class="c"> </span><span class="f">tests/test_forward_ref.py</span><span class="h">index 59ebb6a9..e415e81d 100644</span><span class="h">@@ -7,6 +7,7 @@ from typing import Annotated, Any, Generic, Optional, TypeVar, Union</span><span class="c"> </span><span class="c"> import pytest</span><span class="c"> from annotated_types import Gt</span><span class="a">+from pydantic_core import PydanticSerializationError</span><span class="c"> from typing_extensions import get_args, get_origin  # noqa: UP035</span><span class="c"> from typing_inspection import typing_objects</span><span class="c"> </span><span class="h">@@ -1731,3 +1732,143 @@ def test_string_annotation_union_type() -&gt; None:</span><span class="c"> </span><span class="c">     assert typing_objects.is_union(get_origin(annotation))</span><span class="c">     assert get_args(annotation)[0] is Main</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_serialize_instance_of_incomplete_model_by_inference() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/7713</span><span class="a">+</span><span class="a">+    Instances of a model whose `__pydantic_serializer__` is still a `MockValSer`</span><span class="a">+    (the model was not fully defined at creation and was never rebuilt itself)</span><span class="a">+    must be serializable when reached through type inference.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Foo(BaseModel):</span><span class="a">+        bar: &#39;Bar&#39;</span><span class="a">+</span><span class="a">+    class Bar(BaseModel):</span><span class="a">+        x: int</span><span class="a">+</span><span class="a">+    class Outer(BaseModel):</span><span class="a">+        foo: Foo</span><span class="a">+        anything: Any = None</span><span class="a">+</span><span class="a">+    foo = Outer(foo={&#39;bar&#39;: {&#39;x&#39;: 1}}).foo</span><span class="a">+    assert not Foo.__pydantic_complete__</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Any)</span><span class="a">+    assert ta.dump_python(foo) == {&#39;bar&#39;: {&#39;x&#39;: 1}}</span><span class="a">+    assert ta.dump_json(foo) == b&#39;{&quot;bar&quot;:{&quot;x&quot;:1}}&#39;</span><span class="a">+    # serializing triggered a rebuild of the model:</span><span class="a">+    assert Foo.__pydantic_complete__</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_serialize_incomplete_model_union_fallback() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/7713</span><span class="a">+</span><span class="a">+    A field holding an invalid default makes the union serializer fall back to inference</span><span class="a">+    for the enclosing (incomplete) model instance.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class StepA(BaseModel):</span><span class="a">+        type: typing.Literal[&#39;a&#39;]</span><span class="a">+</span><span class="a">+    class StepB(BaseModel):</span><span class="a">+        type: typing.Literal[&#39;b&#39;]</span><span class="a">+</span><span class="a">+    class Child(BaseModel):</span><span class="a">+        settings: &#39;Settings&#39;</span><span class="a">+        step: StepA | StepB = Field(default=[])</span><span class="a">+</span><span class="a">+    class Settings(BaseModel):</span><span class="a">+        geo: str</span><span class="a">+</span><span class="a">+    class Root(BaseModel):</span><span class="a">+        param: list[Child | StepA]</span><span class="a">+</span><span class="a">+    root = Root(param=[{&#39;settings&#39;: {&#39;geo&#39;: &#39;plate&#39;}}])</span><span class="a">+    assert not Child.__pydantic_complete__</span><span class="a">+</span><span class="a">+    with pytest.warns(UserWarning, match=&#39;Pydantic serializer warnings&#39;):</span><span class="a">+        assert root.model_dump() == {&#39;param&#39;: [{&#39;settings&#39;: {&#39;geo&#39;: &#39;plate&#39;}, &#39;step&#39;: []}]}</span><span class="a">+    with pytest.warns(UserWarning, match=&#39;Pydantic serializer warnings&#39;):</span><span class="a">+        assert root.model_dump_json() == &#39;{&quot;param&quot;:[{&quot;settings&quot;:{&quot;geo&quot;:&quot;plate&quot;},&quot;step&quot;:[]}]}&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_serialize_instance_of_incomplete_model_rebuild_fails() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/7713</span><span class="a">+</span><span class="a">+    If the model can&#39;t be rebuilt, a clear `PydanticUserError` is raised instead of a `TypeError`.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Foo(BaseModel):</span><span class="a">+        bar: &#39;UndefinedType&#39;  # noqa: F821</span><span class="a">+</span><span class="a">+    foo = Foo.model_construct(bar=1)</span><span class="a">+    ta = TypeAdapter(Any)</span><span class="a">+</span><span class="a">+    with pytest.raises(PydanticUserError, match=&#39;`Foo` is not fully defined&#39;):</span><span class="a">+        ta.dump_python(foo)</span><span class="a">+    with pytest.raises(PydanticSerializationError, match=&#39;`Foo` is not fully defined&#39;):</span><span class="a">+        ta.dump_json(foo)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_polymorphic_serialization_of_incomplete_subclass() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/7713</span><span class="a">+</span><span class="a">+    Polymorphic serialization of a subclass instance whose serializer is still a `MockValSer`</span><span class="a">+    uses the (rebuilt) subclass serializer.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Parent(BaseModel):</span><span class="a">+        a: int</span><span class="a">+</span><span class="a">+    class Sub(Parent):</span><span class="a">+        b: &#39;B&#39;</span><span class="a">+</span><span class="a">+    class B(BaseModel):</span><span class="a">+        x: int</span><span class="a">+</span><span class="a">+    class Holder(BaseModel):</span><span class="a">+        p: Parent</span><span class="a">+        s: Sub</span><span class="a">+</span><span class="a">+    holder = Holder(p={&#39;a&#39;: 1}, s={&#39;a&#39;: 2, &#39;b&#39;: {&#39;x&#39;: 3}})</span><span class="a">+    assert not Sub.__pydantic_complete__</span><span class="a">+</span><span class="a">+    assert holder.model_dump(polymorphic_serialization=True) == {</span><span class="a">+        &#39;p&#39;: {&#39;a&#39;: 1},</span><span class="a">+        &#39;s&#39;: {&#39;a&#39;: 2, &#39;b&#39;: {&#39;x&#39;: 3}},</span><span class="a">+    }</span><span class="a">+    sub = holder.s</span><span class="a">+    assert TypeAdapter(Parent).dump_python(sub, polymorphic_serialization=True) == {&#39;a&#39;: 2, &#39;b&#39;: {&#39;x&#39;: 3}}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_serialize_base_model_instance_by_inference() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/7713</span><span class="a">+</span><span class="a">+    A `MockValSer` which cannot rebuild at all raises its own descriptive error.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    instance = BaseModel.__new__(BaseModel)</span><span class="a">+</span><span class="a">+    with pytest.raises(PydanticUserError, match=&#39;BaseModel cannot be instantiated directly&#39;):</span><span class="a">+        TypeAdapter(Any).dump_python(instance)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_polymorphic_serialization_of_incomplete_subclass_rebuild_fails() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/7713</span><span class="a">+</span><span class="a">+    If the subclass can&#39;t be rebuilt, polymorphic serialization raises instead of silently</span><span class="a">+    dropping the subclass fields.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Parent(BaseModel):</span><span class="a">+        a: int</span><span class="a">+</span><span class="a">+    class Sub(Parent):</span><span class="a">+        b: &#39;UndefinedType&#39;  # noqa: F821</span><span class="a">+</span><span class="a">+    sub = Sub.model_construct(a=1, b=2)</span><span class="a">+</span><span class="a">+    with pytest.raises(PydanticUserError, match=&#39;`Sub` is not fully defined&#39;):</span><span class="a">+        TypeAdapter(Parent).dump_python(sub, polymorphic_serialization=True)</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13922" rel="noopener" target="_blank">PR #13922</a></span><span class="pm"><span class="a">+159</span> <span class="r">−43</span></span></div><pre class="diff"><span class="f">pydantic-core/src/lookup_key.rs</span><span class="h">index 7af597934..56ac74dd8 100644</span><span class="h">@@ -3,7 +3,7 @@ use std::convert::Infallible;</span><span class="c"> use std::fmt;</span><span class="c"> </span><span class="c"> use pyo3::IntoPyObjectExt;</span><span class="r">-use pyo3::exceptions::{PyAttributeError, PyTypeError, PyValueError};</span><span class="a">+use pyo3::exceptions::{PyTypeError, PyValueError};</span><span class="c"> use pyo3::prelude::*;</span><span class="c"> use pyo3::pybacked::PyBackedStr;</span><span class="c"> use pyo3::types::{PyDict, PyList, PyMapping, PyString};</span><span class="h">@@ -14,7 +14,7 @@ use smallvec::SmallVec;</span><span class="c"> use crate::build_tools::py_schema_err;</span><span class="c"> use crate::errors::{ErrorType, LocItem, Location, ValError, ValLineError, ValResult, py_err_string};</span><span class="c"> use crate::input::StringMapping;</span><span class="r">-use crate::tools::{mapping_get, py_err};</span><span class="a">+use crate::tools::{mapping_get, py_err, py_get_attrs};</span><span class="c"> </span><span class="c"> /// The possible choices for an alias value in Python</span><span class="c"> #[derive(FromPyObject)]</span><span class="h">@@ -454,20 +454,3 @@ impl LookupType {</span><span class="c">         (self as u8 &amp; other as u8) != 0</span><span class="c">     }</span><span class="c"> }</span><span class="r">-</span><span class="r">-// TODO replace with `PyAnyMethods::getattr_opt` once https://github.com/PyO3/pyo3/pull/5985 is merged:</span><span class="r">-fn py_get_attrs&lt;&#39;py, N&gt;(obj: &amp;Bound&lt;&#39;py, PyAny&gt;, attr_name: N) -&gt; PyResult&lt;Option&lt;Bound&lt;&#39;py, PyAny&gt;&gt;&gt;</span><span class="r">-where</span><span class="r">-    N: IntoPyObject&lt;&#39;py, Target = PyString&gt;,</span><span class="r">-{</span><span class="r">-    match obj.getattr(attr_name) {</span><span class="r">-        Ok(attr) =&gt; Ok(Some(attr)),</span><span class="r">-        Err(err) =&gt; {</span><span class="r">-            if err.get_type(obj.py()).is_subclass_of::&lt;PyAttributeError&gt;()? {</span><span class="r">-                Ok(None)</span><span class="r">-            } else {</span><span class="r">-                Err(err)</span><span class="r">-            }</span><span class="r">-        }</span><span class="r">-    }</span><span class="r">-}</span><span class="f">pydantic-core/src/serializers/infer.rs</span><span class="h">index a99b22baa..ef8ec3b2e 100644</span><span class="h">@@ -27,7 +27,7 @@ use crate::serializers::shared::serialize_to_python;</span><span class="c"> use crate::serializers::type_serializers;</span><span class="c"> use crate::serializers::type_serializers::any::AnySerializer;</span><span class="c"> use crate::serializers::type_serializers::format::serialize_via_str;</span><span class="r">-use crate::tools::{py_err, safe_repr};</span><span class="a">+use crate::tools::{py_err, py_get_attrs, safe_repr};</span><span class="c"> </span><span class="c"> use super::SchemaSerializer;</span><span class="c"> use super::config::InfNanMode;</span><span class="h">@@ -660,10 +660,33 @@ pub(crate) fn infer_json_key_known&lt;&#39;a, &#39;py&gt;(</span><span class="c">     }</span><span class="c"> }</span><span class="c"> </span><span class="r">-pub(crate) fn get_pydantic_serializer&lt;&#39;py&gt;(value: &amp;Bound&lt;&#39;py, PyAny&gt;) -&gt; PyResult&lt;Bound&lt;&#39;py, SchemaSerializer&gt;&gt; {</span><span class="a">+/// Get the `SchemaSerializer` stored as `__pydantic_serializer__` on `value`&#39;s type, or `None`</span><span class="a">+/// if there&#39;s no such attribute (e.g. for stdlib dataclasses).</span><span class="a">+///</span><span class="a">+/// If the type isn&#39;t fully built yet, pydantic stores a placeholder (`MockValSer`) that rebuilds the</span><span class="a">+/// type lazily when one of its attributes is accessed from Python. Casting it from Rust bypasses that</span><span class="a">+/// mechanism, so we explicitly call its `rebuild()` method, which rebuilds the whole type and either</span><span class="a">+/// returns the built serializer or raises a meaningful error.</span><span class="a">+pub(crate) fn get_pydantic_serializer&lt;&#39;py&gt;(</span><span class="a">+    value: &amp;Bound&lt;&#39;py, PyAny&gt;,</span><span class="a">+) -&gt; PyResult&lt;Option&lt;Bound&lt;&#39;py, SchemaSerializer&gt;&gt;&gt; {</span><span class="c">     let py = value.py();</span><span class="r">-    let py_serializer = value.getattr(intern!(py, &quot;__pydantic_serializer__&quot;))?;</span><span class="r">-    py_serializer.cast_into_exact().map_err(Into::into)</span><span class="a">+    let Some(py_serializer) = py_get_attrs(value, intern!(py, &quot;__pydantic_serializer__&quot;))? else {</span><span class="a">+        return Ok(None);</span><span class="a">+    };</span><span class="a">+    if let Ok(serializer) = py_serializer.cast_exact::&lt;SchemaSerializer&gt;() {</span><span class="a">+        return Ok(Some(serializer.clone()));</span><span class="a">+    }</span><span class="a">+    if py_serializer.hasattr(intern!(py, &quot;rebuild&quot;))? {</span><span class="a">+        // The call stack is unrelated to where the type was defined, so don&#39;t use a parent frame namespace:</span><span class="a">+        let kwargs = PyDict::new(py);</span><span class="a">+        kwargs.set_item(intern!(py, &quot;parent_namespace_depth&quot;), 0)?;</span><span class="a">+        let rebuilt = py_serializer.call_method(intern!(py, &quot;rebuild&quot;), (), Some(&amp;kwargs))?;</span><span class="a">+        if !rebuilt.is_none() {</span><span class="a">+            return Ok(Some(rebuilt.cast_into_exact()?));</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+    Ok(Some(py_serializer.cast_into_exact()?))</span><span class="c"> }</span><span class="c"> </span><span class="c"> /// Serialize `value` as if it had a `__pydantic_serializer__` attribute</span><span class="h">@@ -674,9 +697,11 @@ fn serialize_pydantic_serializable&lt;&#39;py, S: DoSerialize&gt;(</span><span class="c">     state: &amp;mut SerializationState&lt;&#39;py&gt;,</span><span class="c">     do_serialize: S,</span><span class="c"> ) -&gt; Result&lt;S::Ok, S::Error&gt; {</span><span class="r">-    let py = value.py();</span><span class="r">-    let py_serializer = value.getattr(intern!(py, &quot;__pydantic_serializer__&quot;))?;</span><span class="r">-    call_pydantic_serializer(py_serializer.cast().map_err(Into::into)?, value, state, do_serialize)</span><span class="a">+    match get_pydantic_serializer(value)? {</span><span class="a">+        Some(serializer) =&gt; call_pydantic_serializer(&amp;serializer, value, state, do_serialize),</span><span class="a">+        // `ObType::PydanticSerializable` was inferred from the attribute being present</span><span class="a">+        None =&gt; Err(unknown_type_error(value).into()),</span><span class="a">+    }</span><span class="c"> }</span><span class="c"> </span><span class="c"> pub(crate) fn call_pydantic_serializer&lt;&#39;py, S: DoSerialize&gt;(</span><span class="f">pydantic-core/src/serializers/polymorphism_trampoline.rs</span><span class="h">index badab29da..579b63019 100644</span><span class="h">@@ -50,7 +50,7 @@ impl PolymorphismTrampoline {</span><span class="c">             &amp;&amp; runtime_polymorphic.unwrap_or(self.enabled_from_config)</span><span class="c">             &amp;&amp; self.is_subclass(value)?</span><span class="c">             // stdlib dataclasses do not have a `__pydantic_serializer__`</span><span class="r">-            &amp;&amp; let Ok(serializer) = get_pydantic_serializer(value)</span><span class="a">+            &amp;&amp; let Some(serializer) = get_pydantic_serializer(value)?</span><span class="c">         {</span><span class="c">             call_pydantic_serializer(&amp;serializer, value, state, do_serialize)</span><span class="c">         } else {</span><span class="f">pydantic-core/src/tools.rs</span><span class="h">index 6fc6df6d2..7a3533eb9 100644</span><span class="h">@@ -3,7 +3,7 @@ use core::fmt;</span><span class="c"> use hashbrown::HashTable;</span><span class="c"> use pyo3::PyTraverseError;</span><span class="c"> use pyo3::PyVisit;</span><span class="r">-use pyo3::exceptions::PyKeyError;</span><span class="a">+use pyo3::exceptions::{PyAttributeError, PyKeyError};</span><span class="c"> use pyo3::intern;</span><span class="c"> use pyo3::prelude::*;</span><span class="c"> use pyo3::types::{PyDict, PyMapping, PyString};</span><span class="h">@@ -202,6 +202,23 @@ pub fn mapping_get&lt;&#39;py&gt;(</span><span class="c">         .map(|value| if value.is(undefined) { None } else { Some(value) })</span><span class="c"> }</span><span class="c"> </span><span class="a">+// TODO replace with `PyAnyMethods::getattr_opt` once https://github.com/PyO3/pyo3/pull/5985 is merged:</span><span class="a">+pub(crate) fn py_get_attrs&lt;&#39;py, N&gt;(obj: &amp;Bound&lt;&#39;py, PyAny&gt;, attr_name: N) -&gt; PyResult&lt;Option&lt;Bound&lt;&#39;py, PyAny&gt;&gt;&gt;</span><span class="a">+where</span><span class="a">+    N: IntoPyObject&lt;&#39;py, Target = PyString&gt;,</span><span class="a">+{</span><span class="a">+    match obj.getattr(attr_name) {</span><span class="a">+        Ok(attr) =&gt; Ok(Some(attr)),</span><span class="a">+        Err(err) =&gt; {</span><span class="a">+            if err.get_type(obj.py()).is_subclass_of::&lt;PyAttributeError&gt;()? {</span><span class="a">+                Ok(None)</span><span class="a">+            } else {</span><span class="a">+                Err(err)</span><span class="a">+            }</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+}</span><span class="a">+</span><span class="c"> /// A hash table which uses (hashable) Python objects as keys</span><span class="c"> #[derive(Debug)]</span><span class="c"> pub struct PyHashTable&lt;T&gt;(HashTable&lt;PyHashTableEntry&lt;T&gt;&gt;);</span><span class="f">pydantic/_internal/_mock_val_ser.py</span><span class="h">index fea9713c9..b0344ac06 100644</span><span class="h">@@ -1,7 +1,7 @@</span><span class="c"> from __future__ import annotations</span><span class="c"> </span><span class="c"> from collections.abc import Callable, Iterator, Mapping</span><span class="r">-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar</span><span class="a">+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar</span><span class="c"> </span><span class="c"> from pydantic_core import CoreSchema, SchemaSerializer, SchemaValidator</span><span class="c"> </span><span class="h">@@ -16,6 +16,11 @@ if TYPE_CHECKING:</span><span class="c"> </span><span class="c"> ValSer = TypeVar(&#39;ValSer&#39;, bound=SchemaValidator | PluggableSchemaValidator | SchemaSerializer)</span><span class="c"> T = TypeVar(&#39;T&#39;)</span><span class="a">+T_co = TypeVar(&#39;T_co&#39;, covariant=True)</span><span class="a">+</span><span class="a">+</span><span class="a">+class AttemptRebuild(Protocol[T_co]):</span><span class="a">+    def __call__(self, *, parent_namespace_depth: int = ...) -&gt; T_co | None: ...</span><span class="c"> </span><span class="c"> </span><span class="c"> class MockCoreSchema(Mapping[str, Any]):</span><span class="h">@@ -30,7 +35,7 @@ class MockCoreSchema(Mapping[str, Any]):</span><span class="c">         error_message: str,</span><span class="c">         *,</span><span class="c">         code: PydanticErrorCodes,</span><span class="r">-        attempt_rebuild: Callable[[], CoreSchema | None] | None = None,</span><span class="a">+        attempt_rebuild: AttemptRebuild[CoreSchema] | None = None,</span><span class="c">     ) -&gt; None:</span><span class="c">         self._error_message = error_message</span><span class="c">         self._code: PydanticErrorCodes = code</span><span class="h">@@ -81,7 +86,7 @@ class MockValSer(Generic[ValSer]):</span><span class="c">         *,</span><span class="c">         code: PydanticErrorCodes,</span><span class="c">         val_or_ser: Literal[&#39;validator&#39;, &#39;serializer&#39;],</span><span class="r">-        attempt_rebuild: Callable[[], ValSer | None] | None = None,</span><span class="a">+        attempt_rebuild: AttemptRebuild[ValSer] | None = None,</span><span class="c">     ) -&gt; None:</span><span class="c">         self._error_message = error_message</span><span class="c">         self._val_or_ser = SchemaValidator if val_or_ser == &#39;validator&#39; else SchemaSerializer</span><span class="h">@@ -99,9 +104,9 @@ class MockValSer(Generic[ValSer]):</span><span class="c">         getattr(self._val_or_ser, item)</span><span class="c">         raise PydanticUserError(self._error_message, code=self._code)</span><span class="c"> </span><span class="r">-    def rebuild(self) -&gt; ValSer | None:</span><span class="a">+    def rebuild(self, *, parent_namespace_depth: int = 5) -&gt; ValSer | None:</span><span class="c">         if self._attempt_rebuild:</span><span class="r">-            val_ser = self._attempt_rebuild()</span><span class="a">+            val_ser = self._attempt_rebuild(parent_namespace_depth=parent_namespace_depth)</span><span class="c">             if val_ser is not None:</span><span class="c">                 return val_ser</span><span class="c">             else:</span><span class="h">@@ -121,9 +126,9 @@ def set_type_adapter_mocks(adapter: TypeAdapter) -&gt; None:</span><span class="c">         f&#39; then call `.rebuild()` on the instance.&#39;</span><span class="c">     )</span><span class="c"> </span><span class="r">-    def attempt_rebuild_fn(attr_fn: Callable[[TypeAdapter], T]) -&gt; Callable[[], T | None]:</span><span class="r">-        def handler() -&gt; T | None:</span><span class="r">-            if adapter.rebuild(raise_errors=False, _parent_namespace_depth=5) is not False:</span><span class="a">+    def attempt_rebuild_fn(attr_fn: Callable[[TypeAdapter], T]) -&gt; AttemptRebuild[T]:</span><span class="a">+        def handler(*, parent_namespace_depth: int = 5) -&gt; T | None:</span><span class="a">+            if adapter.rebuild(raise_errors=False, _parent_namespace_depth=parent_namespace_depth) is not False:</span><span class="c">                 return attr_fn(adapter)</span><span class="c">             return None</span><span class="c"> </span><span class="h">@@ -162,9 +167,9 @@ def set_model_mocks(cls: type[BaseModel], undefined_name: str | None = None) -&gt;</span><span class="c">         f&#39; then call `{cls.__name__}.model_rebuild()`.&#39;</span><span class="c">     )</span><span class="c"> </span><span class="r">-    def attempt_rebuild_fn(attr_fn: Callable[[type[BaseModel]], T]) -&gt; Callable[[], T | None]:</span><span class="r">-        def handler() -&gt; T | None:</span><span class="r">-            if cls.model_rebuild(raise_errors=False, _parent_namespace_depth=5) is not False:</span><span class="a">+    def attempt_rebuild_fn(attr_fn: Callable[[type[BaseModel]], T]) -&gt; AttemptRebuild[T]:</span><span class="a">+        def handler(*, parent_namespace_depth: int = 5) -&gt; T | None:</span><span class="a">+            if cls.model_rebuild(raise_errors=False, _parent_namespace_depth=parent_namespace_depth) is not False:</span><span class="c">                 return attr_fn(cls)</span><span class="c">             return None</span><span class="c"> </span><span class="h">@@ -205,9 +210,9 @@ def set_dataclass_mocks(cls: type[PydanticDataclass], undefined_name: str | None</span><span class="c">         f&#39; then call `pydantic.dataclasses.rebuild_dataclass({cls.__name__})`.&#39;</span><span class="c">     )</span><span class="c"> </span><span class="r">-    def attempt_rebuild_fn(attr_fn: Callable[[type[PydanticDataclass]], T]) -&gt; Callable[[], T | None]:</span><span class="r">-        def handler() -&gt; T | None:</span><span class="r">-            if rebuild_dataclass(cls, raise_errors=False, _parent_namespace_depth=5) is not False:</span><span class="a">+    def attempt_rebuild_fn(attr_fn: Callable[[type[PydanticDataclass]], T]) -&gt; AttemptRebuild[T]:</span><span class="a">+        def handler(*, parent_namespace_depth: int = 5) -&gt; T | None:</span><span class="a">+            if rebuild_dataclass(cls, raise_errors=False, _parent_namespace_depth=parent_namespace_depth) is not False:</span><span class="c">                 return attr_fn(cls)</span><span class="c">             return None</span><span class="c"> </span><span class="f">tests/test_construction.py</span><span class="h">index 1f42457e3..15350a693 100644</span><span class="h">@@ -1,5 +1,5 @@</span><span class="c"> import pickle</span><span class="r">-from typing import Any</span><span class="a">+from typing import Annotated, Any</span><span class="c"> </span><span class="c"> import pytest</span><span class="c"> from pydantic_core import PydanticUndefined, ValidationError</span><span class="h">@@ -669,3 +669,26 @@ def test_model_construct_with_alias_choices_and_path() -&gt; None:</span><span class="c">     assert MyModel.model_construct(a=&#39;a_value&#39;).a == &#39;a_value&#39;</span><span class="c">     assert MyModel.model_construct(aaa=&#39;a_value&#39;).a == &#39;a_value&#39;</span><span class="c">     assert MyModel.model_construct(AAA={&#39;aaa&#39;: &#39;a_value&#39;}).a == &#39;a_value&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.xfail(</span><span class="a">+    reason=&#39;`model_construct()` does not rebuild incomplete models, and relies on `FieldInfo` instances &#39;</span><span class="a">+    &#39;that may be incomplete (here, the `Field()` metadata is part of the unevaluated annotation).&#39;,</span><span class="a">+)</span><span class="a">+def test_model_construct_incomplete_model() -&gt; None:</span><span class="a">+    # When making this test work, look at `test_string_annotation_union_type()` which assumes `model_construct()`</span><span class="a">+    # doesn&#39;t rebuild the model.</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        a: &#39;Annotated[Later | None, Field(alias=&quot;A&quot;)]&#39;</span><span class="a">+        b: &#39;Annotated[Later | None, Field(default=None)]&#39;</span><span class="a">+</span><span class="a">+    class Later(BaseModel):</span><span class="a">+        pass</span><span class="a">+</span><span class="a">+    assert Model.__pydantic_complete__ is False</span><span class="a">+</span><span class="a">+    later = Later()</span><span class="a">+    m = Model.model_construct(A=later)</span><span class="a">+    assert m.a is later</span><span class="a">+    assert m.b is None</span><span class="a">+    assert m.model_fields_set == {&#39;a&#39;}</span><span class="f">tests/test_forward_ref.py</span><span class="h">index 59ebb6a94..f0e69b73e 100644</span><span class="h">@@ -1731,3 +1731,44 @@ def test_string_annotation_union_type() -&gt; None:</span><span class="c"> </span><span class="c">     assert typing_objects.is_union(get_origin(annotation))</span><span class="c">     assert get_args(annotation)[0] is Main</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_serialization_inference_rebuilds_incomplete_model(create_module) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/7713&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    # Necessary to have classes defined at module level for forward ref</span><span class="a">+    # to resolve when rebuilding model from pydantic-core:</span><span class="a">+    @create_module</span><span class="a">+    def module():</span><span class="a">+        from typing import Optional</span><span class="a">+</span><span class="a">+        from pydantic import BaseModel</span><span class="a">+</span><span class="a">+        class B(BaseModel):</span><span class="a">+            a: Optional[&#39;A&#39;] = None</span><span class="a">+</span><span class="a">+        class A(BaseModel):</span><span class="a">+            b: B</span><span class="a">+</span><span class="a">+    a = module.A.model_validate({&#39;b&#39;: {}})</span><span class="a">+    assert module.B.__pydantic_complete__ is False</span><span class="a">+</span><span class="a">+    assert TypeAdapter(Any).dump_python(a.b) == {&#39;a&#39;: None}</span><span class="a">+    assert module.B.__pydantic_complete__ is True</span><span class="a">+    assert a.model_dump(serialize_as_any=True) == {&#39;b&#39;: {&#39;a&#39;: None}}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_serialization_inference_unbuildable_model() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;When rebuilt from pydantic-core, the caller&#39;s frame namespace should not be used to resolve annotations.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        x: &#39;Undefined&#39;  # noqa: F821</span><span class="a">+</span><span class="a">+    def serialize(m: Model) -&gt; Any:</span><span class="a">+        Undefined = int  # noqa: F841</span><span class="a">+        return TypeAdapter(Any).dump_python(m)</span><span class="a">+</span><span class="a">+    m = Model.model_construct(x=1)</span><span class="a">+    with pytest.raises(PydanticUserError, match=&#39;`Model` is not fully defined; you should define `Undefined`&#39;):</span><span class="a">+        serialize(m)</span><span class="a">+    assert Model.__pydantic_complete__ is False</span><span class="f">tests/test_serialize_as_any.py</span><span class="h">index 2bf6091c6..4bde976ec 100644</span><span class="h">@@ -209,3 +209,25 @@ def test_serialize_as_any_annotation_with_incorrect_list_el_type() -&gt; None:</span><span class="c">     # notably, the warning is not raised when using the SerializeAsAny annotation</span><span class="c">     ta = TypeAdapter(SerializeAsAny[list[int]])</span><span class="c">     assert ta.dump_python([&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]) == [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;kwargs&#39;, [{&#39;serialize_as_any&#39;: True}, {&#39;polymorphic_serialization&#39;: True}])</span><span class="a">+def test_serialize_as_any_deferred_subclass(kwargs) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13647&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Base(BaseModel):</span><span class="a">+        x: int = 1</span><span class="a">+</span><span class="a">+    class Sub(Base):</span><span class="a">+        model_config = ConfigDict(defer_build=True)</span><span class="a">+        y: int = 2</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        b: Base</span><span class="a">+</span><span class="a">+    # `model_construct()` currently doesn&#39;t trigger a rebuild of `Sub`:</span><span class="a">+    m = Model(b=Sub.model_construct(x=1, y=2))</span><span class="a">+    assert Sub.__pydantic_complete__ is False</span><span class="a">+</span><span class="a">+    assert m.model_dump(**kwargs) == {&#39;b&#39;: {&#39;x&#39;: 1, &#39;y&#39;: 2}}</span><span class="a">+    assert Sub.__pydantic_complete__ is True</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <span class="disabled">Previous</span>
+  <a class="mid" href="/backtests/pydantic/run-20261027-165153/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261027-165153/8998/">Next · #8998</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

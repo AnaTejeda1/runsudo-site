@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#14064 `typing.Self` in a parametrized generic dataclass now fails schema generation — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #14064 in pydantic/pydantic, run 27 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261027-165153/14064/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261027-165153/">run-20261027-165153</a><span aria-hidden="true">/</span><span aria-current="page">#14064</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/14064" rel="noopener" target="_blank">#14064</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/14065" rel="noopener" target="_blank">PR #14065</a></span>
+  <span>Run 27 Oct 2026 · <span class="runid">run-20261027-165153</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title"><code>typing.Self</code> in a parametrized generic dataclass now fails schema generation</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the same root-cause fix: after `_resolve_self_type` replaces `Self` with the resolved (possibly parametrized) class, they recompute `origin` from the new `obj` instead of using the stale origin computed on `Self`. The independent tests confirm both make all failing cases pass with no regressions, so correctness is equal. The differences are in craft and tests. Patch A keeps the original `origin = origin if ... else get_origin(obj)` line after unconditionally reassigning `origin`, leaving a redundant no-op for the Self branch; Patch B restructures into an if/elif so each path computes origin exactly once, which reads cleaner. On tests, A nicely reuses the `dataclass_decorators` helper and adds a NamedTuple case, while B adds an Annotated-wrapped `Self` case and, importantly, negative assertions (`ValidationError` on `&#39;not an int&#39;`) that verify the type argument actually propagates into the nested Self schema rather than falling back to an unparametrized/Any schema. Both sets would fail on base and pass after. The margin is small, but B&#39;s cleaner control flow and stronger behavioural assertions give it the edge.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">3m 43s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">542 passed · 32 skipped · 574 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">75<small>vs 44 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/14064" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>It looks like in 2.14.x a generic dataclass with a Self-annotated field cannot be used with type arguments. The example below shows a minimal example. This <em>did</em> work in 2.13.x, and I walked it back as far as 2.11.7, all of which seem to handle this fine. It&#39;s kinda of a weird use case, but I have code where we are building pydantic models that store graph-like information (hence my example) and the bump to 2.14.x broke everything.</p>
+<p>I think the root cause originates in #13614. <code>generate_schema()</code> now calls <code>get_origin()</code> before <code>_generate_schema_inner()</code>, which is where <code>Self</code> gets replaced by the type being built via <code>_resolve_self_type</code>. That causes the origin to now be stale and not match the new <code>obj</code> which could be a generic, so its origin of <code>None</code> is wrong.</p>
+<p>Pretty sure it&#39;s a one line fix to regenerate the origin after <code>_resolve_self_type</code> is called. Seemed to work for me</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">from dataclasses import dataclass
+from typing import Generic, Self, TypeVar
+
+from dataclasses import dataclass
+from typing import Generic, Self, TypeVar
+
+import pydantic
+from pydantic import TypeAdapter
+
+T = TypeVar(&#39;T&#39;)
+
+
+@dataclass
+class StdNode(Generic[T]):
+    value: T
+    parent: Self | None = None
+
+
+@pydantic.dataclasses.dataclass
+class PydNode(Generic[T]):
+    value: T
+    parent: Self | None = None
+
+
+print(&#39;pydantic&#39;, pydantic.VERSION)
+for tp in (StdNode, PydNode, StdNode[int], PydNode[int]):
+    try:
+        ta = TypeAdapter(tp)
+        print(f&#39;  OK    {tp!r:28} -&gt;&#39;, ta.validate_python({&#39;value&#39;: 1, &#39;parent&#39;: {&#39;value&#39;: 0}}))
+    except pydantic.errors.PydanticSchemaGenerationError as e:
+        print(f&#39;  FAIL  {tp!r:28} -&gt; PydanticSchemaGenerationError: {str(e).splitlines()[0][:70]}&#39;)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.14.1
+        pydantic-core version: 2.50.1
+          pydantic-core build: profile=release pgo=false
+               python version: 3.13.12 (main, Feb  3 2026, 17:53:27) [Clang 17.0.0 (clang-1700.6.3.2)]
+                     platform: macOS-26.7.1-arm64-arm-64bit-Mach-O
+             related packages: typing_extensions-4.16.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+73</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_generate_schema.py</span><span class="h">index 866db4e9..1fea5435 100644</span><span class="h">@@ -1098,8 +1098,11 @@ class GenerateSchema:</span><span class="c">     def _generate_schema_inner(self, obj: Any, origin: Any | None = PydanticUndefined) -&gt; core_schema.CoreSchema:</span><span class="c">         if typing_objects.is_self(obj):</span><span class="c">             obj = self._resolve_self_type(obj)</span><span class="r">-</span><span class="r">-        origin = origin if origin is not PydanticUndefined else get_origin(obj)</span><span class="a">+            # The origin (if provided) was computed on `Self`, and is stale now that `obj` was resolved</span><span class="a">+            # (it could e.g. be a parametrized generic class):</span><span class="a">+            origin = get_origin(obj)</span><span class="a">+        elif origin is PydanticUndefined:</span><span class="a">+            origin = get_origin(obj)</span><span class="c"> </span><span class="c">         if is_union_origin(origin):</span><span class="c">             return self._union_schema(obj)</span><span class="f">tests/test_types_self.py</span><span class="h">index d15367ed..f07c7a69 100644</span><span class="h">@@ -8,6 +8,7 @@ import typing_extensions</span><span class="c"> from typing_extensions import NamedTuple, TypedDict, TypeForm</span><span class="c"> </span><span class="c"> from pydantic import BaseModel, Field, PydanticUserError, TypeAdapter, ValidationError, computed_field, validate_call</span><span class="a">+from pydantic.dataclasses import dataclass as pydantic_dataclass</span><span class="c"> </span><span class="c"> self_types: list[TypeForm] = []</span><span class="c"> ids: list[str] = []</span><span class="h">@@ -173,6 +174,73 @@ def test_self_type_in_dataclass(Self):</span><span class="c">         m.item.ref.x = 3</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_self_type_in_parametrized_generic_stdlib_dataclass(Self):</span><span class="a">+    T = typing.TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    @dataclasses.dataclass</span><span class="a">+    class Node(typing.Generic[T]):</span><span class="a">+        value: T</span><span class="a">+        parent: Self | None = None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Node[int])</span><span class="a">+    node = ta.validate_python({&#39;value&#39;: &#39;1&#39;, &#39;parent&#39;: {&#39;value&#39;: &#39;0&#39;}})</span><span class="a">+    assert node == Node(value=1, parent=Node(value=0, parent=None))</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        ta.validate_python({&#39;value&#39;: 1, &#39;parent&#39;: {&#39;value&#39;: &#39;not an int&#39;}})</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_self_type_in_parametrized_generic_pydantic_dataclass(Self):</span><span class="a">+    T = typing.TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    @pydantic_dataclass</span><span class="a">+    class Node(typing.Generic[T]):</span><span class="a">+        value: T</span><span class="a">+        parent: Self | None = None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Node[int])</span><span class="a">+    node = ta.validate_python({&#39;value&#39;: &#39;1&#39;, &#39;parent&#39;: {&#39;value&#39;: &#39;0&#39;}})</span><span class="a">+    assert node.value == 1</span><span class="a">+    assert node.parent.value == 0</span><span class="a">+    assert node.parent.parent is None</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        ta.validate_python({&#39;value&#39;: 1, &#39;parent&#39;: {&#39;value&#39;: &#39;not an int&#39;}})</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_self_type_in_parametrized_generic_typed_dict(Self):</span><span class="a">+    T = typing.TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class Node(TypedDict, typing.Generic[T]):</span><span class="a">+        value: T</span><span class="a">+        parent: Self | None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Node[int])</span><span class="a">+    assert ta.validate_python({&#39;value&#39;: &#39;1&#39;, &#39;parent&#39;: {&#39;value&#39;: &#39;0&#39;, &#39;parent&#39;: None}}) == {</span><span class="a">+        &#39;value&#39;: 1,</span><span class="a">+        &#39;parent&#39;: {&#39;value&#39;: 0, &#39;parent&#39;: None},</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        ta.validate_python({&#39;value&#39;: 1, &#39;parent&#39;: {&#39;value&#39;: &#39;not an int&#39;, &#39;parent&#39;: None}})</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_annotated_self_type_in_parametrized_generic_dataclass(Self):</span><span class="a">+    T = typing.TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    @dataclasses.dataclass</span><span class="a">+    class Node(typing.Generic[T]):</span><span class="a">+        value: T</span><span class="a">+        parent: typing.Annotated[Self, Field(description=&#39;parent&#39;)] | None = None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Node[int])</span><span class="a">+    node = ta.validate_python({&#39;value&#39;: &#39;1&#39;, &#39;parent&#39;: {&#39;value&#39;: &#39;0&#39;}})</span><span class="a">+    assert node == Node(value=1, parent=Node(value=0, parent=None))</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError):</span><span class="a">+        ta.validate_python({&#39;value&#39;: 1, &#39;parent&#39;: {&#39;value&#39;: &#39;not an int&#39;}})</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_invalid_validate_call(Self):</span><span class="c">     with pytest.raises(PydanticUserError, match=&#39;`typing.Self` is invalid in this context&#39;):</span><span class="c"> </span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/14065" rel="noopener" target="_blank">PR #14065</a></span><span class="pm"><span class="a">+44</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/_internal/_generate_schema.py</span><span class="h">index 866db4e9a..037774ba0 100644</span><span class="h">@@ -1098,6 +1098,9 @@ class GenerateSchema:</span><span class="c">     def _generate_schema_inner(self, obj: Any, origin: Any | None = PydanticUndefined) -&gt; core_schema.CoreSchema:</span><span class="c">         if typing_objects.is_self(obj):</span><span class="c">             obj = self._resolve_self_type(obj)</span><span class="a">+            # The resolved type can be a parametrized generic (e.g. `GenericDataclass[int]`),</span><span class="a">+            # so the origin provided by the caller (computed on `Self`) is stale:</span><span class="a">+            origin = get_origin(obj)</span><span class="c"> </span><span class="c">         origin = origin if origin is not PydanticUndefined else get_origin(obj)</span><span class="c"> </span><span class="f">tests/test_types_self.py</span><span class="h">index d15367ed8..a8e6e6520 100644</span><span class="h">@@ -2,6 +2,7 @@ import dataclasses</span><span class="c"> import re</span><span class="c"> import sys</span><span class="c"> import typing</span><span class="a">+from typing import Generic, TypeVar</span><span class="c"> </span><span class="c"> import pytest</span><span class="c"> import typing_extensions</span><span class="h">@@ -9,6 +10,8 @@ from typing_extensions import NamedTuple, TypedDict, TypeForm</span><span class="c"> </span><span class="c"> from pydantic import BaseModel, Field, PydanticUserError, TypeAdapter, ValidationError, computed_field, validate_call</span><span class="c"> </span><span class="a">+from .utils import dataclass_decorators</span><span class="a">+</span><span class="c"> self_types: list[TypeForm] = []</span><span class="c"> ids: list[str] = []</span><span class="c"> if sys.version_info &gt;= (3, 11):</span><span class="h">@@ -173,6 +176,44 @@ def test_self_type_in_dataclass(Self):</span><span class="c">         m.item.ref.x = 3</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&#39;dataclass_decorator&#39;, **dataclass_decorators())</span><span class="a">+def test_self_type_in_parametrized_generic_dataclass(Self, dataclass_decorator):</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    @dataclass_decorator</span><span class="a">+    class SelfRef(Generic[T]):</span><span class="a">+        x: T</span><span class="a">+        ref: Self | None = None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(SelfRef[int])</span><span class="a">+    item = ta.validate_python({&#39;x&#39;: &#39;1&#39;, &#39;ref&#39;: {&#39;x&#39;: &#39;2&#39;}})</span><span class="a">+    assert item.x == 1</span><span class="a">+    assert item.ref.x == 2</span><span class="a">+    assert item.ref.ref is None</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_self_type_in_parametrized_generic_typed_dict(Self):</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class SelfRefTypedDict(TypedDict, Generic[T]):</span><span class="a">+        x: T</span><span class="a">+        ref: Self | None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(SelfRefTypedDict[int])</span><span class="a">+    assert ta.validate_python({&#39;x&#39;: &#39;1&#39;, &#39;ref&#39;: {&#39;x&#39;: &#39;2&#39;, &#39;ref&#39;: None}}) == {&#39;x&#39;: 1, &#39;ref&#39;: {&#39;x&#39;: 2, &#39;ref&#39;: None}}</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_self_type_in_parametrized_generic_named_tuple(Self):</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    class SelfRefNamedTuple(NamedTuple, Generic[T]):</span><span class="a">+        x: T</span><span class="a">+        ref: Self | None = None</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(SelfRefNamedTuple[int])</span><span class="a">+    assert ta.validate_python((&#39;1&#39;, (&#39;2&#39;,))) == (1, (2, None))</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_invalid_validate_call(Self):</span><span class="c">     with pytest.raises(PydanticUserError, match=&#39;`typing.Self` is invalid in this context&#39;):</span><span class="c"> </span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261027-165153/13991/">Previous · #13991</a>
+  <a class="mid" href="/backtests/pydantic/run-20261027-165153/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261027-165153/14073/">Next · #14073</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

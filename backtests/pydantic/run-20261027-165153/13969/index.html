@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13969 Huge int input to a timedelta field wraps to a small wrong timedelta — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13969 in pydantic/pydantic, run 27 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261027-165153/13969/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261027-165153/">run-20261027-165153</a><span aria-hidden="true">/</span><span aria-current="page">#13969</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13969" rel="noopener" target="_blank">#13969</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13973" rel="noopener" target="_blank">PR #13973</a></span>
+  <span>Run 27 Oct 2026 · <span class="runid">run-20261027-165153</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Huge int input to a timedelta field wraps to a small wrong timedelta</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same root-cause change in int_as_duration: replace the truncating `as u32` on the day count with `u32::try_from` and map the failure to ParseError::DurationDaysTooLarge via map_timedelta_err, so both produce the same time_delta_parsing error as the float path. The independent tests confirm this: all issue scenarios (Python and JSON, positive and negative, 86400*2**32 and 86400*(2**32+5)) go from failing on base to passing under both, and the two i64-extreme cases fail identically under both with time_delta_type, so neither patch separates on correctness. A&#39;s combinator chain and B&#39;s let-else are both idiomatic; A&#39;s rewritten comment is slightly more precise about why seconds is still safe to cast. The difference is in tests and scope. Patch A adds regression cases in the pydantic-core test_timedelta.py, which is the layer where the fix lives, covering the boundary (999,999,999 days passes, 1,000,000,000 fails), the exact issue values, and negative inputs, plus a pydantic-level test that checks the error type on both Python and JSON paths. Some of A&#39;s extra cases (the i64 extremes and the string-input variants) carry risk of not matching the expected message given the time_delta_type result seen in the harness, but that is an unverified concern rather than evidence. Patch B only adds pydantic-level tests, and bundles an unrelated refactor of the TimedeltaModel fixture into a TypeAdapter fixture, rewriting two existing tests; its new test also oddly re-asserts the in-range case inside every parametrized run and carries a placeholder docstring. That churn obscures the fix and earns no credit. With equal fixes, A&#39;s tests at the core layer and narrower scope make it the better patch.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">552 passed · 91 skipped · 643 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">32<small>vs 47 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13969" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>A <code>timedelta</code> field accepts an integer number of seconds that is far outside the <code>timedelta</code> range and returns a small, wrong value instead of raising a <code>ValidationError</code>. Any integer of at least <code>86400 * 2**32</code> seconds has its day count wrapped modulo <code>2**32</code>, so <code>86400 * (2**32 + 5)</code> validates to <code>timedelta(days=5)</code>, from Python and from JSON, and the negative value gives <code>timedelta(days=-5)</code>. The same number passed as a float is rejected with <code>time_delta_parsing</code>, so only the int path is affected. This matters for untrusted JSON input: a client can send a huge number and the model silently holds a plausible small duration.</p>
+<p>Output of the example below:</p>
+<pre><code>python, int input:    datetime.timedelta(days=5)
+python, -int input:   datetime.timedelta(days=-5)
+json, int input:      datetime.timedelta(days=5)
+python, int 86400*2**32: datetime.timedelta(0)
+python, float input:  ValidationError time_delta_parsing
+expected for all int inputs: ValidationError time_delta_parsing, like the float input</code></pre>
+<p>I expected every one of the int inputs to fail with <code>time_delta_parsing</code>, the same as the float input. Strict mode is not affected, since strict JSON rejects an int with <code>time_delta_type</code>.</p>
+<p>Cause: <code>int_as_duration</code> in <code>pydantic-core/src/input/datetime.rs</code> (lines 709-716 at 68a839f07) computes <code>let days = (total_seconds / 86400) as u32;</code> on a <code>u64</code>. The <code>as</code> cast truncates, and the comment above it only covers seconds and microseconds. It is reached from the lax int branch of <code>validate_timedelta</code> in <code>pydantic-core/src/input/input_python.rs</code> (line 741) and <code>pydantic-core/src/input/input_json.rs</code> (line 396). <code>float_as_duration</code> a few lines below casts an <code>f64</code> with <code>as u32</code>, which saturates, so <code>Duration::new</code> rejects the value there.</p>
+<p>Proposed fix: use <code>u32::try_from(total_seconds / 86400)</code> and map the failure to the same <code>TimeDeltaParsing</code> error the float path ends up with. A Python and JSON test with <code>86400 * 2**32</code> and <code>86400 * (2**32 + 5)</code> would cover it, since <code>test_timedelta.py</code> has no int case above <code>timedelta.max</code> today.</p>
+<p>I&#39;m happy to open a PR for this.</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">from datetime import timedelta
+
+from pydantic import BaseModel, ValidationError
+
+
+class M(BaseModel):
+    d: timedelta
+
+
+big = 86400 * (2**32 + 5)  # 2**32 + 5 days in seconds, far above timedelta.max
+
+print(&#39;python, int input:   &#39;, repr(M(d=big).d))
+print(&#39;python, -int input:  &#39;, repr(M(d=-big).d))
+print(&#39;json, int input:     &#39;, repr(M.model_validate_json(f&#39;{{&quot;d&quot;: {big}}}&#39;).d))
+print(&#39;python, int 86400*2**32:&#39;, repr(M(d=86400 * 2**32).d))
+
+try:
+    M(d=float(big))
+except ValidationError as e:
+    print(&#39;python, float input:  ValidationError&#39;, e.errors()[0][&#39;type&#39;])
+
+print(&#39;expected for all int inputs: ValidationError time_delta_parsing, like the float input&#39;)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">             pydantic version: 2.14.0
+        pydantic-core version: 2.50.0
+          pydantic-core build: profile=release pgo=false
+               python version: 3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]
+                     platform: Linux-7.1.5-76070105-generic-x86_64-with-glibc2.39
+             related packages: typing_extensions-4.16.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+29</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic-core/src/input/datetime.rs</span><span class="h">index afd44b29..f7f37617 100644</span><span class="h">@@ -709,10 +709,13 @@ pub fn bytes_as_timedelta&lt;&#39;py&gt;(</span><span class="c"> pub fn int_as_duration(input: impl ToErrorValue, total_seconds: i64) -&gt; ValResult&lt;Duration&gt; {</span><span class="c">     let positive = total_seconds &gt;= 0;</span><span class="c">     let total_seconds = total_seconds.unsigned_abs();</span><span class="r">-    // we can safely unwrap here since we&#39;ve guaranteed seconds and microseconds can&#39;t cause overflow</span><span class="r">-    let days = (total_seconds / 86400) as u32;</span><span class="a">+    // seconds is always &lt; 86400 so this cast is safe, but days can exceed u32::MAX for huge inputs,</span><span class="a">+    // so it must be converted with a check rather than a truncating cast</span><span class="c">     let seconds = (total_seconds % 86400) as u32;</span><span class="r">-    Duration::new(positive, days, seconds, 0).map_err(|err| map_timedelta_err(input, err))</span><span class="a">+    u32::try_from(total_seconds / 86400)</span><span class="a">+        .map_err(|_| ParseError::DurationDaysTooLarge)</span><span class="a">+        .and_then(|days| Duration::new(positive, days, seconds, 0))</span><span class="a">+        .map_err(|err| map_timedelta_err(input, err))</span><span class="c"> }</span><span class="c"> </span><span class="c"> pub fn float_as_duration(input: impl ToErrorValue, total_seconds: f64) -&gt; ValResult&lt;Duration&gt; {</span><span class="f">pydantic-core/tests/validators/test_timedelta.py</span><span class="h">index 243fbfb9..e46d0492 100644</span><span class="h">@@ -63,6 +63,13 @@ def test_constraints_schema_validation() -&gt; None:</span><span class="c">         (float(&#39;inf&#39;), Err(&#39;Input should be a valid timedelta, durations may not exceed 999,999,999 days&#39;)),</span><span class="c">         (float(&#39;-inf&#39;), Err(&#39;Input should be a valid timedelta, durations may not exceed 999,999,999 days&#39;)),</span><span class="c">         (timedelta.max, timedelta.max),</span><span class="a">+        (86400 * 999_999_999, timedelta(days=999_999_999)),</span><span class="a">+        (86400 * 1_000_000_000, Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="a">+        (86400 * 2**32, Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="a">+        (86400 * (2**32 + 5), Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="a">+        (-86400 * (2**32 + 5), Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="a">+        (2**63 - 1, Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="a">+        (-(2**63), Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="c">         (&#39;02:03:04.05&#39;, timedelta(hours=2, seconds=184, microseconds=50_000)),</span><span class="c">         (</span><span class="c">             &#39;02:03:04.05broken&#39;,</span><span class="h">@@ -93,6 +100,10 @@ def test_timedelta(input_value, expected):</span><span class="c">         (&#39;-3601.222222&#39;, timedelta(hours=-2, seconds=3598, microseconds=777778)),</span><span class="c">         (&#39;-3601.2222222&#39;, timedelta(hours=-2, seconds=3598, microseconds=777778)),</span><span class="c">         (&#39;3600.999999&#39;, timedelta(seconds=3600, microseconds=999999)),</span><span class="a">+        (str(86400 * 999_999_999), timedelta(days=999_999_999)),</span><span class="a">+        (str(86400 * 2**32), Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="a">+        (str(86400 * (2**32 + 5)), Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="a">+        (str(-86400 * (2**32 + 5)), Err(&#39;durations may not exceed 999,999,999 days [type=time_delta_parsing&#39;)),</span><span class="c">     ],</span><span class="c">     ids=repr,</span><span class="c"> )</span><span class="f">tests/test_datetime.py</span><span class="h">index 5448d959..6f289de3 100644</span><span class="h">@@ -434,6 +434,18 @@ def test_parse_durations(TimedeltaModel, value, result):</span><span class="c">         assert TimedeltaModel(d=value).d == result</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&#39;value&#39;, [86400 * 2**32, 86400 * (2**32 + 5), -86400 * (2**32 + 5)])</span><span class="a">+def test_parse_durations_int_out_of_range(TimedeltaModel, value):</span><span class="a">+    # the day count must not wrap modulo 2**32 into a small, plausible timedelta</span><span class="a">+    with pytest.raises(ValidationError) as exc_info:</span><span class="a">+        TimedeltaModel(d=value)</span><span class="a">+    assert exc_info.value.errors(include_url=False)[0][&#39;type&#39;] == &#39;time_delta_parsing&#39;</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError) as exc_info:</span><span class="a">+        TimedeltaModel.model_validate_json(f&#39;{{&quot;d&quot;: {value}}}&#39;)</span><span class="a">+    assert exc_info.value.errors(include_url=False)[0][&#39;type&#39;] == &#39;time_delta_parsing&#39;</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     &#39;field, value, error_message&#39;,</span><span class="c">     [</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13973" rel="noopener" target="_blank">PR #13973</a></span><span class="pm"><span class="a">+33</span> <span class="r">−14</span></span></div><pre class="diff"><span class="f">pydantic-core/src/input/datetime.rs</span><span class="h">index afd44b296..2d6567965 100644</span><span class="h">@@ -709,8 +709,10 @@ pub fn bytes_as_timedelta&lt;&#39;py&gt;(</span><span class="c"> pub fn int_as_duration(input: impl ToErrorValue, total_seconds: i64) -&gt; ValResult&lt;Duration&gt; {</span><span class="c">     let positive = total_seconds &gt;= 0;</span><span class="c">     let total_seconds = total_seconds.unsigned_abs();</span><span class="r">-    // we can safely unwrap here since we&#39;ve guaranteed seconds and microseconds can&#39;t cause overflow</span><span class="r">-    let days = (total_seconds / 86400) as u32;</span><span class="a">+    // The number of days can exceed `u32::MAX` (and casting would silently wrap it):</span><span class="a">+    let Ok(days) = u32::try_from(total_seconds / 86400) else {</span><span class="a">+        return Err(map_timedelta_err(input, ParseError::DurationDaysTooLarge));</span><span class="a">+    };</span><span class="c">     let seconds = (total_seconds % 86400) as u32;</span><span class="c">     Duration::new(positive, days, seconds, 0).map_err(|err| map_timedelta_err(input, err))</span><span class="c"> }</span><span class="f">tests/test_datetime.py</span><span class="h">index 5448d959e..969d346ef 100644</span><span class="h">@@ -355,12 +355,9 @@ def test_naive_datetime_validation_fails(naive_datetime_type):</span><span class="c">     ]</span><span class="c"> </span><span class="c"> </span><span class="r">-@pytest.fixture(scope=&#39;module&#39;, name=&#39;TimedeltaModel&#39;)</span><span class="r">-def timedelta_model_fixture():</span><span class="r">-    class TimedeltaModel(BaseModel):</span><span class="r">-        d: timedelta</span><span class="r">-</span><span class="r">-    return TimedeltaModel</span><span class="a">+@pytest.fixture(scope=&#39;module&#39;, name=&#39;timedelta_ta&#39;)</span><span class="a">+def timedelta_ta_fixture() -&gt; TypeAdapter[timedelta]:</span><span class="a">+    return TypeAdapter(timedelta)</span><span class="c"> </span><span class="c"> </span><span class="c"> @pytest.mark.parametrize(</span><span class="h">@@ -375,9 +372,9 @@ def timedelta_model_fixture():</span><span class="c">         timedelta(seconds=30),  # seconds</span><span class="c">     ],</span><span class="c"> )</span><span class="r">-def test_parse_python_format(TimedeltaModel, delta):</span><span class="r">-    assert TimedeltaModel(d=delta).d == delta</span><span class="r">-    # assert TimedeltaModel(d=str(delta)).d == delta</span><span class="a">+def test_parse_python_format(timedelta_ta: TypeAdapter[timedelta], delta):</span><span class="a">+    assert timedelta_ta.validate_python(delta) == delta</span><span class="a">+    # assert timedelta_ta.validate_python(str(delta)) == delta</span><span class="c"> </span><span class="c"> </span><span class="c"> @pytest.mark.parametrize(</span><span class="h">@@ -426,12 +423,32 @@ def test_parse_python_format(TimedeltaModel, delta):</span><span class="c">         (b&#39;PT0.000005S&#39;, timedelta(microseconds=5)),</span><span class="c">     ],</span><span class="c"> )</span><span class="r">-def test_parse_durations(TimedeltaModel, value, result):</span><span class="a">+def test_parse_durations(timedelta_ta: TypeAdapter[timedelta], value, result):</span><span class="c">     if isinstance(result, Err):</span><span class="c">         with pytest.raises(ValidationError, match=result.message_escaped()):</span><span class="r">-            TimedeltaModel(d=value)</span><span class="a">+            timedelta_ta.validate_python(value)</span><span class="c">     else:</span><span class="r">-        assert TimedeltaModel(d=value).d == result</span><span class="a">+        assert timedelta_ta.validate_python(value) == result</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;value&#39;,</span><span class="a">+    [</span><span class="a">+        999_999_999 * 86400 + 86400,</span><span class="a">+        86400 * 2**32,</span><span class="a">+        86400 * (2**32 + 5),</span><span class="a">+        -86400 * (2**32 + 5),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_parse_durations_large_int(timedelta_ta: TypeAdapter[timedelta], value: int) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13969&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    assert timedelta_ta.validate_python(999_999_999 * 86400) == timedelta(days=999_999_999)</span><span class="a">+</span><span class="a">+    with pytest.raises(ValidationError, match=&#39;durations may not exceed 999,999,999 days&#39;):</span><span class="a">+        timedelta_ta.validate_python(value)</span><span class="a">+    with pytest.raises(ValidationError, match=&#39;durations may not exceed 999,999,999 days&#39;):</span><span class="a">+        timedelta_ta.validate_json(str(value))</span><span class="c"> </span><span class="c"> </span><span class="c"> @pytest.mark.parametrize(</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261027-165153/13965/">Previous · #13965</a>
+  <a class="mid" href="/backtests/pydantic/run-20261027-165153/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261027-165153/13977/">Next · #13977</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

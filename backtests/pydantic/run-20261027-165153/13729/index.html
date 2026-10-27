@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13729 Smart union selects the wrong model in JSON mode with a before validator — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #13729 in pydantic/pydantic, run 27 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261027-165153/13729/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261027-165153/">run-20261027-165153</a><span aria-hidden="true">/</span><span aria-current="page">#13729</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13729" rel="noopener" target="_blank">#13729</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/13731" rel="noopener" target="_blank">PR #13731</a></span>
+  <span>Run 27 Oct 2026 · <span class="runid">run-20261027-165153</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Smart union selects the wrong model in JSON mode with a before validator</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The Rust change is byte-for-byte equivalent in both patches (apart from one blank line): both remove the outer `state.add_fields_set(fields_set.len())` in `ModelFieldsValidator::validate` and instead count successfully validated known fields inside `validate_json_object`, adding that count once at the end. That matches the issue&#39;s diagnosis: the Python-input helper already added its own count, so the outer add double-counted on the before-validator path, while the plain JSON path got only the outer count. Independent tests confirm both patches fix every scenario, including reversed union order and nested-field usage. The difference is tests. Patch A adds a regression test at the pydantic-core level (tests/validators/test_union.py) using a raw `no_info_before_validator_function` wrapping a `model_schema`, parametrized over python/json and over permuted choice order, which exercises the fix where it actually lives and would catch a regression in pydantic-core independently of the pydantic wrapper. It also adds an end-to-end reproduction of the issue example in tests/test_validators.py. Patch B adds only pydantic-level tests, albeit with extra/reverse-order parametrization, and leaves an unfilled `&lt;link&gt;` docstring placeholder (stripped reference, ignored for scoring but still a stub). Both patches include an extra-fields hardening test that is neutral. Scope and craft are otherwise equal, so Patch A&#39;s two-layer test coverage, matched to the location of the fix, gives it a modest but real edge.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 28s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">488 passed · 92 skipped · 580 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">103<small>vs 55 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13729" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>Adding a no-op <code>mode=&#39;before&#39;</code> model validator makes smart-union validation select a model with fewer matching fields for JSON input. The equivalent Python input selects the model with more matching fields.</p>
+<p>The example below prints:</p>
+<pre><code class="lang-text">Larger
+Smaller</code></pre>
+<p>I expect <code>Larger</code> in both cases: it has three supplied valid fields, while <code>Smaller</code> has two. This follows the documented <a href="https://docs.pydantic.dev/latest/concepts/unions/#number-of-valid-fields-set" rel="noopener nofollow" target="_blank">number-of-valid-fields-set ranking</a>.</p>
+<p>Reproduced on <code>main</code> at 965c23dd93bd5ca7b86224ba39ccbe79399f117b. In <a href="https://github.com/pydantic/pydantic/blob/965c23dd93bd5ca7b86224ba39ccbe79399f117b/pydantic-core/src/validators/model_fields.rs" rel="noopener nofollow" target="_blank">model_fields.rs</a>, the Python-input helper adds its known-field count, then the outer validator adds <code>fields_set.len()</code> again. The before validator sends the smaller model through that Python-input path, while the larger model uses the plain JSON path and receives only the outer count.</p>
+<p>I can send a focused fix with regression tests. Could you assign this to me?</p>
+<h3>Example Code</h3>
+<pre><code class="lang-python">from typing import Any
+
+from pydantic import BaseModel, TypeAdapter, model_validator
+
+
+class Smaller(BaseModel):
+    a: int
+    b: int
+
+    @model_validator(mode=&#39;before&#39;)
+    @classmethod
+    def keep_input(cls, value: Any) -&gt; Any:
+        return value
+
+
+class Larger(BaseModel):
+    a: int
+    b: int
+    c: int
+
+
+adapter = TypeAdapter(Smaller | Larger)
+print(type(adapter.validate_python({&#39;a&#39;: 1, &#39;b&#39;: 2, &#39;c&#39;: 3})).__name__)
+print(type(adapter.validate_json(&#39;{&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3}&#39;)).__name__)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-text">             pydantic version: 2.14.0b1
+        pydantic-core version: 2.48.0
+          pydantic-core build: profile=debug pgo=false
+               python version: 3.13.14 (main, Jul 18 2026, 16:56:45) [Clang 22.1.3 ]
+                     platform: macOS-26.6.2-arm64-arm-64bit-Mach-O
+             related packages: mypy-2.3.0 pyright-1.1.411 typing_extensions-4.15.0
+                       commit: 965c23dd9</code></pre>
+<p>Prepared with AI assistance.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+102</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic-core/src/validators/model_fields.rs</span><span class="h">index 5e8fe034..c0dcd5e7 100644</span><span class="h">@@ -179,7 +179,6 @@ impl Validator for ModelFieldsValidator {</span><span class="c">             };</span><span class="c">             self.validate_by_get_item(py, input, dict, state)?</span><span class="c">         };</span><span class="r">-        state.add_fields_set(fields_set.len());</span><span class="c"> </span><span class="c">         // if we have extra=allow, but we didn&#39;t create a dict because we were validating</span><span class="c">         // from attributes, set it now so __pydantic_extra__ is always a dict if extra=allow</span><span class="h">@@ -560,6 +559,7 @@ impl ModelFieldsValidator {</span><span class="c">             (0..self.fields.len()).map(|_| None).collect();</span><span class="c">         let mut errors: Vec&lt;ValLineError&gt; = Vec::new();</span><span class="c">         let fields_set = PySet::empty(py)?;</span><span class="a">+        let mut fields_set_count: usize = 0;</span><span class="c"> </span><span class="c">         let state = &amp;mut state.scoped_set_data(Some(model_dict.clone()));</span><span class="c">         let state = &amp;mut state.scoped_clear_field_error();</span><span class="h">@@ -636,6 +636,7 @@ impl ModelFieldsValidator {</span><span class="c">                 match field.validator.validate(py, field_json_value, state) {</span><span class="c">                     Ok(value) =&gt; {</span><span class="c">                         fields_set.add(&amp;field.name)?;</span><span class="a">+                        fields_set_count += 1;</span><span class="c">                         value</span><span class="c">                     }</span><span class="c">                     Err(ValError::Omit) =&gt; continue,</span><span class="h">@@ -697,6 +698,8 @@ impl ModelFieldsValidator {</span><span class="c">             return Err(ValError::LineErrors(errors));</span><span class="c">         }</span><span class="c"> </span><span class="a">+        state.add_fields_set(fields_set_count);</span><span class="a">+</span><span class="c">         Ok((model_dict, model_extra_dict_op, fields_set))</span><span class="c">     }</span><span class="c"> }</span><span class="f">pydantic-core/tests/validators/test_union.py</span><span class="h">index 268e5a40..4a49ec3b 100644</span><span class="h">@@ -1424,3 +1424,79 @@ def test_smart_union_wrap_validator_should_not_change_nested_model_field_counts(</span><span class="c">     assert isinstance(m, RootModel)</span><span class="c">     assert isinstance(m.ab, ModelA)</span><span class="c">     assert m.ab.sub.x == &#39;y&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;mode&#39;, [&#39;python&#39;, &#39;json&#39;])</span><span class="a">+def test_smart_union_before_validator_does_not_change_model_field_counts(mode) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A before validator on one choice must not change how model fields are counted for that choice.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Smaller:</span><span class="a">+        a: int</span><span class="a">+        b: int</span><span class="a">+</span><span class="a">+    class Larger:</span><span class="a">+        a: int</span><span class="a">+        b: int</span><span class="a">+        c: int</span><span class="a">+</span><span class="a">+    smaller_schema = core_schema.no_info_before_validator_function(</span><span class="a">+        lambda v: v,</span><span class="a">+        core_schema.model_schema(</span><span class="a">+            Smaller,</span><span class="a">+            core_schema.model_fields_schema(</span><span class="a">+                fields={</span><span class="a">+                    &#39;a&#39;: core_schema.model_field(core_schema.int_schema()),</span><span class="a">+                    &#39;b&#39;: core_schema.model_field(core_schema.int_schema()),</span><span class="a">+                }</span><span class="a">+            ),</span><span class="a">+        ),</span><span class="a">+    )</span><span class="a">+    larger_schema = core_schema.model_schema(</span><span class="a">+        Larger,</span><span class="a">+        core_schema.model_fields_schema(</span><span class="a">+            fields={</span><span class="a">+                &#39;a&#39;: core_schema.model_field(core_schema.int_schema()),</span><span class="a">+                &#39;b&#39;: core_schema.model_field(core_schema.int_schema()),</span><span class="a">+                &#39;c&#39;: core_schema.model_field(core_schema.int_schema()),</span><span class="a">+            }</span><span class="a">+        ),</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    for choices in permute_choices([smaller_schema, larger_schema]):</span><span class="a">+        validator = SchemaValidator(core_schema.union_schema(choices))</span><span class="a">+        if mode == &#39;python&#39;:</span><span class="a">+            result = validator.validate_python({&#39;a&#39;: 1, &#39;b&#39;: 2, &#39;c&#39;: 3})</span><span class="a">+        else:</span><span class="a">+            result = validator.validate_json(&#39;{&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3}&#39;)</span><span class="a">+        assert isinstance(result, Larger)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;extra_behavior&#39;, [&#39;forbid&#39;, &#39;ignore&#39;, &#39;allow&#39;])</span><span class="a">+def test_smart_union_extra_behavior_json(extra_behavior) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Extra fields must not count as valid fields set in JSON mode, matching Python mode.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Foo:</span><span class="a">+        foo: str = &#39;foo&#39;</span><span class="a">+</span><span class="a">+    class Bar:</span><span class="a">+        bar: str = &#39;bar&#39;</span><span class="a">+</span><span class="a">+    def member_schema(cls, field_name):</span><span class="a">+        return core_schema.model_schema(</span><span class="a">+            cls,</span><span class="a">+            core_schema.model_fields_schema(</span><span class="a">+                fields={</span><span class="a">+                    field_name: core_schema.model_field(</span><span class="a">+                        core_schema.with_default_schema(core_schema.str_schema(), default=field_name)</span><span class="a">+                    )</span><span class="a">+                }</span><span class="a">+            ),</span><span class="a">+            extra_behavior=extra_behavior,</span><span class="a">+        )</span><span class="a">+</span><span class="a">+    validator = SchemaValidator(core_schema.union_schema([member_schema(Foo, &#39;foo&#39;), member_schema(Bar, &#39;bar&#39;)]))</span><span class="a">+</span><span class="a">+    assert isinstance(validator.validate_json(&#39;{&quot;foo&quot;: &quot;foo&quot;}&#39;), Foo)</span><span class="a">+    assert isinstance(validator.validate_json(&#39;{&quot;bar&quot;: &quot;bar&quot;}&#39;), Bar)</span><span class="a">+    assert isinstance(validator.validate_python({&#39;foo&#39;: &#39;foo&#39;}), Foo)</span><span class="a">+    assert isinstance(validator.validate_python({&#39;bar&#39;: &#39;bar&#39;}), Bar)</span><span class="f">tests/test_validators.py</span><span class="h">index 7e9f4713..f6352eb9 100644</span><span class="h">@@ -3254,3 +3254,25 @@ def test_wrap_validator_forwards_runtime_settings() -&gt; None:</span><span class="c">     with pytest.raises(ValidationError, match=&#39;Input should be a valid dictionary&#39;):</span><span class="c">         Outer.model_validate({&#39;inner&#39;: InnerObj()}, context=&#39;ctx&#39;)</span><span class="c">     assert Outer.model_validate({&#39;inner&#39;: InnerObj()}, from_attributes=True, context=&#39;ctx&#39;).inner.a == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_smart_union_model_before_validator_json_and_python() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A `mode=&#39;before&#39;` model validator must not change smart union field-count ranking in JSON mode.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Smaller(BaseModel):</span><span class="a">+        a: int</span><span class="a">+        b: int</span><span class="a">+</span><span class="a">+        @model_validator(mode=&#39;before&#39;)</span><span class="a">+        @classmethod</span><span class="a">+        def keep_input(cls, value: Any) -&gt; Any:</span><span class="a">+            return value</span><span class="a">+</span><span class="a">+    class Larger(BaseModel):</span><span class="a">+        a: int</span><span class="a">+        b: int</span><span class="a">+        c: int</span><span class="a">+</span><span class="a">+    adapter = TypeAdapter(Smaller | Larger)</span><span class="a">+    assert type(adapter.validate_python({&#39;a&#39;: 1, &#39;b&#39;: 2, &#39;c&#39;: 3})) is Larger</span><span class="a">+    assert type(adapter.validate_json(&#39;{&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3}&#39;)) is Larger</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/13731" rel="noopener" target="_blank">PR #13731</a></span><span class="pm"><span class="a">+53</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic-core/src/validators/model_fields.rs</span><span class="h">index 5e8fe0349..913d51292 100644</span><span class="h">@@ -179,7 +179,6 @@ impl Validator for ModelFieldsValidator {</span><span class="c">             };</span><span class="c">             self.validate_by_get_item(py, input, dict, state)?</span><span class="c">         };</span><span class="r">-        state.add_fields_set(fields_set.len());</span><span class="c"> </span><span class="c">         // if we have extra=allow, but we didn&#39;t create a dict because we were validating</span><span class="c">         // from attributes, set it now so __pydantic_extra__ is always a dict if extra=allow</span><span class="h">@@ -560,6 +559,7 @@ impl ModelFieldsValidator {</span><span class="c">             (0..self.fields.len()).map(|_| None).collect();</span><span class="c">         let mut errors: Vec&lt;ValLineError&gt; = Vec::new();</span><span class="c">         let fields_set = PySet::empty(py)?;</span><span class="a">+        let mut fields_set_count: usize = 0;</span><span class="c"> </span><span class="c">         let state = &amp;mut state.scoped_set_data(Some(model_dict.clone()));</span><span class="c">         let state = &amp;mut state.scoped_clear_field_error();</span><span class="h">@@ -636,6 +636,7 @@ impl ModelFieldsValidator {</span><span class="c">                 match field.validator.validate(py, field_json_value, state) {</span><span class="c">                     Ok(value) =&gt; {</span><span class="c">                         fields_set.add(&amp;field.name)?;</span><span class="a">+                        fields_set_count += 1;</span><span class="c">                         value</span><span class="c">                     }</span><span class="c">                     Err(ValError::Omit) =&gt; continue,</span><span class="h">@@ -697,6 +698,7 @@ impl ModelFieldsValidator {</span><span class="c">             return Err(ValError::LineErrors(errors));</span><span class="c">         }</span><span class="c"> </span><span class="a">+        state.add_fields_set(fields_set_count);</span><span class="c">         Ok((model_dict, model_extra_dict_op, fields_set))</span><span class="c">     }</span><span class="c"> }</span><span class="f">tests/types/unions/test_union.py</span><span class="h">index b68d9cf19..f7a3f60f2 100644</span><span class="h">@@ -1,6 +1,6 @@</span><span class="c"> from abc import ABC, abstractmethod</span><span class="c"> from enum import IntEnum</span><span class="r">-from typing import Annotated, ClassVar, Literal</span><span class="a">+from typing import Annotated, Any, ClassVar, Literal</span><span class="c"> from uuid import UUID</span><span class="c"> </span><span class="c"> import pytest</span><span class="h">@@ -14,6 +14,7 @@ from pydantic import (</span><span class="c">     Strict,</span><span class="c">     TypeAdapter,</span><span class="c">     ValidationError,</span><span class="a">+    model_validator,</span><span class="c"> )</span><span class="c"> </span><span class="c"> </span><span class="h">@@ -235,6 +236,54 @@ def test_union_typeddict():</span><span class="c">     assert ta.validate_python(dict(foo=&#39;baz&#39;)) == {&#39;foo&#39;: &#39;baz&#39;}</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&#39;extra&#39;, [&#39;ignore&#39;, &#39;allow&#39;])</span><span class="a">+@pytest.mark.parametrize(&#39;reverse_members&#39;, [False, True])</span><span class="a">+def test_smart_union_fields_set_count_consistent_between_json_and_python(</span><span class="a">+    extra: Literal[&#39;ignore&#39;, &#39;allow&#39;], reverse_members: bool</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13729&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class Smaller(BaseModel):</span><span class="a">+        model_config = ConfigDict(extra=extra)</span><span class="a">+</span><span class="a">+        a: int</span><span class="a">+        b: int</span><span class="a">+</span><span class="a">+        @model_validator(mode=&#39;before&#39;)</span><span class="a">+        @classmethod</span><span class="a">+        def keep_input(cls, value: Any) -&gt; Any:</span><span class="a">+            return value</span><span class="a">+</span><span class="a">+    class Larger(BaseModel):</span><span class="a">+        a: int</span><span class="a">+        b: int</span><span class="a">+        c: int</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Larger | Smaller if reverse_members else Smaller | Larger)</span><span class="a">+</span><span class="a">+    assert isinstance(ta.validate_python({&#39;a&#39;: 1, &#39;b&#39;: 2, &#39;c&#39;: 3}), Larger)</span><span class="a">+    assert isinstance(ta.validate_json(&#39;{&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3}&#39;), Larger)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;reverse_members&#39;, [False, True])</span><span class="a">+def test_smart_union_fields_set_count_ignores_extra(reverse_members: bool) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/13729&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class WithExtra(BaseModel):</span><span class="a">+        model_config = ConfigDict(extra=&#39;allow&#39;)</span><span class="a">+</span><span class="a">+        a: int</span><span class="a">+</span><span class="a">+    class Explicit(BaseModel):</span><span class="a">+        a: int</span><span class="a">+        b: int</span><span class="a">+</span><span class="a">+    ta = TypeAdapter(Explicit | WithExtra if reverse_members else WithExtra | Explicit)</span><span class="a">+</span><span class="a">+    assert isinstance(ta.validate_python({&#39;a&#39;: 1, &#39;b&#39;: 2}), Explicit)</span><span class="a">+    assert isinstance(ta.validate_json(&#39;{&quot;a&quot;: 1, &quot;b&quot;: 2}&#39;), Explicit)</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_union_respects_local_strict() -&gt; None:</span><span class="c">     class MyBaseModel(BaseModel):</span><span class="c">         model_config = ConfigDict(strict=True)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261027-165153/13716/">Previous · #13716</a>
+  <a class="mid" href="/backtests/pydantic/run-20261027-165153/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261027-165153/13764/">Next · #13764</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

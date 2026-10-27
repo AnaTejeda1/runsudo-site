@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#11454 AssertionError for the mypy plugin if type variables are defined before their bound — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #11454 in pydantic/pydantic, run 27 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261027-165153/11454/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261027-165153/">run-20261027-165153</a><span aria-hidden="true">/</span><span aria-current="page">#11454</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/11454" rel="noopener" target="_blank">#11454</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/14027" rel="noopener" target="_blank">PR #14027</a></span>
+  <span>Run 27 Oct 2026 · <span class="runid">run-20261027-165153</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">AssertionError for the mypy plugin if type variables are defined before their bound</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way: before generating methods, check whether the class&#39;s type variables still contain placeholder types (the forward-referenced bound) and defer so the generated `self`/return types do not carry placeholders into the final iteration. Both pass all four independent tests. Differences: (1) Control flow. Patch A mirrors the existing field-placeholder check exactly: it defers when not in the final iteration and returns False either way, so methods are never generated with placeholder types. Patch B only returns early when it can defer; on the final iteration it falls through and generates methods with placeholders still present, which is the very state that produced the internal error. That is an edge case, but it is an inconsistency with the surrounding pattern and a residual risk. (2) Coverage. Patch A explicitly checks bound, default and constraint values; Patch B relies on mypy&#39;s `has_placeholder` type visitor, which also recurses into those for TypeVarType, so B is not less correct there, just more implicit. (3) Patch A also fixes a latent bug in `add_method`: plugin-generated classmethods are stored as a `Decorator` symbol while only the `FuncDef` lives in the class body, so the existing cleanup never removed stale generated classmethods on re-runs. This is adjacent but directly relevant once the transformer can now be re-run after deferring, and it is small and low risk. (4) Tests. Patch A adds a dedicated regression module exercising bound, constraints and default TypeVars plus assert_type checks on instantiation and model_construct; Patch B adds a minimal bound-only case to an existing module (with double-quoted strings inconsistent with the file&#39;s style). A&#39;s tests are broader and would fail before the fix. Overall A is the more careful, consistent and better-tested fix.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 21s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">0 passed · 55 skipped · 55 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">61<small>vs 14 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/11454" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>Running <code>mypy</code> with the <code>pydantic.mypy</code> plugin enabled fails with an error if it encounters a <code>BaseModel</code> with a bound <code>TypeVar</code>, where the type variable is defined _before_ its <code>bound</code>. (See the minimal example below for an illustration) With the <code>pydantic.mypy</code> plugin disabled, type checking is successful.</p>
+<p>Error details:</p>
+<pre><code>cat.py:16: error: INTERNAL ERROR -- Please try using mypy master on GitHub:
+https://mypy.readthedocs.io/en/stable/common_issues.html#using-a-development-mypy-build
+Please report a bug at https://github.com/python/mypy/issues
+version: 1.15.0
+Traceback (most recent call last):
+  File &quot;mypy/semanal.py&quot;, line 7240, in accept
+  File &quot;mypy/nodes.py&quot;, line 811, in accept
+  File &quot;mypy/semanal.py&quot;, line 907, in visit_func_def
+  File &quot;mypy/semanal.py&quot;, line 952, in analyze_func_def
+  File &quot;mypy/semanal.py&quot;, line 6894, in defer
+AssertionError: Must not defer during final iteration</code></pre>
+<p>In my experience, it is quite common to define type variables at the top of the module, see for example the <a href="https://mypy.readthedocs.io/en/stable/generics.html" rel="noopener nofollow" target="_blank">mypy docs on Generics</a>.</p>
+<p>Issue #11025 describes a different problem, but may be related.</p>
+<p>Thank you for your work on Pydantic! :sparkling_heart:</p>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">from typing import Generic, TypeVar
+
+from pydantic import BaseModel
+
+# Defined before Mouse: Causes internal error below
+M = TypeVar(&#39;M&#39;, bound=&#39;Mouse&#39;)
+
+class Mouse:
+    pass
+
+# Defined after Mouse: Works without problem
+# M = TypeVar(&#39;M&#39;, bound=&#39;Mouse&#39;)
+
+class Cat(BaseModel, Generic[M]): # INTERNAL ERROR
+    pass</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">             pydantic version: 2.10.6
+        pydantic-core version: 2.27.2
+          pydantic-core build: profile=release pgo=false
+                 install path: .venv/lib/python3.12/site-packages/pydantic
+               python version: 3.12.3 (main, Jan 17 2025, 18:03:48) [GCC 13.3.0]
+                     platform: Linux-6.8.0-52-generic-x86_64-with-glibc2.39
+             related packages: mypy-1.15.0 typing_extensions-4.12.2
+                       commit: unknown
+
+(Additionally I tried to reproduce it with current Pydantic main (aa59d53), with the same results)</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+61</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/mypy.py</span><span class="h">index 548c2a8e..04d4e94e 100644</span><span class="h">@@ -549,6 +549,18 @@ class PydanticModelTransformer:</span><span class="c">                 if not self._api.final_iteration:</span><span class="c">                     self._api.defer()</span><span class="c">                 return False</span><span class="a">+        for type_var in info.defn.type_vars:</span><span class="a">+            type_var_types = [type_var.upper_bound, type_var.default]</span><span class="a">+            if isinstance(type_var, TypeVarType):</span><span class="a">+                type_var_types.extend(type_var.values)</span><span class="a">+            if any(has_placeholder(t) for t in type_var_types):</span><span class="a">+                # The bound, constraints or default of a type variable of the class may not be ready yet,</span><span class="a">+                # e.g. when the type variable is defined before the class used as its bound.</span><span class="a">+                # The generated methods would include these placeholders (e.g. in the `self` type), so</span><span class="a">+                # request another pass instead:</span><span class="a">+                if not self._api.final_iteration:</span><span class="a">+                    self._api.defer()</span><span class="a">+                return False</span><span class="c"> </span><span class="c">         is_settings = info.has_base(BASESETTINGS_FULLNAME)</span><span class="c">         self.add_initializer(fields, config, is_settings, is_a_root_model)</span><span class="h">@@ -1373,6 +1385,9 @@ def add_method(</span><span class="c">         sym = info.names[name]</span><span class="c">         if sym.plugin_generated and isinstance(sym.node, FuncDef):</span><span class="c">             cls.defs.body.remove(sym.node)  # pragma: no cover</span><span class="a">+        elif sym.plugin_generated and isinstance(sym.node, Decorator) and sym.node.func in cls.defs.body:</span><span class="a">+            # Generated classmethods are stored as a `Decorator` symbol, but only the `FuncDef` is in the body:</span><span class="a">+            cls.defs.body.remove(sym.node.func)  # pragma: no cover</span><span class="c"> </span><span class="c">     if isinstance(api, SemanticAnalyzerPluginInterface):</span><span class="c">         function_type = api.named_type(&#39;builtins.function&#39;)</span><span class="f">tests/mypy/modules/generics_forward_ref_typevar.py</span><span class="h">new file mode 100644</span><span class="h">index 00000000..05d3d36a</span><span class="h">@@ -0,0 +1,45 @@</span><span class="a">+&quot;&quot;&quot;Regression test for a mypy internal error (&quot;Must not defer during final iteration&quot;).</span><span class="a">+</span><span class="a">+Type variables defined before the class referenced in their bound, constraints or default.</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+from typing import Generic, TypeVar</span><span class="a">+</span><span class="a">+from typing_extensions import TypeVar as TypeVarExt</span><span class="a">+from typing_extensions import assert_type</span><span class="a">+</span><span class="a">+from pydantic import BaseModel</span><span class="a">+</span><span class="a">+M = TypeVar(&#39;M&#39;, bound=&#39;Mouse&#39;)</span><span class="a">+C = TypeVar(&#39;C&#39;, &#39;Mouse&#39;, int)</span><span class="a">+D = TypeVarExt(&#39;D&#39;, default=&#39;Mouse&#39;)</span><span class="a">+</span><span class="a">+</span><span class="a">+class Mouse:</span><span class="a">+    pass</span><span class="a">+</span><span class="a">+</span><span class="a">+class Cat(BaseModel, Generic[M]):</span><span class="a">+    pass</span><span class="a">+</span><span class="a">+</span><span class="a">+class Owner(BaseModel, Generic[M]):</span><span class="a">+    pet: M</span><span class="a">+</span><span class="a">+</span><span class="a">+class Constrained(BaseModel, Generic[C]):</span><span class="a">+    value: C</span><span class="a">+</span><span class="a">+</span><span class="a">+class WithDefault(BaseModel, Generic[D]):</span><span class="a">+    value: D</span><span class="a">+</span><span class="a">+</span><span class="a">+cat = Cat[Mouse]()</span><span class="a">+owner = Owner(pet=Mouse())</span><span class="a">+assert_type(owner.pet, Mouse)</span><span class="a">+assert_type(Owner.model_construct(pet=Mouse()), Owner[Mouse])</span><span class="a">+constrained = Constrained(value=1)</span><span class="a">+assert_type(constrained.value, int)</span><span class="a">+with_default = WithDefault(value=Mouse())</span><span class="a">+assert_type(with_default.value, Mouse)</span><span class="f">tests/mypy/test_mypy.py</span><span class="h">index 2ac32f6f..79ac66ac 100644</span><span class="h">@@ -106,6 +106,7 @@ cases: list[ParameterSet | tuple[str, str]] = [</span><span class="c">         (&#39;mypy-plugin.ini&#39;, &#39;frozen_field.py&#39;),</span><span class="c">         (&#39;mypy-plugin.ini&#39;, &#39;plugin_optional_inheritance.py&#39;),</span><span class="c">         (&#39;mypy-plugin.ini&#39;, &#39;generics.py&#39;),</span><span class="a">+        (&#39;mypy-plugin.ini&#39;, &#39;generics_forward_ref_typevar.py&#39;),</span><span class="c">         (&#39;mypy-plugin.ini&#39;, &#39;root_models.py&#39;),</span><span class="c">         (&#39;mypy-plugin.ini&#39;, &#39;plugin_strict_fields.py&#39;),</span><span class="c">         (&#39;mypy-plugin.ini&#39;, &#39;final_with_default.py&#39;),</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/14027" rel="noopener" target="_blank">PR #14027</a></span><span class="pm"><span class="a">+14</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic/mypy.py</span><span class="h">index 548c2a8ef..35e080643 100644</span><span class="h">@@ -549,6 +549,10 @@ class PydanticModelTransformer:</span><span class="c">                 if not self._api.final_iteration:</span><span class="c">                     self._api.defer()</span><span class="c">                 return False</span><span class="a">+        for tv in info.defn.type_vars:</span><span class="a">+            if has_placeholder(tv) and not self._api.final_iteration:</span><span class="a">+                self._api.defer()</span><span class="a">+                return False</span><span class="c"> </span><span class="c">         is_settings = info.has_base(BASESETTINGS_FULLNAME)</span><span class="c">         self.add_initializer(fields, config, is_settings, is_a_root_model)</span><span class="f">tests/mypy/modules/generics.py</span><span class="h">index aec77397d..843488818 100644</span><span class="h">@@ -72,3 +72,13 @@ class Child(ElementWithChildren[&#39;Child&#39;]):</span><span class="c"> </span><span class="c"> child = Child(children=[Child()])</span><span class="c"> assert_type(child.children, list[Child])</span><span class="a">+</span><span class="a">+AnyBaseFoo = TypeVar(&quot;AnyBaseFoo&quot;, bound=&quot;BaseFoo&quot;)</span><span class="a">+</span><span class="a">+class BaseFoo:</span><span class="a">+    pass</span><span class="a">+</span><span class="a">+class Foo(BaseModel, Generic[AnyBaseFoo]):</span><span class="a">+    pass  # intentionally empty</span><span class="a">+</span><span class="a">+assert_type(Foo[BaseFoo](), Foo[BaseFoo])</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261027-165153/11329/">Previous · #11329</a>
+  <a class="mid" href="/backtests/pydantic/run-20261027-165153/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261027-165153/11922/">Next · #11922</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13977 No PyPy 8.0 wheels for pydantic-core — pydantic/pydantic backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #13977 in pydantic/pydantic, run 27 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261027-165153/13977/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261027-165153/">run-20261027-165153</a><span aria-hidden="true">/</span><span aria-current="page">#13977</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/13977" rel="noopener" target="_blank">#13977</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/14083" rel="noopener" target="_blank">PR #14083</a></span>
+  <span>Run 27 Oct 2026 · <span class="runid">run-20261027-165153</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">No PyPy 8.0 wheels for pydantic-core</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The issue&#39;s own build log shows that pydantic-core cannot compile against PyPy 3.12 with the pinned pyo3-ffi 0.29.2 (missing `c_int` imports and `_PyInterpreterFrame` under the `PyPy` + `Py_3_12` cfg). Patch B simply appends `pypy3.12` to every build and test matrix without touching Cargo.toml or the pyo3 version, so the new matrix entries would hit exactly the compile error reported in the issue and turn CI red; it also produces no pp80-ABI wheels at all, since `pypy3.11` still resolves to the PyPy 7.3 interpreter on the runners and in the manylinux images. Its added test only greps ci.yml for the literal strings it just inserted, which is tautological, proves nothing about whether wheels build, and is skipped outside the repo checkout. Patch A instead targets what is actually buildable today: PyPy 8.0&#39;s `pp80` ABI for the 3.11 interpreter. It uses the manylinux_2_28 image&#39;s bundled `pp311-pypy311_pp80` interpreter via `interpreter-path` on Linux, and on macOS/Windows installs PyPy 8.0 through uv with an explicit SOABI assertion that fails loudly if the wrong PyPy is picked up, then threads the resolved path into `--interpreter` with a sensible fallback chain. The comments explain the pp73/pp80 ambiguity and when the workaround can be removed. Gaps in A (no aarch64 Linux or musllinux pp80 entries, no pypy3.12 wheels) are limitations of the current pyo3 dependency rather than defects, and A has no tests, but B&#39;s test adds no real value. A delivers working PyPy 8.0 wheels; B would not build and would break CI.</pre>
+  <p class="note">The judge saw only the two patches, labelled A and B in random order, with issue links and version numbers removed. The reasoning above is shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 22s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3 passed · 0 skipped · 3 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">70<small>vs 35 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/13977" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p><a href="https://pypy.org/posts/2026/09/pypy-v800-release.html" rel="noopener nofollow" target="_blank">PyPy 8.0.0</a> was released on 2026-09-18, yet pydantic-core currently does not provide any wheels for this version.</p>
+<p>In addition, attemping to install pydantic-core from the sdist on PyPy 3.12 fails with:</p>
+<p>&lt;details&gt;</p>
+<pre><code>Collecting pydantic
+  Downloading pydantic-2.14.0-py3-none-any.whl.metadata (131 kB)
+Collecting annotated-types&gt;=0.6.0 (from pydantic)
+  Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.50.0 (from pydantic)
+  Downloading pydantic_core-2.50.0.tar.gz (513 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status &#39;done&#39;
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status &#39;done&#39;
+  Installing backend dependencies: started
+  Installing backend dependencies: finished with status &#39;done&#39;
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status &#39;done&#39;
+Collecting typing-extensions&gt;=4.16.0 (from pydantic)
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting typing-inspection&gt;=0.4.4 (from pydantic)
+  Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Downloading pydantic-2.14.0-py3-none-any.whl (487 kB)
+Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Building wheels for collected packages: pydantic-core
+  Building wheel for pydantic-core (pyproject.toml): started
+  Building wheel for pydantic-core (pyproject.toml): still running...
+  Building wheel for pydantic-core (pyproject.toml): still running...
+  Building wheel for pydantic-core (pyproject.toml): finished with status &#39;error&#39;
+  error: subprocess-exited-with-error
+  
+  × Building wheel for pydantic-core (pyproject.toml) did not run successfully.
+  │ exit code: 1
+  ╰─&gt; [333 lines of output]
+      Python reports SOABI: pypy312-pp80-x86_64-linux-gnu
+      Python reports multiarch: x86_64-linux-gnu
+      Computed rustc target triple: x86_64-unknown-linux-gnu
+      Installation directory: /root/.cache/puccinialin
+      Rustup already downloaded
+      Installing rust to /root/.cache/puccinialin/rustup
+      warn: it looks like you have an existing rustup settings file at:
+      warn: /root/.cache/puccinialin/rustup/settings.toml
+      info: profile set to minimal
+      info: setting default host tuple to x86_64-unknown-linux-gnu
+      warn: Updating existing toolchain, profile choice will be ignored
+      info: syncing channel updates for stable-x86_64-unknown-linux-gnu
+      info: default toolchain set to stable-x86_64-unknown-linux-gnu
+      Checking if cargo is installed
+      cargo 1.99.0 (5f94df478 2026-08-27)
+      Rust not found, installing into a temporary directory
+      Running `maturin pep517 build-wheel -i /opt/pypy/bin/pypy3.12 --compatibility off`
+      🍹 Building a mixed python/rust project
+      🐍 Found PyPy 3.12 at /opt/pypy/bin/pypy3.12
+      🔗 Found pyo3 bindings
+      📡 Using build options bindings from pyproject.toml
+         Compiling proc-macro2 v1.0.107
+         Compiling unicode-ident v1.0.12
+         Compiling quote v1.0.44
+         Compiling syn v2.0.82
+         Compiling synstructure v0.13.1
+         Compiling target-lexicon v0.13.4
+         Compiling zerofrom-derive v0.1.4
+         Compiling zerofrom v0.1.4
+         Compiling yoke-derive v0.7.4
+         Compiling stable_deref_trait v1.2.0
+         Compiling yoke v0.7.4
+         Compiling pyo3-build-config v0.29.2
+         Compiling zerovec-derive v0.10.3
+         Compiling zerovec v0.10.4
+         Compiling displaydoc v0.2.5
+         Compiling tinystr v0.7.6
+         Compiling writeable v0.5.5
+         Compiling litemap v0.7.3
+         Compiling icu_locid v1.5.0
+         Compiling pyo3-ffi v0.29.2
+         Compiling icu_provider_macros v1.5.0
+         Compiling libc v0.2.185
+         Compiling autocfg v1.3.0
+         Compiling heck v0.5.0
+         Compiling num-traits v0.2.19
+         Compiling icu_provider v1.5.0
+         Compiling version_check v0.9.5
+         Compiling smallvec v1.16.2
+         Compiling icu_locid_transform_data v1.5.0
+         Compiling icu_locid_transform v1.5.0
+         Compiling icu_collections v1.5.0
+         Compiling pyo3 v0.29.2
+         Compiling static_assertions v1.1.0
+         Compiling icu_properties_data v1.5.0
+         Compiling icu_properties v1.5.1
+         Compiling lexical-util v1.0.6
+         Compiling utf8_iter v1.0.4
+         Compiling utf16_iter v1.0.5
+         Compiling zerocopy v0.8.25
+         Compiling radium v0.7.0
+         Compiling icu_normalizer_data v1.5.0
+         Compiling memchr v2.7.4
+         Compiling serde_core v1.0.229
+         Compiling write16 v1.0.0
+         Compiling getrandom v0.3.3
+         Compiling icu_normalizer v1.5.0
+         Compiling num-integer v0.1.46
+         Compiling lexical-parse-integer v1.0.5
+         Compiling ahash v0.8.12
+         Compiling pyo3-macros-backend v0.29.2
+         Compiling once_cell v1.21.3
+         Compiling cfg-if v1.0.0
+         Compiling zmij v1.0.6
+         Compiling tap v1.0.1
+         Compiling wyz v0.5.1
+         Compiling pyo3-macros v0.29.2
+         Compiling lexical-parse-float v1.0.5
+         Compiling num-bigint v0.4.6
+         Compiling idna_adapter v1.2.0
+         Compiling aho-corasick v1.1.3
+      error[E0425]: cannot find type `c_int` in this scope
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:107:44
+          |
+      107 |     pub fn PyDict_ClearWatcher(watcher_id: c_int) -&gt; c_int;
+          |                                            ^^^^^ not found in this scope
+          |
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/abstract_.rs:5:16
+          |
+        4 | #[cfg(not(Py_3_11))]
+          |          --------- the item is gated here
+        5 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/bytearrayobject.rs:9:16
+          |
+        8 | #[cfg(not(Py_3_9))]
+          |          -------- the item is gated here
+        9 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:11:16
+          |
+       10 | #[cfg(all(not(PyPy), Py_3_12))]
+          |              ------ the item is gated here
+       11 | use core::ffi::c_int;
+          |                ^^^^^
+      help: consider importing one of these type aliases
+          |
+        1 + use std::ffi::c_int;
+          |
+        1 + use std::os::raw::c_int;
+          |
+        1 + use core::ffi::c_int;
+          |
+        1 + use libc::c_int;
+          |
+      
+      error[E0425]: cannot find type `c_int` in this scope
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:107:54
+          |
+      107 |     pub fn PyDict_ClearWatcher(watcher_id: c_int) -&gt; c_int;
+          |                                                      ^^^^^ not found in this scope
+          |
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/abstract_.rs:5:16
+          |
+        4 | #[cfg(not(Py_3_11))]
+          |          --------- the item is gated here
+        5 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/bytearrayobject.rs:9:16
+          |
+        8 | #[cfg(not(Py_3_9))]
+          |          -------- the item is gated here
+        9 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:11:16
+          |
+       10 | #[cfg(all(not(PyPy), Py_3_12))]
+          |              ------ the item is gated here
+       11 | use core::ffi::c_int;
+          |                ^^^^^
+      help: consider importing one of these type aliases
+          |
+        1 + use std::ffi::c_int;
+          |
+        1 + use std::os::raw::c_int;
+          |
+        1 + use core::ffi::c_int;
+          |
+        1 + use libc::c_int;
+          |
+      
+      error[E0425]: cannot find type `c_int` in this scope
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:110:37
+          |
+      110 |     pub fn PyDict_Watch(watcher_id: c_int, dict: *mut PyObject) -&gt; c_int;
+          |                                     ^^^^^ not found in this scope
+          |
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/abstract_.rs:5:16
+          |
+        4 | #[cfg(not(Py_3_11))]
+          |          --------- the item is gated here
+        5 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/bytearrayobject.rs:9:16
+          |
+        8 | #[cfg(not(Py_3_9))]
+          |          -------- the item is gated here
+        9 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:11:16
+          |
+       10 | #[cfg(all(not(PyPy), Py_3_12))]
+          |              ------ the item is gated here
+       11 | use core::ffi::c_int;
+          |                ^^^^^
+      help: consider importing one of these type aliases
+          |
+        1 + use std::ffi::c_int;
+          |
+        1 + use std::os::raw::c_int;
+          |
+        1 + use core::ffi::c_int;
+          |
+        1 + use libc::c_int;
+          |
+      
+      error[E0425]: cannot find type `c_int` in this scope
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:110:68
+          |
+      110 |     pub fn PyDict_Watch(watcher_id: c_int, dict: *mut PyObject) -&gt; c_int;
+          |                                                                    ^^^^^ not found in this scope
+          |
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/abstract_.rs:5:16
+          |
+        4 | #[cfg(not(Py_3_11))]
+          |          --------- the item is gated here
+        5 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/bytearrayobject.rs:9:16
+          |
+        8 | #[cfg(not(Py_3_9))]
+          |          -------- the item is gated here
+        9 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:11:16
+          |
+       10 | #[cfg(all(not(PyPy), Py_3_12))]
+          |              ------ the item is gated here
+       11 | use core::ffi::c_int;
+          |                ^^^^^
+      help: consider importing one of these type aliases
+          |
+        1 + use std::ffi::c_int;
+          |
+        1 + use std::os::raw::c_int;
+          |
+        1 + use core::ffi::c_int;
+          |
+        1 + use libc::c_int;
+          |
+      
+      error[E0425]: cannot find type `c_int` in this scope
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:113:39
+          |
+      113 |     pub fn PyDict_Unwatch(watcher_id: c_int, dict: *mut PyObject) -&gt; c_int;
+          |                                       ^^^^^ not found in this scope
+          |
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/abstract_.rs:5:16
+          |
+        4 | #[cfg(not(Py_3_11))]
+          |          --------- the item is gated here
+        5 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/bytearrayobject.rs:9:16
+          |
+        8 | #[cfg(not(Py_3_9))]
+          |          -------- the item is gated here
+        9 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:11:16
+          |
+       10 | #[cfg(all(not(PyPy), Py_3_12))]
+          |              ------ the item is gated here
+       11 | use core::ffi::c_int;
+          |                ^^^^^
+      help: consider importing one of these type aliases
+          |
+        1 + use std::ffi::c_int;
+          |
+        1 + use std::os::raw::c_int;
+          |
+        1 + use core::ffi::c_int;
+          |
+        1 + use libc::c_int;
+          |
+      
+      error[E0425]: cannot find type `c_int` in this scope
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:113:70
+          |
+      113 |     pub fn PyDict_Unwatch(watcher_id: c_int, dict: *mut PyObject) -&gt; c_int;
+          |                                                                      ^^^^^ not found in this scope
+          |
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/abstract_.rs:5:16
+          |
+        4 | #[cfg(not(Py_3_11))]
+          |          --------- the item is gated here
+        5 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/bytearrayobject.rs:9:16
+          |
+        8 | #[cfg(not(Py_3_9))]
+          |          -------- the item is gated here
+        9 | use core::ffi::c_int;
+          |                ^^^^^
+      note: found an item that was configured out
+         --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/dictobject.rs:11:16
+          |
+       10 | #[cfg(all(not(PyPy), Py_3_12))]
+          |              ------ the item is gated here
+       11 | use core::ffi::c_int;
+          |                ^^^^^
+      help: consider importing one of these type aliases
+          |
+        1 + use std::ffi::c_int;
+          |
+        1 + use std::os::raw::c_int;
+          |
+        1 + use core::ffi::c_int;
+          |
+        1 + use libc::c_int;
+          |
+      
+      error[E0425]: cannot find type `_PyInterpreterFrame` in this scope
+        --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/pyframe.rs:69:60
+         |
+      69 |     pub fn PyUnstable_InterpreterFrame_GetCode(frame: *mut _PyInterpreterFrame) -&gt; *mut PyObject;
+         |                                                            ^^^^^^^^^^^^^^^^^^^ not found in this scope
+      
+      error[E0425]: cannot find type `_PyInterpreterFrame` in this scope
+        --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/pyframe.rs:72:61
+         |
+      72 |     pub fn PyUnstable_InterpreterFrame_GetLasti(frame: *mut _PyInterpreterFrame) -&gt; c_int;
+         |                                                             ^^^^^^^^^^^^^^^^^^^ not found in this scope
+      
+      error[E0425]: cannot find type `_PyInterpreterFrame` in this scope
+        --&gt; /root/.cache/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-ffi-0.29.2/src/cpython/pyframe.rs:75:60
+         |
+      75 |     pub fn PyUnstable_InterpreterFrame_GetLine(frame: *mut _PyInterpreterFrame) -&gt; c_int;
+         |                                                            ^^^^^^^^^^^^^^^^^^^ not found in this scope
+      
+      For more information about this error, try `rustc --explain E0425`.
+      error: could not compile `pyo3-ffi` (lib) due to 9 previous errors
+      💥 maturin failed
+        Caused by: Failed to build a native library through cargo
+        Caused by: Cargo build finished with &quot;exit status: 101&quot;: `env -u CARGO PYO3_BUILD_EXTENSION_MODULE=&quot;1&quot; PYO3_ENVIRONMENT_SIGNATURE=&quot;pypy-3.12-64bit&quot; PYO3_PYTHON=&quot;/opt/pypy/bin/pypy3.12&quot; PYTHON_SYS_EXECUTABLE=&quot;/opt/pypy/bin/pypy3.12&quot; &quot;cargo&quot; &quot;rustc&quot; &quot;--profile&quot; &quot;release&quot; &quot;--message-format&quot; &quot;json-render-diagnostics&quot; &quot;--manifest-path&quot; &quot;/tmp/pip-install-acvm2gcu/pydantic-core_25c7eb081d254a7ea2b7f3144a0bd965/Cargo.toml&quot; &quot;--lib&quot; &quot;--crate-type&quot; &quot;cdylib&quot;`
+      Error: command [&#39;maturin&#39;, &#39;pep517&#39;, &#39;build-wheel&#39;, &#39;-i&#39;, &#39;/opt/pypy/bin/pypy3.12&#39;, &#39;--compatibility&#39;, &#39;off&#39;] returned non-zero exit status 1
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building wheel for pydantic-core
+Failed to build pydantic-core
+
+[notice] A new release of pip is available: 25.0.1 -&gt; 26.2.1
+[notice] To update, run: pip install --upgrade pip
+ERROR: Failed to build installable wheels for some pyproject.toml based projects (pydantic-core)</code></pre>
+<p>&lt;/details&gt;</p>
+<p>Please upload wheels for the new PyPy version at your earliest convenience.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+64</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">.github/workflows/ci.yml</span><span class="h">index d44cce82..90d334ea 100644</span><span class="h">@@ -119,7 +119,7 @@ jobs:</span><span class="c">           - os: linux</span><span class="c">             manylinux: auto</span><span class="c">             target: x86_64</span><span class="r">-            interpreter: pypy3.11 graalpy3.11 graalpy3.12</span><span class="a">+            interpreter: pypy3.11 pypy3.12 graalpy3.11 graalpy3.12</span><span class="c">           - os: linux</span><span class="c">             manylinux: auto</span><span class="c">             target: aarch64</span><span class="h">@@ -141,10 +141,10 @@ jobs:</span><span class="c">           # arm pypy and older pythons which can&#39;t be run on the arm hardware for PGO</span><span class="c">           - os: macos</span><span class="c">             target: x86_64</span><span class="r">-            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11 graalpy3.11 graalpy3.12</span><span class="a">+            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11 pypy3.12 graalpy3.11 graalpy3.12</span><span class="c">           - os: macos</span><span class="c">             target: aarch64</span><span class="r">-            interpreter: pypy3.11 graalpy3.11 graalpy3.12</span><span class="a">+            interpreter: pypy3.11 pypy3.12 graalpy3.11 graalpy3.12</span><span class="c"> </span><span class="c">           # windows;</span><span class="c">           # x86_64 pypy builds are not PGO optimized</span><span class="h">@@ -152,7 +152,7 @@ jobs:</span><span class="c">           # windows 11 arm supports 3.11 and up, not PGO optimized for now</span><span class="c">           - os: windows</span><span class="c">             target: x86_64</span><span class="r">-            interpreter: pypy3.11</span><span class="a">+            interpreter: pypy3.11 pypy3.12</span><span class="c">           - os: windows</span><span class="c">             target: i686</span><span class="c">             python-architecture: x86</span><span class="h">@@ -187,7 +187,7 @@ jobs:</span><span class="c">           maturin-version: v1.15.0</span><span class="c">           target: ${{ matrix.target }}</span><span class="c">           manylinux: ${{ matrix.manylinux }}</span><span class="r">-          args: --release --locked --out dist --interpreter ${{ matrix.interpreter || &#39;3.10 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11&#39; }}</span><span class="a">+          args: --release --locked --out dist --interpreter ${{ matrix.interpreter || &#39;3.10 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11 pypy3.12&#39; }}</span><span class="c">           rust-toolchain: stable</span><span class="c">           docker-options: -e CI</span><span class="c"> </span><span class="h">@@ -578,6 +578,7 @@ jobs:</span><span class="c">         python-version:</span><span class="c">           - &#39;3.14&#39;</span><span class="c">           - &#39;pypy3.11&#39;</span><span class="a">+          - &#39;pypy3.12&#39;</span><span class="c"> </span><span class="c">     steps:</span><span class="c">       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1</span><span class="h">@@ -786,7 +787,7 @@ jobs:</span><span class="c">       fail-fast: false</span><span class="c">       matrix:</span><span class="c">         os: [ubuntu-latest, macos-latest, windows-latest]</span><span class="r">-        python-version: [&#39;3.10&#39;, &#39;3.11&#39;, &#39;3.12&#39;, &#39;3.13&#39;, &#39;3.14&#39;, &#39;3.15&#39;, &#39;3.15t&#39;, &#39;pypy3.11&#39;]</span><span class="a">+        python-version: [&#39;3.10&#39;, &#39;3.11&#39;, &#39;3.12&#39;, &#39;3.13&#39;, &#39;3.14&#39;, &#39;3.15&#39;, &#39;3.15t&#39;, &#39;pypy3.11&#39;, &#39;pypy3.12&#39;]</span><span class="c">         include:</span><span class="c">           # test macos intel just with latest python version</span><span class="c">           - os: macos-15-intel</span><span class="f">tests/test_ci_pypy_versions.py</span><span class="h">new file mode 100644</span><span class="h">index 00000000..29890009</span><span class="h">@@ -0,0 +1,57 @@</span><span class="a">+&quot;&quot;&quot;Check that every supported PyPy version gets `pydantic-core` wheels built and is tested in CI.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+import re</span><span class="a">+from pathlib import Path</span><span class="a">+</span><span class="a">+import pytest</span><span class="a">+</span><span class="a">+CI_WORKFLOW = Path(__file__).parent.parent / &#39;.github&#39; / &#39;workflows&#39; / &#39;ci.yml&#39;</span><span class="a">+</span><span class="a">+SUPPORTED_PYPY_VERSIONS = {&#39;pypy3.11&#39;, &#39;pypy3.12&#39;}</span><span class="a">+</span><span class="a">+PYPY_VERSION_RE = re.compile(r&#39;pypy3\.\d+&#39;)</span><span class="a">+</span><span class="a">+pytestmark = pytest.mark.skipif(</span><span class="a">+    not CI_WORKFLOW.is_file(), reason=&#39;CI workflow is not available (e.g. when running from the sdist)&#39;</span><span class="a">+)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.fixture(scope=&#39;module&#39;)</span><span class="a">+def ci_lines() -&gt; list[str]:</span><span class="a">+    return CI_WORKFLOW.read_text(encoding=&#39;utf-8&#39;).splitlines()</span><span class="a">+</span><span class="a">+</span><span class="a">+def _job_block(lines: list[str], job_name: str) -&gt; list[str]:</span><span class="a">+    start = lines.index(f&#39;  {job_name}:&#39;)</span><span class="a">+    block: list[str] = []</span><span class="a">+    for line in lines[start + 1 :]:</span><span class="a">+        if re.match(r&#39;^  \S&#39;, line):</span><span class="a">+            break</span><span class="a">+        block.append(line)</span><span class="a">+    return block</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_core_build_wheel_interpreters_include_all_pypy_versions(ci_lines: list[str]) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Every `core-build` interpreter list building PyPy wheels must build them for all supported PyPy versions.&quot;&quot;&quot;</span><span class="a">+    interpreter_lines = [</span><span class="a">+        line</span><span class="a">+        for line in _job_block(ci_lines, &#39;core-build&#39;)</span><span class="a">+        if not line.lstrip().startswith(&#39;#&#39;) and &#39;interpreter&#39; in line and PYPY_VERSION_RE.search(line)</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+    # linux x86_64, macos x86_64, macos aarch64, windows x86_64 and the default (musllinux, linux i686, etc.):</span><span class="a">+    assert len(interpreter_lines) == 5</span><span class="a">+    for line in interpreter_lines:</span><span class="a">+        assert set(PYPY_VERSION_RE.findall(line)) == SUPPORTED_PYPY_VERSIONS, line</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_core_test_debug_includes_all_pypy_versions(ci_lines: list[str]) -&gt; None:</span><span class="a">+    block = _job_block(ci_lines, &#39;core-test-debug&#39;)</span><span class="a">+    pypy_versions = {m for line in block if not line.lstrip().startswith(&#39;#&#39;) for m in PYPY_VERSION_RE.findall(line)}</span><span class="a">+    assert pypy_versions == SUPPORTED_PYPY_VERSIONS</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_test_job_includes_all_pypy_versions(ci_lines: list[str]) -&gt; None:</span><span class="a">+    block = _job_block(ci_lines, &#39;test&#39;)</span><span class="a">+    (matrix_line,) = (line for line in block if line.strip().startswith(&#39;python-version: [&#39;))</span><span class="a">+    assert set(PYPY_VERSION_RE.findall(matrix_line)) == SUPPORTED_PYPY_VERSIONS</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/14083" rel="noopener" target="_blank">PR #14083</a></span><span class="pm"><span class="a">+34</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">.github/workflows/ci.yml</span><span class="h">index d44cce82f..909c9ad24 100644</span><span class="h">@@ -124,6 +124,13 @@ jobs:</span><span class="c">             manylinux: auto</span><span class="c">             target: aarch64</span><span class="c">             interpreter: graalpy3.11 graalpy3.12</span><span class="a">+            # PyPy 8.0 (`pp80` ABI) requires glibc 2.28:</span><span class="a">+          - os: linux</span><span class="a">+            manylinux: &#39;2_28&#39;</span><span class="a">+            target: x86_64</span><span class="a">+            interpreter: pypy3.11-pp80</span><span class="a">+            # see the &quot;Install PyPy 8.0&quot; step below:</span><span class="a">+            interpreter-path: /opt/python/pp311-pypy311_pp80/bin/python</span><span class="c"> </span><span class="c">           # musllinux</span><span class="c">           - os: linux</span><span class="h">@@ -145,6 +152,12 @@ jobs:</span><span class="c">           - os: macos</span><span class="c">             target: aarch64</span><span class="c">             interpreter: pypy3.11 graalpy3.11 graalpy3.12</span><span class="a">+          - os: macos</span><span class="a">+            target: x86_64</span><span class="a">+            interpreter: pypy3.11-pp80</span><span class="a">+          - os: macos</span><span class="a">+            target: aarch64</span><span class="a">+            interpreter: pypy3.11-pp80</span><span class="c"> </span><span class="c">           # windows;</span><span class="c">           # x86_64 pypy builds are not PGO optimized</span><span class="h">@@ -153,6 +166,9 @@ jobs:</span><span class="c">           - os: windows</span><span class="c">             target: x86_64</span><span class="c">             interpreter: pypy3.11</span><span class="a">+          - os: windows</span><span class="a">+            target: x86_64</span><span class="a">+            interpreter: pypy3.11-pp80</span><span class="c">           - os: windows</span><span class="c">             target: i686</span><span class="c">             python-architecture: x86</span><span class="h">@@ -179,6 +195,23 @@ jobs:</span><span class="c"> </span><span class="c">       - run: uv sync --only-group build</span><span class="c"> </span><span class="a">+      # PyPy 3.11 exists with both the PyPy 7.3 (`pp73`) and 8.0 (`pp80`) ABIs, and `pypy3.11` resolves to PyPy 7.3</span><span class="a">+      # on the runners and in the manylinux images (see https://github.com/pypa/manylinux/pull/1996), so we need to</span><span class="a">+      # provide a PyPy 8.0 interpreter explicitly (on Linux, using `interpreter-path`).</span><span class="a">+      # This can be removed once we drop PyPy 3.11 in favor of PyPy 3.12 (`pp80` only):</span><span class="a">+      - name: Install PyPy 8.0</span><span class="a">+        id: pypy-pp80</span><span class="a">+        if: matrix.interpreter == &#39;pypy3.11-pp80&#39; &amp;&amp; matrix.os != &#39;linux&#39;</span><span class="a">+        shell: bash</span><span class="a">+        run: |</span><span class="a">+          uv python install pypy3.11</span><span class="a">+          interpreter=&quot;$(uv python find --managed-python pypy3.11)&quot;</span><span class="a">+          &quot;$interpreter&quot; -c &#39;import sysconfig; soabi = sysconfig.get_config_var(&quot;SOABI&quot;); assert &quot;pp80&quot; in soabi, soabi&#39;</span><span class="a">+          if command -v cygpath &amp;&gt; /dev/null; then</span><span class="a">+            interpreter=&quot;$(cygpath --mixed &quot;$interpreter&quot;)&quot;</span><span class="a">+          fi</span><span class="a">+          echo &quot;interpreter=$interpreter&quot; &gt;&gt; &quot;$GITHUB_OUTPUT&quot;</span><span class="a">+</span><span class="c">       - name: Build wheels</span><span class="c">         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0</span><span class="c">         with:</span><span class="h">@@ -187,7 +220,7 @@ jobs:</span><span class="c">           maturin-version: v1.15.0</span><span class="c">           target: ${{ matrix.target }}</span><span class="c">           manylinux: ${{ matrix.manylinux }}</span><span class="r">-          args: --release --locked --out dist --interpreter ${{ matrix.interpreter || &#39;3.10 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11&#39; }}</span><span class="a">+          args: --release --locked --out dist --interpreter ${{ steps.pypy-pp80.outputs.interpreter || matrix.interpreter-path || matrix.interpreter || &#39;3.10 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11&#39; }}</span><span class="c">           rust-toolchain: stable</span><span class="c">           docker-options: -e CI</span><span class="c"> </span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261027-165153/13969/">Previous · #13969</a>
+  <a class="mid" href="/backtests/pydantic/run-20261027-165153/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261027-165153/13991/">Next · #13991</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
