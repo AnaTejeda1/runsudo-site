@@ -19,6 +19,11 @@ generated pages.
    `notes` (free text, e.g. "Updated to Opus 5.5") and an optional `footnote`. Add `"judge": "panel"` for a run judged by the four-judge panel; its ticket pages then
    describe the panel instead of the single judge. Newest first
    is conventional, but the build sorts by date, then by id, anyway.
+   Add `"unlisted": true` for a run that is shared by link only, e.g. a hand-picked set of one
+   engineer's tickets for outreach. Its run and ticket pages are built at the usual URLs with
+   `noindex`, but it is left out of the repo's run list, the repo's latest run, the chart and
+   the overview (it is not a random sample, so it must not move the public numbers). A repo
+   whose only runs are unlisted is not listed at all.
 3. If it is a major date, add an event to `events` in `index.json`. It shows as a dashed line
    with its label on the chart. `kind` (`product` or `measurement`) is kept in the data but not shown.
 4. Run `node scripts/build-backtests.mjs` from the repo root.

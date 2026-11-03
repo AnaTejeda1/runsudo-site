@@ -249,7 +249,7 @@ function renderDiff(diff) {
 // Shared page chrome
 // ---------------------------------------------------------------------------
 
-function layout({ title, description, path, body, scripts = '', canonical }) {
+function layout({ title, description, path, body, scripts = '', canonical, noindex = false }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -257,7 +257,7 @@ function layout({ title, description, path, body, scripts = '', canonical }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
-<link rel="canonical" href="${SITE}${esc(canonical || path)}">
+${noindex ? '<meta name="robots" content="noindex, nofollow">\n' : ''}<link rel="canonical" href="${SITE}${esc(canonical || path)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -350,10 +350,18 @@ for (const repo of index.repos) {
     }
     run.pct = pct(run.better, run.tickets);
   }
+  // An unlisted run (`"unlisted": true`) gets its pages, but no listing: it is left out of
+  // the repo's run list, its latest run, the chart and the overview, and its pages carry
+  // noindex. Used for a run shared with one person by link, e.g. a hand-picked set of
+  // one engineer's tickets that is not a random sample and must not move the chart.
+  repo.unlisted = repo.runs.filter((r) => r.unlisted);
+  repo.runs = repo.runs.filter((r) => !r.unlisted);
+  repo.hidden = repo.runs.length === 0 && repo.unlisted.length > 0;
   repo.latest = repo.status !== 'pending' && repo.runs.length ? repo.runs[0] : null;
 }
+const listedRepos = index.repos.filter((r) => !r.hidden);
 
-const featured = index.repos.find((r) => r.latest) || null;
+const featured = listedRepos.find((r) => r.latest) || null;
 
 // ---------------------------------------------------------------------------
 // Chart (inline SVG)
@@ -362,7 +370,7 @@ const featured = index.repos.find((r) => r.latest) || null;
 const PALETTE = ['#f5e900', '#8ab4f8', '#e39ad6', '#7fd1d1', '#f0b27a', '#b5a7f5', '#a8e05f'];
 
 function chart() {
-  const series = index.repos.filter((r) => r.runs.length).map((r, k) => ({ repo: r, color: PALETTE[k % PALETTE.length] }));
+  const series = listedRepos.filter((r) => r.runs.length).map((r, k) => ({ repo: r, color: PALETTE[k % PALETTE.length] }));
   const runDates = series.flatMap((s) => s.repo.runs.map((r) => r.date));
   const evDates = (index.events || []).map((e) => e.date);
   const all = [...runDates, ...evDates].map(dateMs);
@@ -478,7 +486,7 @@ function overviewPage() {
   <div class="vcard error">${pill('error')}<p>The harness couldn't finish the ticket. Counted in the total, never dropped.</p></div>
 </div>`;
 
-  const rows = index.repos.map((repo) => {
+  const rows = listedRepos.map((repo) => {
     const href = `/backtests/${repo.slug}/`;
     const r = repo.latest;
     if (!r) {
@@ -624,6 +632,7 @@ ${runs}
     canonical: runUrl(repo, run),
     body,
     scripts: FILTER_JS,
+    noindex: !!run.unlisted,
   });
 }
 
@@ -750,6 +759,7 @@ ${pager}`;
     path: ticketUrl(repo, run, t),
     body,
     scripts: COLLAPSE_JS,
+    noindex: !!run.unlisted,
   });
 }
 
@@ -763,12 +773,14 @@ let pages = 0;
 writePage('', overviewPage()); pages++;
 
 for (const repo of index.repos) {
-  writePage(repo.slug, runPage(repo, repo.latest, { isRepoPage: true })); pages++;
-  for (const run of repo.runs) {
-    writePage(`${repo.slug}/${run.id}`, runPage(repo, run, { isRepoPage: false })); pages++;
+  if (!repo.hidden) { writePage(repo.slug, runPage(repo, repo.latest, { isRepoPage: true })); pages++; }
+  // An unlisted run's page lists only itself, so it never links to the public runs.
+  const views = [...repo.runs.map((run) => [repo, run]), ...repo.unlisted.map((run) => [{ ...repo, runs: [run] }, run])];
+  for (const [view, run] of views) {
+    writePage(`${repo.slug}/${run.id}`, runPage(view, run, { isRepoPage: false })); pages++;
     const tickets = run.ticketList || [];
     tickets.forEach((t, k) => {
-      writePage(`${repo.slug}/${run.id}/${t.number}`, ticketPage(repo, run, t, tickets[k - 1], tickets[k + 1])); pages++;
+      writePage(`${repo.slug}/${run.id}/${t.number}`, ticketPage(view, run, t, tickets[k - 1], tickets[k + 1])); pages++;
     });
   }
 }
