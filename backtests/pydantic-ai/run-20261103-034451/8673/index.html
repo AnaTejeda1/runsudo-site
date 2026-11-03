@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#8673 `import pydantic_ai.models` fails on Pyodide: `_http.py` imports `httpcore2`, which `httpx2&gt;=2.10` does not install on emscripten — pydantic/pydantic-ai backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #8673 in pydantic/pydantic-ai, run 3 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic-ai/run-20261103-034451/8673/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/">pydantic-ai</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/run-20261103-034451/">run-20261103-034451</a><span aria-hidden="true">/</span><span aria-current="page">#8673</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic-ai/issues/8673" rel="noopener" target="_blank">#8673</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic-ai/pull/10134" rel="noopener" target="_blank">PR #10134</a></span>
+  <span>Run 3 Nov 2026 · <span class="runid">run-20261103-034451</span></span>
+  <span>pydantic/pydantic-ai</span>
+</div>
+<h1 class="ticket-title"><code>import pydantic_ai.models</code> fails on Pyodide: <code>_http.py</code> imports <code>httpcore2</code>, which <code>httpx2&gt;=2.10</code> does not install on emscripten</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The production change is identical in both patches: guard the eager `import httpcore2` with `sys.platform != &#39;emscripten&#39;`, exactly as the issue suggests, and the independent tests confirm both fix the import and preserve the preload elsewhere. The difference is in the tests and small craft details. Patch A re-executes `_http.py` into a fresh module object via `find_spec`/`module_from_spec`/`exec_module`, which never touches `sys.modules[&#39;pydantic_ai._http&#39;]` or the `pydantic_ai._http` attribute, so the real module stays untouched and the test cannot leave the package in a half-swapped state. Patch B instead deletes the real module from `sys.modules`, re-imports it with `import_module`, and relies on monkeypatch undo ordering to put the original back on both `sys.modules` and the package attribute; it works, but it is more invasive for no added coverage. B&#39;s extra parametrization over linux/darwin/win32 exercises the same `!=` comparison three times and adds little, and its positive assertion couples the test to the unrelated `DEFAULT_HTTP_TIMEOUT == 600` constant rather than to something the module is meant to provide. On the other side, B&#39;s comment explaining why the check is on platform rather than `ImportError` is a genuinely useful note, and A&#39;s `# pragma: no branch` is a minor consistency touch for a branch-coverage project. Weighing it all, A&#39;s cleaner, more isolated tests edge it out; the margin is small.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 31s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">31 passed · 0 skipped · 31 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">41<small>vs 42 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic-ai/issues/8673" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>On Pyodide (<code>sys.platform == &#39;emscripten&#39;</code>), <code>import pydantic_ai.models</code> fails with <code>ModuleNotFoundError: No module named &#39;httpcore2&#39;</code> whenever <code>httpx2&gt;=2.10</code> is installed.</p>
+<h2>Why</h2>
+<p><code>pydantic_ai_slim/pydantic_ai/_http.py</code> imports <code>httpcore2</code> eagerly, so the first client construction doesn&#39;t do blocking I/O inside the event loop:</p>
+<pre><code class="lang-python"># Import httpcore2 eagerly: httpx2 defers it to first client construction, which performs blocking
+# I/O if that happens inside the event loop.
+import httpcore2  # noqa: F401  # pyright: ignore[reportUnusedImport]</code></pre>
+<p>Since 2.10.0, <code>httpx2</code> doesn&#39;t install <code>httpcore2</code> on emscripten. It uses <code>httpx2-jsfetch</code> instead, which sends requests through the browser&#39;s <code>fetch()</code>:</p>
+<pre><code>httpcore2==2.13.0; sys_platform != &#39;emscripten&#39;
+httpx2-jsfetch; sys_platform == &#39;emscripten&#39; and python_version &gt;= &#39;3.12&#39;</code></pre>
+<p><code>httpx2</code> itself only imports its transports for the current platform (<code>httpx2/_transports/__init__.py</code>), so it imports fine without <code>httpcore2</code>. Our eager import is the only thing that requires it:</p>
+<pre><code>import pydantic_ai.models            (models/__init__.py)
+  └─ from .._http import ...
+       └─ _http.py:  import httpcore2   ← not installed on emscripten with httpx2 &gt;= 2.10</code></pre>
+<p><code>pydantic-ai-slim</code> requires <code>httpx2&gt;=2.7</code> with no upper bound, so a fresh Pyodide install resolves a current <code>httpx2</code> and hits this. Since #8655, the <code>openai</code> extra requires <code>openai&gt;=3.19.0</code>, which requires <code>httpx2&gt;=2.12.0</code>. So Pyodide users on that extra can no longer work around it by pinning <code>httpx2&lt;2.10</code>.</p>
+<h2>Reproduction</h2>
+<p>Pyodide isn&#39;t in CI, and this wasn&#39;t run under Pyodide. It was reproduced on CPython by making <code>httpcore2</code> unimportable, which is the state <code>httpx2&gt;=2.10</code> leaves on emscripten:</p>
+<pre><code class="lang-python">import sys
+sys.modules[&#39;httpcore2&#39;] = None
+
+import httpx2              # OK: httpx2 doesn&#39;t need httpcore2 at import time
+import pydantic_ai.models  # ModuleNotFoundError: import of httpcore2 halted; None in sys.modules</code></pre>
+<h2>Suggested fix</h2>
+<p>Skip the eager import on emscripten, where <code>httpcore2</code> isn&#39;t used:</p>
+<pre><code class="lang-python">if sys.platform != &#39;emscripten&#39;:
+    import httpcore2  # noqa: F401  # pyright: ignore[reportUnusedImport]</code></pre>
+<p>Pydantic AI already has emscripten-specific behavior, e.g. <code>_disable_threads</code> in <code>_utils.py</code> (#6086), so the platform is meant to work.</p>
+<p>Found during an adversarial review of #8655.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+38</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/_http.py</span><span class="h">index 6fd4d75f..e7552f2b 100644</span><span class="h">@@ -2,14 +2,18 @@</span><span class="c"> </span><span class="c"> from __future__ import annotations</span><span class="c"> </span><span class="a">+import sys</span><span class="c"> import warnings</span><span class="c"> from typing import TYPE_CHECKING, TypeAlias, TypeVar</span><span class="c"> </span><span class="r">-# Import httpcore2 eagerly: httpx2 defers it to first client construction, which performs blocking</span><span class="r">-# I/O if that happens inside the event loop.</span><span class="r">-import httpcore2  # noqa: F401  # pyright: ignore[reportUnusedImport]</span><span class="c"> import httpx2</span><span class="c"> </span><span class="a">+# Import httpcore2 eagerly: httpx2 defers it to first client construction, which performs blocking</span><span class="a">+# I/O if that happens inside the event loop. On emscripten (Pyodide), httpx2 uses `httpx2-jsfetch`</span><span class="a">+# instead and doesn&#39;t install httpcore2.</span><span class="a">+if sys.platform != &#39;emscripten&#39;:  # pragma: no branch</span><span class="a">+    import httpcore2  # noqa: F401  # pyright: ignore[reportUnusedImport]</span><span class="a">+</span><span class="c"> from ._warnings import PydanticAIDeprecationWarning</span><span class="c"> </span><span class="c"> __all__ = (</span><span class="f">tests/test_httpx2_sdk_readiness.py</span><span class="h">index 5fa38944..82f4f175 100644</span><span class="h">@@ -1,5 +1,6 @@</span><span class="c"> from __future__ import annotations as _annotations</span><span class="c"> </span><span class="a">+import importlib.util</span><span class="c"> import inspect</span><span class="c"> import subprocess</span><span class="c"> import sys</span><span class="h">@@ -264,6 +265,36 @@ async def test_httpx2_client_constructs_without_blocking() -&gt; None:</span><span class="c">         assert isinstance(client, httpx2.AsyncClient)</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_http_module_imports_on_emscripten_without_httpcore2(monkeypatch: pytest.MonkeyPatch) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;`httpx2&gt;=2.10` doesn&#39;t install `httpcore2` on emscripten (Pyodide), so `_http.py` must not require it there.</span><span class="a">+</span><span class="a">+    `_http.py` is on the import path of `pydantic_ai` and `pydantic_ai.models`. It&#39;s re-executed into a</span><span class="a">+    fresh module object rather than re-imported in a subprocess: faking `sys.platform` for a whole</span><span class="a">+    interpreter breaks stdlib modules that read it at import (`sysconfig`), and httpx2 itself picks its</span><span class="a">+    platform transports at import, so only `_http.py` is run under the faked platform.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    monkeypatch.setattr(sys, &#39;platform&#39;, &#39;emscripten&#39;)</span><span class="a">+    monkeypatch.setitem(sys.modules, &#39;httpcore2&#39;, None)  # what `import httpcore2` sees when it isn&#39;t installed</span><span class="a">+</span><span class="a">+    spec = importlib.util.find_spec(&#39;pydantic_ai._http&#39;)</span><span class="a">+    assert spec is not None and spec.loader is not None</span><span class="a">+    module = importlib.util.module_from_spec(spec)</span><span class="a">+    spec.loader.exec_module(module)</span><span class="a">+</span><span class="a">+    assert module.create_async_httpx2_client is not None</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_http_module_requires_httpcore2_off_emscripten(monkeypatch: pytest.MonkeyPatch) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Off emscripten, `_http.py` still preloads `httpcore2` (see `test_httpx2_client_constructs_without_blocking`).&quot;&quot;&quot;</span><span class="a">+    monkeypatch.setitem(sys.modules, &#39;httpcore2&#39;, None)</span><span class="a">+</span><span class="a">+    spec = importlib.util.find_spec(&#39;pydantic_ai._http&#39;)</span><span class="a">+    assert spec is not None and spec.loader is not None</span><span class="a">+    module = importlib.util.module_from_spec(spec)</span><span class="a">+    with pytest.raises(ImportError, match=&#39;httpcore2&#39;):</span><span class="a">+        spec.loader.exec_module(module)</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.skipif(not anthropic_imports_successful(), reason=&#39;anthropic not installed&#39;)</span><span class="c"> async def test_anthropic_accepts_httpx2_client() -&gt; None:</span><span class="c">     async with httpx2.AsyncClient() as client:</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic-ai/pull/10134" rel="noopener" target="_blank">PR #10134</a></span><span class="pm"><span class="a">+39</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/_http.py</span><span class="h">index 6fd4d75fab..52b3c92a03 100644</span><span class="h">@@ -2,14 +2,20 @@</span><span class="c"> </span><span class="c"> from __future__ import annotations</span><span class="c"> </span><span class="a">+import sys</span><span class="c"> import warnings</span><span class="c"> from typing import TYPE_CHECKING, TypeAlias, TypeVar</span><span class="c"> </span><span class="r">-# Import httpcore2 eagerly: httpx2 defers it to first client construction, which performs blocking</span><span class="r">-# I/O if that happens inside the event loop.</span><span class="r">-import httpcore2  # noqa: F401  # pyright: ignore[reportUnusedImport]</span><span class="c"> import httpx2</span><span class="c"> </span><span class="a">+# Import httpcore2 eagerly: httpx2 defers it to first client construction, which performs blocking</span><span class="a">+# I/O if that happens inside the event loop. Since 2.10, httpx2 does not install httpcore2 on</span><span class="a">+# Emscripten (Pyodide), where it sends requests through the browser&#39;s `fetch` instead, so the</span><span class="a">+# preload is skipped there. The check is on the platform rather than on `ImportError` so that a</span><span class="a">+# broken install elsewhere still fails loudly here.</span><span class="a">+if sys.platform != &#39;emscripten&#39;:</span><span class="a">+    import httpcore2  # noqa: F401  # pyright: ignore[reportUnusedImport]</span><span class="a">+</span><span class="c"> from ._warnings import PydanticAIDeprecationWarning</span><span class="c"> </span><span class="c"> __all__ = (</span><span class="f">tests/test_httpx2_sdk_readiness.py</span><span class="h">index 5fa3894433..01bfc0f396 100644</span><span class="h">@@ -1,14 +1,17 @@</span><span class="c"> from __future__ import annotations as _annotations</span><span class="c"> </span><span class="a">+import importlib</span><span class="c"> import inspect</span><span class="c"> import subprocess</span><span class="c"> import sys</span><span class="c"> from importlib.metadata import requires</span><span class="a">+from types import ModuleType</span><span class="c"> </span><span class="c"> import httpx2</span><span class="c"> import pytest</span><span class="c"> from packaging.requirements import Requirement</span><span class="c"> </span><span class="a">+import pydantic_ai</span><span class="c"> from pydantic_ai._http import create_async_httpx2_client</span><span class="c"> </span><span class="c"> from .conftest import try_import</span><span class="h">@@ -264,6 +267,33 @@ async def test_httpx2_client_constructs_without_blocking() -&gt; None:</span><span class="c">         assert isinstance(client, httpx2.AsyncClient)</span><span class="c"> </span><span class="c"> </span><span class="a">+def _fresh_http_module_without_httpcore2(monkeypatch: pytest.MonkeyPatch, platform: str) -&gt; ModuleType:</span><span class="a">+    &quot;&quot;&quot;Run `_http.py` again with `httpcore2` unimportable, as it is on Pyodide, and `sys.platform` set to `platform`.</span><span class="a">+</span><span class="a">+    Only that one module body sees the fake platform: everything it imports is already loaded, and monkeypatch</span><span class="a">+    puts the original module back in `sys.modules` and on the `pydantic_ai` package afterwards.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    original = sys.modules[&#39;pydantic_ai._http&#39;]</span><span class="a">+    monkeypatch.setitem(sys.modules, &#39;httpcore2&#39;, None)</span><span class="a">+    monkeypatch.delitem(sys.modules, &#39;pydantic_ai._http&#39;)</span><span class="a">+    monkeypatch.setattr(pydantic_ai, &#39;_http&#39;, original)</span><span class="a">+    monkeypatch.setattr(sys, &#39;platform&#39;, platform)</span><span class="a">+    return importlib.import_module(&#39;pydantic_ai._http&#39;)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_http_module_imports_on_emscripten_without_httpcore2(monkeypatch: pytest.MonkeyPatch) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;On Pyodide httpx2 sends requests through `fetch` and doesn&#39;t install `httpcore2`, so `_http.py` must not import it.&quot;&quot;&quot;</span><span class="a">+    module = _fresh_http_module_without_httpcore2(monkeypatch, &#39;emscripten&#39;)</span><span class="a">+    assert module.DEFAULT_HTTP_TIMEOUT == 600</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;platform&#39;, [&#39;linux&#39;, &#39;darwin&#39;, &#39;win32&#39;])</span><span class="a">+def test_http_module_still_requires_httpcore2_elsewhere(monkeypatch: pytest.MonkeyPatch, platform: str) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Skipping the preload is limited to Emscripten: a missing `httpcore2` anywhere else is a broken install.&quot;&quot;&quot;</span><span class="a">+    with pytest.raises(ModuleNotFoundError, match=&#39;httpcore2&#39;):</span><span class="a">+        _fresh_http_module_without_httpcore2(monkeypatch, platform)</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.skipif(not anthropic_imports_successful(), reason=&#39;anthropic not installed&#39;)</span><span class="c"> async def test_anthropic_accepts_httpx2_client() -&gt; None:</span><span class="c">     async with httpx2.AsyncClient() as client:</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic-ai/run-20261103-034451/8574/">Previous · #8574</a>
+  <a class="mid" href="/backtests/pydantic-ai/run-20261103-034451/">All tickets in this run</a>
+  <a href="/backtests/pydantic-ai/run-20261103-034451/10119/">Next · #10119</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pydantic/pydantic-ai · 3 Nov 2026 — sudo backtests</title>
+<meta name="description" content="9 of 10 tickets judged better than the merged fix on pydantic/pydantic-ai, run 3 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic-ai/run-20261103-034451/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/">pydantic-ai</a><span aria-hidden="true">/</span><span aria-current="page">run-20261103-034451</span></p>
+<h1>pydantic/pydantic-ai</h1>
+<p class="lead">Agent framework for building production-grade applications with generative AI.</p>
+<div class="card summary">
+  <p class="k">This run · 3 Nov 2026 · <span class="runid">run-20261103-034451</span></p>
+  <p class="big">90%<small>judged better than the merged fix</small></p>
+  <p class="sub">9 of 10 tickets. 10 issues fixed by one maintainer, shared by link.</p>
+  <div class="bar" role="img" aria-label="9 better, 0 par, 0 worse, 1 error"><span class="b-better" style="width:90%"></span><span class="b-error" style="width:10%"></span></div>
+  <div class="counts"><span class="better"><i></i>9 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>0 worse</span><span class="error"><i></i>1 error</span></div>
+</div>
+<section>
+  <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
+  <div class="runs">
+<details class="run" id="run-20261103-034451" open>
+  <summary>
+    <span class="date">3 Nov 2026<span class="runid">run-20261103-034451</span></span>
+    <span class="bars"><div class="bar thin" role="img" aria-label="9 better, 0 par, 0 worse, 1 error"><span class="b-better" style="width:90%"></span><span class="b-error" style="width:10%"></span></div><span class="counts"><span class="better">9 better</span><span class="par">0 par</span><span class="worse">0 worse</span><span class="error">1 error</span></span></span>
+    <span class="notes">10 issues fixed by one maintainer, shared by link</span>
+    <span class="meta">10 tickets · <a href="/backtests/pydantic-ai/run-20261103-034451/">permalink</a></span>
+  </summary>
+  <div class="runbody">
+<div class="filters" role="group" aria-label="Filter tickets by verdict"><button type="button" data-filter="all" aria-pressed="true">All 10</button><button type="button" class="better" data-filter="better" aria-pressed="false">Better 9</button><button type="button" class="par" data-filter="par" aria-pressed="false">Par 0</button><button type="button" class="worse" data-filter="worse" aria-pressed="false">Worse 0</button><button type="button" class="error" data-filter="error" aria-pressed="false">Error 1</button></div>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Issue</th><th>Title</th><th>Verdict</th><th class="num">Lines ours / merged</th><th>Test suite</th></tr></thead>
+    <tbody>
+<tr class="link" data-verdict="error"><td class="id">#6613</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/6613/">MCP Apps (SEP-1865) client support: tool-result <code>_meta</code>, resource <code>mimeType</code>/<code>_meta</code>, and <code>capabilities.extensions</code> are dropped</a></td><td><span class="pill error">Error</span></td><td class="num">0 / 256</td><td class="tests"><span class="muted">Not run</span></td></tr>
+<tr class="link" data-verdict="better"><td class="id">#7315</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/7315/">OpenAI strict mode: <code>prefixItems</code> (tuple fields) is marked strict-compatible but is rejected; <code>minLength</code>/<code>maxLength</code> are marked incompatible but are accepted</a></td><td><span class="pill better">Better</span></td><td class="num">392 / 2,703</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#8574</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/8574/"><code>VercelAIAdapter.dump_messages</code> emits <code>providerMetadata: null</code> instead of omitting it — breaks AI SDK <code>validateUIMessage</code>s</a></td><td><span class="pill better">Better</span></td><td class="num">291 / 212</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#8673</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/8673/"><code>import pydantic_ai.models</code> fails on Pyodide: <code>_http.py</code> imports <code>httpcore2</code>, which <code>httpx2&gt;=2.10</code> does not install on emscripten</a></td><td><span class="pill better">Better</span></td><td class="num">41 / 42</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#10119</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/10119/"><code>pydantic_ai.agent.__all__</code> advertises <code>RealtimeEvent</code>, which cannot be imported at runtime</a></td><td><span class="pill better">Better</span></td><td class="num">43 / 19</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#10296</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/10296/">MistralModel fails to import with mistralai&gt;=3: No module named &#39;httpx&#39;</a></td><td><span class="pill better">Better</span></td><td class="num">46 / 80</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#10611</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/10611/"><code>SetToolMetadata(background=...)</code> has no effect on <code>BackgroundTools</code></a></td><td><span class="pill better">Better</span></td><td class="num">206 / 82</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#10667</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/10667/">Early exit from <code>node.stream()</code> leaves <code>AgentStream</code>&#39;s inner generators (<code>_events_iter</code>, <code>_model_events</code>) to the garbage collector</a></td><td><span class="pill better">Better</span></td><td class="num">195 / 136</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#10796</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/10796/"><code>CodeMode</code>: &quot;do not redefine or import them&quot; leads models to skip import asyncio before <code>asyncio.gather</code></a></td><td><span class="pill better">Better</span></td><td class="num">12 / 26</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#11828</td><td class="title"><a href="/backtests/pydantic-ai/run-20261103-034451/11828/">Automatic Claude native output exposes Decimal schema incompatibility without Pydantic version guidance</a></td><td><span class="pill better">Better</span></td><td class="num">168 / 160</td><td class="tests">No new failures</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+</details>
+  </div>
+</section>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.runbody').forEach(function(panel){
+    var f=panel.querySelector('.filters');if(!f)return;
+    var rows=panel.querySelectorAll('tr[data-verdict]');
+    f.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-filter]');if(!b)return;
+      var v=b.getAttribute('data-filter');
+      f.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+      rows.forEach(function(r){r.hidden=v!=='all'&&r.getAttribute('data-verdict')!==v});
+    });
+  });
+})();
+</script>
+</body>
+</html>

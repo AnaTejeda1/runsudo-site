@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#10119 `pydantic_ai.agent.__all__` advertises `RealtimeEvent`, which cannot be imported at runtime — pydantic/pydantic-ai backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #10119 in pydantic/pydantic-ai, run 3 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic-ai/run-20261103-034451/10119/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/">pydantic-ai</a><span aria-hidden="true">/</span><a href="/backtests/pydantic-ai/run-20261103-034451/">run-20261103-034451</a><span aria-hidden="true">/</span><span aria-current="page">#10119</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic-ai/issues/10119" rel="noopener" target="_blank">#10119</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic-ai/pull/10189" rel="noopener" target="_blank">PR #10189</a></span>
+  <span>Run 3 Nov 2026 · <span class="runid">run-20261103-034451</span></span>
+  <span>pydantic/pydantic-ai</span>
+</div>
+<h1 class="ticket-title"><code>pydantic_ai.agent.__all__</code> advertises <code>RealtimeEvent</code>, which cannot be imported at runtime</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make `from pydantic_ai.agent import *` work and both are confirmed by the independent tests, so the decision rests on which resolution better fits the issue&#39;s root cause and intent. The issue notes the original commit used the `RealtimeEvent as RealtimeEvent` re-export idiom, meaning the name was meant to be a public export and only the runtime half was missed. Patch A completes that intent with a module-level `__getattr__` that lazily resolves `RealtimeEvent` from `pydantic_ai.realtime`, exactly the arrangement the issue points to as already used by `pydantic_ai.ui`, and it preserves the import-time constraint (the independent lazy-load test still passes). It also raises a correctly formatted AttributeError for unknown names, so star-import and `hasattr` semantics stay sane. Patch B instead drops the export from both the `TYPE_CHECKING` block and `__all__`, which is a legitimate option the issue allows, but it removes a public typed name (requiring an API-compatibility allowlist entry) rather than making the advertised name work, effectively reversing the original commit&#39;s intent. On tests, A&#39;s first test exercises the real star-import path for every `__all__` entry, checks identity against the `pydantic_ai.realtime` class, and checks the unknown-name error; its second test guards the 120 ms lazy-import property in a fresh interpreter, which is the key constraint the issue calls out. B&#39;s single `hasattr` invariant test is a good general guard and would fail on base, but is narrower. One caveat against A: the `@pytest.mark.subprocess` marker may not be registered in the repo, which could produce an unknown-mark warning/error depending on pytest config; this is a craft risk in the test only and does not affect the fix itself. Scope and craft are otherwise comparable; B&#39;s allowlist bookkeeping is appropriate for its approach, and A&#39;s fix is minimal and matches existing package conventions. Overall A resolves the issue at its root while keeping the public name usable, so it is the better fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">10m 28s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">3,830 passed · 5 skipped · 3,835 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">43<small>vs 19 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic-ai/issues/10119" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I&#39;m using the <a href="https://github.com/pydantic/pydantic-ai/releases/latest" rel="noopener nofollow" target="_blank">latest version</a> of Pydantic AI</li><li><input type="checkbox" disabled checked> I&#39;ve searched for my issue in <a href="https://github.com/pydantic/pydantic-ai/issues" rel="noopener nofollow" target="_blank">the issue tracker</a> before opening this issue</li></ul>
+<h3>Description</h3>
+<p><code>pydantic_ai.agent.__all__</code> advertises <code>RealtimeEvent</code>, but the name is only bound inside that module&#39;s <code>if TYPE_CHECKING:</code> block, and <code>pydantic_ai/agent/__init__.py</code> has no module-level <code>__getattr__</code>. <code>__all__</code> is a runtime contract — a star-import resolves each entry with <code>getattr</code> — so the module advertises a name that no caller can actually import:</p>
+<pre><code class="lang-console">$ python -c &quot;from pydantic_ai.agent import *&quot;
+AttributeError: module &#39;pydantic_ai.agent&#39; has no attribute &#39;RealtimeEvent&#39;
+
+$ python -c &quot;from pydantic_ai.agent import RealtimeEvent&quot;
+ImportError: cannot import name &#39;RealtimeEvent&#39; from &#39;pydantic_ai.agent&#39;</code></pre>
+<p>Nothing catches it today: pyright counts a <code>TYPE_CHECKING</code> binding as a module symbol, so type checking and CI stay green while <code>hasattr</code> and <code>__all__</code> disagree:</p>
+<pre><code class="lang-console">$ python -c &quot;import pydantic_ai.agent as m; print(&#39;RealtimeEvent&#39; in m.__all__, hasattr(m, &#39;RealtimeEvent&#39;))&quot;
+True False</code></pre>
+<p>A note for whoever fixes this: <code>pydantic_ai.realtime</code> is the optional <code>realtime</code> extra, and <code>import pydantic_ai</code> deliberately does not load it (unlike <code>pydantic_ai.agent</code>, which the root package does load). Importing <code>pydantic_ai.realtime</code> eagerly from <code>pydantic_ai.agent</code> adds roughly 120 ms of provider and codec modules to every <code>import pydantic_ai</code>, which is what the <code>TYPE_CHECKING</code> block exists to avoid. A module-level <code>__getattr__</code> — the arrangement <code>pydantic_ai.ui</code> already uses for <code>DEFAULT_HTML_URL</code>/<code>OFFLINE_HTML_URL</code> — keeps the advertised name working without paying that cost; dropping the entry from <code>__all__</code> is the other option, which is your call, not mine.</p>
+<p>Introduced in d6d66de54 (#6324), which added both <code>RealtimeEvent as RealtimeEvent</code> to the <code>TYPE_CHECKING</code> block and <code>&#39;RealtimeEvent&#39;</code> to <code>__all__</code>; the explicit <code>as</code> alias is the &quot;this is a re-export&quot; idiom, so the runtime half looks like it was simply missed. As a sanity check, every other <code>__all__</code> entry in the package does resolve (596 names across 292 importable modules).</p>
+<h3>Minimal, Reproducible Example</h3>
+<pre><code class="lang-python">from pydantic_ai.agent import *  # AttributeError: module &#39;pydantic_ai.agent&#39; has no attribute &#39;RealtimeEvent&#39;</code></pre>
+<h3>Python, Pydantic AI &amp; LLM client version</h3>
+<ul><li>Python: 3.13.12</li><li>Pydantic AI: <code>main</code> @ 69ea1e572 (also present on the released 1.x line)</li><li>LLM provider SDK: n/a — this reproduces at import time, no model or provider involved</li></ul>
+<hr>
+<p>A fix is already up as #10118; it was closed automatically by the PR guard for having no linked issue, and I&#39;m reopening it once this issue exists rather than leaving a duplicate PR around.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+43</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">pydantic_ai_slim/pydantic_ai/agent/__init__.py</span><span class="h">index dd5e161bc..e5b4e3646 100644</span><span class="h">@@ -216,6 +216,17 @@ __all__ = (</span><span class="c">     &#39;RealtimeEvent&#39;,</span><span class="c"> )</span><span class="c"> </span><span class="a">+</span><span class="a">+def __getattr__(name: str) -&gt; object:</span><span class="a">+    # `pydantic_ai.realtime` is an optional extra with a costly import, so `RealtimeEvent` is resolved lazily</span><span class="a">+    # rather than imported eagerly with `pydantic_ai.agent` (which `import pydantic_ai` always loads).</span><span class="a">+    if name == &#39;RealtimeEvent&#39;:</span><span class="a">+        from ..realtime import RealtimeEvent</span><span class="a">+</span><span class="a">+        return RealtimeEvent</span><span class="a">+    raise AttributeError(f&#39;module {__name__!r} has no attribute {name!r}&#39;)</span><span class="a">+</span><span class="a">+</span><span class="c"> _ACTIVE_AGENT_LIMITERS: ContextVar[tuple[tuple[int, _concurrency.ConcurrencyLimiter], ...]] = ContextVar(</span><span class="c">     &#39;pydantic_ai.active_agent_limiters&#39;, default=()</span><span class="c"> )</span><span class="f">tests/test_agent.py</span><span class="h">index 4f1257e9f..72cb86d2f 100644</span><span class="h">@@ -15237,3 +15237,35 @@ def test_tool_sync_function_returning_coroutine():</span><span class="c"> </span><span class="c">     result = agent.run_sync(&#39;Hello&#39;)</span><span class="c">     assert result.output == snapshot(&#39;tool result value&#39;)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_agent_module_all_names_resolve_at_runtime():</span><span class="a">+    import pydantic_ai.agent as agent_module</span><span class="a">+    from pydantic_ai.realtime import RealtimeEvent</span><span class="a">+</span><span class="a">+    namespace: dict[str, Any] = {}</span><span class="a">+    exec(&#39;from pydantic_ai.agent import *&#39;, namespace)</span><span class="a">+    assert [name for name in agent_module.__all__ if name not in namespace] == []</span><span class="a">+    assert namespace[&#39;RealtimeEvent&#39;] is RealtimeEvent</span><span class="a">+    assert agent_module.RealtimeEvent is RealtimeEvent</span><span class="a">+</span><span class="a">+    with pytest.raises(AttributeError, match=re.escape(&quot;module &#39;pydantic_ai.agent&#39; has no attribute &#39;NotAName&#39;&quot;)):</span><span class="a">+        _ = agent_module.NotAName</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.subprocess(reason=&#39;asserts what a fresh interpreter imports&#39;)</span><span class="a">+def test_agent_module_resolves_realtime_event_lazily():</span><span class="a">+    import subprocess</span><span class="a">+</span><span class="a">+    subprocess.run(</span><span class="a">+        [</span><span class="a">+            sys.executable,</span><span class="a">+            &#39;-c&#39;,</span><span class="a">+            &#39;import sys, pydantic_ai.agent; &#39;</span><span class="a">+            &quot;assert &#39;pydantic_ai.realtime&#39; not in sys.modules; &quot;</span><span class="a">+            &#39;from pydantic_ai.agent import RealtimeEvent; &#39;</span><span class="a">+            &#39;from pydantic_ai.realtime import RealtimeEvent as expected; &#39;</span><span class="a">+            &#39;assert RealtimeEvent is expected&#39;,</span><span class="a">+        ],</span><span class="a">+        check=True,</span><span class="a">+    )</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic-ai/pull/10189" rel="noopener" target="_blank">PR #10189</a></span><span class="pm"><span class="a">+17</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">.github/api-compatibility-allowlist.json</span><span class="h">index 42cda9a6e4..b41287ab95 100644</span><span class="h">@@ -431,6 +431,12 @@</span><span class="c">       &quot;fingerprint&quot;: &quot;0ebfc0d0d25c2f768c0ec1c2604912ca16fa2cb12507e9c5da73a71953048f14&quot;,</span><span class="c">       &quot;reason&quot;: &quot;False positive: Griffe compares the expression assigned to `Case.evaluators`. `Evaluator` instances are kept unchanged; only plain functions, newly accepted, are wrapped in `FunctionEvaluator`.&quot;,</span><span class="c">       &quot;pull_request&quot;: &quot;https://github.com/pydantic/pydantic-ai/pull/10292&quot;</span><span class="a">+    },</span><span class="a">+    {</span><span class="a">+      &quot;against&quot;: &quot;v2.63.0&quot;,</span><span class="a">+      &quot;fingerprint&quot;: &quot;7c52c60298d3103deb2c4c5a9c9b14e136c9881cb0ebc8478d71eb50f70cc9ac&quot;,</span><span class="a">+      &quot;reason&quot;: &quot;`pydantic_ai.agent.RealtimeEvent` was only imported under `TYPE_CHECKING`, so importing it at runtime always raised `ImportError`; `RealtimeEvent` is still exported from `pydantic_ai.realtime`.&quot;,</span><span class="a">+      &quot;pull_request&quot;: &quot;https://github.com/pydantic/pydantic-ai/pull/10189&quot;</span><span class="c">     }</span><span class="c">   ],</span><span class="c">   &quot;model_name_literals&quot;: [</span><span class="f">pydantic_ai_slim/pydantic_ai/agent/__init__.py</span><span class="h">index dd5e161bc4..22553c5893 100644</span><span class="h">@@ -182,7 +182,6 @@ if TYPE_CHECKING:</span><span class="c">     from ..realtime import (</span><span class="c">         AudioRetention,</span><span class="c">         KnownRealtimeModelName,</span><span class="r">-        RealtimeEvent as RealtimeEvent,</span><span class="c">         RealtimeModel,</span><span class="c">         RealtimeModelSettings,</span><span class="c">         RealtimeProviderSession,</span><span class="h">@@ -213,7 +212,6 @@ __all__ = (</span><span class="c">     &#39;PydanticAIDeprecationWarning&#39;,</span><span class="c">     &#39;ToolsPrepareFunc&#39;,</span><span class="c">     &#39;ToolDenied&#39;,</span><span class="r">-    &#39;RealtimeEvent&#39;,</span><span class="c"> )</span><span class="c"> </span><span class="c"> _ACTIVE_AGENT_LIMITERS: ContextVar[tuple[tuple[int, _concurrency.ConcurrencyLimiter], ...]] = ContextVar(</span><span class="f">tests/test_public_interface_contracts.py</span><span class="h">index af539fe47e..d4d479bb04 100644</span><span class="h">@@ -15,6 +15,7 @@ from collections.abc import Callable</span><span class="c"> import pytest</span><span class="c"> from inline_snapshot import snapshot</span><span class="c"> </span><span class="a">+import pydantic_ai.agent</span><span class="c"> from pydantic_ai import Agent, RunContext</span><span class="c"> from pydantic_ai.agent.abstract import AbstractAgent</span><span class="c"> from pydantic_ai.agent.wrapper import WrapperAgent</span><span class="h">@@ -137,6 +138,16 @@ def test_new_public_dataclasses_are_keyword_only(public_dataclasses: dict[str, l</span><span class="c">         )</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_agent_module_all_exports_resolve_at_runtime():</span><span class="a">+    &quot;&quot;&quot;Every name in `pydantic_ai.agent.__all__` must be bound at runtime, not only under `TYPE_CHECKING`.</span><span class="a">+</span><span class="a">+    A star-import resolves each `__all__` entry with `getattr`, so an entry that type checkers can see but</span><span class="a">+    the module never binds makes `from pydantic_ai.agent import *` raise `AttributeError`.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    unresolved = [name for name in pydantic_ai.agent.__all__ if not hasattr(pydantic_ai.agent, name)]</span><span class="a">+    assert unresolved == []</span><span class="a">+</span><span class="a">+</span><span class="c"> _AGENT_IMPLEMENTATIONS: dict[str, type] = {</span><span class="c">     # `AbstractAgent` is the contract third parties implement and `WrapperAgent` performs the</span><span class="c">     # forwarding, so both belong here: the `metadata` drift that motivated this test was present on</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic-ai/run-20261103-034451/8673/">Previous · #8673</a>
+  <a class="mid" href="/backtests/pydantic-ai/run-20261103-034451/">All tickets in this run</a>
+  <a href="/backtests/pydantic-ai/run-20261103-034451/10296/">Next · #10296</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
