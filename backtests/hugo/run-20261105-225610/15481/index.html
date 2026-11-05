@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15481 js.Build: browser:false modules with extensionless require fail with lstat in v0.168.0 — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15481 in gohugoio/hugo, run 5 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261105-225610/15481/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261105-225610/">run-20261105-225610</a><span aria-hidden="true">/</span><span aria-current="page">#15481</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15481" rel="noopener" target="_blank">#15481</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15483" rel="noopener" target="_blank">PR #15483</a></span>
+  <span>Run 5 Nov 2026 · <span class="runid">run-20261105-225610</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">js.Build: browser:false modules with extensionless require fail with lstat in v0.168.0</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the reported failure and pass all three independent tests, so the decision rests on where the fix lives and on test quality.
+
+Patch A keeps the fix local to the esbuild OnLoad hook that introduced the regression: it Lstats the path first, and when the path does not exist it returns an empty OnLoadResult so esbuild falls through to its own handling (the disabled-module stub, or its normal &#39;Could not resolve&#39; error for genuinely missing files). CheckReadPath keeps its strict contract, so any other in-process caller still gets a hard error for nonexistent or dangling paths. Its test is also stronger: it covers the extensionless case, the explicit-extension control, asserts the excluded content is absent, and adds a negative case confirming a truly missing require still fails. Minor nit: the extra Lstat per loaded file is a small cost, and an import of strings is assumed present.
+
+Patch B instead relaxes the shared security primitive CheckReadPath so any nonexistent path passes, flipping an existing hexec unit-test expectation to do so. The sentinel-error trick to avoid caching is correct but adds subtlety, and it widens the behavioural change beyond the esbuild hook (e.g. a dangling symlink now passes the boundary check rather than erroring). Its integration test covers only the extensionless case with no negative or control case. The semantics B chooses are defensible, but A resolves the issue with less change to a security-relevant contract and with more thorough tests, so A is the better fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">24m 17s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">1,480 passed · 1 skipped · 1,518 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">65<small>vs 45 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15481" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>&lt;!--<br>Please do not use the issue queue for questions or troubleshooting. Unless you are certain that your issue is a software defect, use the forum:</p>
+<p><a href="https://discourse.gohugo.io" rel="noopener nofollow" target="_blank">https://discourse.gohugo.io</a><br>--&gt;</p>
+<p>&lt;!-- Please answer these questions before submitting your issue. Thanks! --&gt;</p>
+<h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>&lt;pre&gt;<br>$ hugo version<br>hugo v0.168.0+extended+withdeploy linux/amd64 BuildDate=2026-10-13T16:42:50Z VendorInfo=Homebrew<br>&lt;/pre&gt;</p>
+<p>OS/architecture: Linux amd64. Installed with Homebrew.</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>Yes, with v0.168.0, the latest release at the time of reporting.</p>
+<p>The same minimal reproduction succeeds with v0.166.0:</p>
+<pre><code class="lang-text">hugo v0.166.0-78400b4de8adc99273d3e674ed6c4d14c3bdf669+extended linux/amd64 BuildDate=2026-09-09T14:45:02Z VendorInfo=gohugoio</code></pre>
+<h3>Summary</h3>
+<p><code>js.Build</code> fails when a dependency uses an extensionless CommonJS <code>require</code> that is disabled by a <code>browser</code> field mapping to <code>false</code>.</p>
+<p>The target <code>.js</code> file exists. However, Hugo reports <code>lstat .../util.inspect: no such file or directory</code> for the extensionless path instead of allowing esbuild to produce the disabled module stub.</p>
+<p>This reproduces without any theme, content, external npm installation, or custom security settings.</p>
+<h3>Minimal reproduction</h3>
+<p>Run the following in an empty directory. The small package under <code>node_modules</code> is a synthetic fixture, not an installed dependency.</p>
+<pre><code class="lang-sh">mkdir -p assets layouts node_modules/browser-disabled-repro
+
+cat &gt; hugo.toml &lt;&lt;&#39;EOF&#39;
+baseURL = &quot;https://example.org/&quot;
+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]
+EOF
+
+cat &gt; layouts/index.html &lt;&lt;&#39;EOF&#39;
+{{ $js := resources.Get &quot;main.js&quot; | js.Build }}
+&lt;script src=&quot;{{ $js.RelPermalink }}&quot;&gt;&lt;/script&gt;
+EOF
+
+cat &gt; assets/main.js &lt;&lt;&#39;EOF&#39;
+import value from &quot;browser-disabled-repro&quot;;
+console.log(value);
+EOF
+
+cat &gt; node_modules/browser-disabled-repro/package.json &lt;&lt;&#39;EOF&#39;
+{
+  &quot;name&quot;: &quot;browser-disabled-repro&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;main&quot;: &quot;index.js&quot;,
+  &quot;browser&quot;: {
+    &quot;./util.inspect.js&quot;: false
+  }
+}
+EOF
+
+cat &gt; node_modules/browser-disabled-repro/index.js &lt;&lt;&#39;EOF&#39;
+module.exports = require(&quot;./util.inspect&quot;);
+EOF
+
+cat &gt; node_modules/browser-disabled-repro/util.inspect.js &lt;&lt;&#39;EOF&#39;
+module.exports = &quot;This file must be excluded from browser builds.&quot;;
+EOF
+
+hugo --noBuildLock</code></pre>
+<h3>Actual result</h3>
+<p>On v0.168.0 the build exits with code 1. Relevant error excerpt (absolute project path normalized):</p>
+<pre><code class="lang-text">error calling RelPermalink: JSBUILD: failed to transform &quot;/main.js&quot; (text/javascript): lstat /path/to/repro/node_modules/browser-disabled-repro/util.inspect: no such file or directory</code></pre>
+<h3>Expected result</h3>
+<p>The build should succeed, with the dependency replaced by an empty browser module according to <code>browser: { &quot;./util.inspect.js&quot;: false }</code>, without including the excluded file&#39;s content.</p>
+<h3>Comparison and control</h3>
+<div class="tablewrap"><table class="table"><thead><tr><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td>v0.166.0, <code>require(&quot;./util.inspect&quot;)</code></td><td>Build succeeds, exit 0</td></tr><tr><td>v0.168.0, <code>require(&quot;./util.inspect&quot;)</code></td><td>Build fails with the <code>lstat</code> error, exit 1</td></tr><tr><td>v0.168.0, changing only the require to <code>require(&quot;./util.inspect.js&quot;)</code></td><td>Build succeeds, exit 0</td></tr></tbody></table></div>
+<p>The v0.166.0 output explicitly contains a disabled-module stub:</p>
+<pre><code class="lang-js">// (disabled):node_modules/browser-disabled-repro/util.inspect
+var require_util = __commonJS({
+  &quot;(disabled):node_modules/browser-disabled-repro/util.inspect&quot;() {
+  }
+});</code></pre>
+<p>The explicit-extension control is only diagnostic; it is not a proposed fix for third-party dependencies.</p>
+<h3>Possibly related change</h3>
+<p>Commit <a href="https://github.com/gohugoio/hugo/commit/2aa51f3485054bca4a2e368bed4be32367b229e6" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/commit/2aa51f3485054bca4a2e368bed4be32367b229e6</a> adds an <code>OnLoad</code> hook in the <code>file</code> namespace that calls <code>CheckReadPath(args.Path)</code>. <code>CheckReadPath</code> uses <code>filepath.EvalSymlinks</code>, which requires the path to exist.</p>
+<p>The failure appears consistent with that hook checking esbuild&#39;s disabled-module path as though it were a file to load. This is a suspected explanation, not a bisected root cause; v0.167.0 and current master have not been tested.</p>
+<p>The original occurrence was through <code>instantsearch.js -&gt; qs -&gt; side-channel -&gt; object-inspect@1.13.4</code>. That package uses <code>require(&#39;./util.inspect&#39;)</code> and maps <code>&quot;./util.inspect.js&quot;</code> to <code>false</code> in its <code>browser</code> field.</p>
+<p>I searched open and closed issues and pull requests for <code>util.inspect</code>, <code>object-inspect</code>, <code>CheckReadPath</code>, and related browser-disabled/esbuild errors and did not find a matching report.</p>
+<p>This report and the synthetic reproduction were prepared with GitHub Copilot assistance; the version comparison and control were executed locally.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+65</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">internal/js/esbuild/resolve.go</span><span class="h">index d8143bb50..e743b9577 100644</span><span class="h">@@ -312,6 +312,16 @@ func createBuildPlugins(rs *resources.Spec, assetsResolver *fsResolver, depsMana</span><span class="c"> 			// symlinks and knows nothing about the project boundary.</span><span class="c"> 			build.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: &quot;file&quot;},</span><span class="c"> 				func(args api.OnLoadArgs) (api.OnLoadResult, error) {</span><span class="a">+					if _, err := os.Lstat(args.Path); err != nil {</span><span class="a">+						if os.IsNotExist(err) {</span><span class="a">+							// Nothing to read. This may be a module disabled via the</span><span class="a">+							// package.json browser field (e.g. &quot;./foo.js&quot;: false</span><span class="a">+							// imported as &quot;./foo&quot;), which ESBuild replaces with an</span><span class="a">+							// empty module; otherwise ESBuild reports it as missing.</span><span class="a">+							return api.OnLoadResult{}, nil</span><span class="a">+						}</span><span class="a">+						return api.OnLoadResult{}, err</span><span class="a">+					}</span><span class="c"> 					if err := rs.ExecHelper.CheckReadPath(args.Path); err != nil {</span><span class="c"> 						return api.OnLoadResult{}, err</span><span class="c"> 					}</span><span class="f">resources/resource_transformers/js/js_integration_test.go</span><span class="h">index 5f13f41e7..4332aafdb 100644</span><span class="h">@@ -546,3 +546,58 @@ p::before { content: &quot;日本語&quot;; }</span><span class="c"> 	_, err := hugolib.TestE(t, files, hugolib.TestOptOsFs())</span><span class="c"> 	b.Assert(err, qt.ErrorMatches, `.*unsupported charset: &quot;foo&quot;.*`)</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestBuildBrowserFieldDisabledModule(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]</span><span class="a">+-- assets/main.js --</span><span class="a">+import value from &quot;browser-disabled&quot;;</span><span class="a">+import value2 from &quot;browser-disabled-ext&quot;;</span><span class="a">+console.log(value, value2);</span><span class="a">+-- node_modules/browser-disabled/package.json --</span><span class="a">+{</span><span class="a">+  &quot;name&quot;: &quot;browser-disabled&quot;,</span><span class="a">+  &quot;version&quot;: &quot;1.0.0&quot;,</span><span class="a">+  &quot;main&quot;: &quot;index.js&quot;,</span><span class="a">+  &quot;browser&quot;: {</span><span class="a">+    &quot;./util.inspect.js&quot;: false</span><span class="a">+  }</span><span class="a">+}</span><span class="a">+-- node_modules/browser-disabled/index.js --</span><span class="a">+module.exports = require(&quot;./util.inspect&quot;);</span><span class="a">+-- node_modules/browser-disabled/util.inspect.js --</span><span class="a">+module.exports = &quot;EXCLUDED-FROM-BROWSER&quot;;</span><span class="a">+-- node_modules/browser-disabled-ext/package.json --</span><span class="a">+{</span><span class="a">+  &quot;name&quot;: &quot;browser-disabled-ext&quot;,</span><span class="a">+  &quot;version&quot;: &quot;1.0.0&quot;,</span><span class="a">+  &quot;main&quot;: &quot;index.js&quot;,</span><span class="a">+  &quot;browser&quot;: {</span><span class="a">+    &quot;./util.inspect.js&quot;: false</span><span class="a">+  }</span><span class="a">+}</span><span class="a">+-- node_modules/browser-disabled-ext/index.js --</span><span class="a">+module.exports = require(&quot;./util.inspect.js&quot;);</span><span class="a">+-- node_modules/browser-disabled-ext/util.inspect.js --</span><span class="a">+module.exports = &quot;EXCLUDED-FROM-BROWSER-EXT&quot;;</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $js := resources.Get &quot;main.js&quot; | js.Build }}</span><span class="a">+RESULT:&lt;pre&gt;{{ $js.Content }}&lt;/pre&gt;</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files, hugolib.TestOptOsFs())</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+		&quot;(disabled):node_modules/browser-disabled/util.inspect&quot;,</span><span class="a">+		&quot;(disabled):node_modules/browser-disabled-ext/util.inspect.js&quot;,</span><span class="a">+		&quot;! EXCLUDED-FROM-BROWSER&quot;,</span><span class="a">+	)</span><span class="a">+</span><span class="a">+	// A missing file is still an error.</span><span class="a">+	files = strings.Replace(files, `require(&quot;./util.inspect&quot;)`, `require(&quot;./doesnotexist&quot;)`, 1)</span><span class="a">+	_, err := hugolib.TestE(t, files, hugolib.TestOptOsFs())</span><span class="a">+	b.Assert(err, qt.ErrorMatches, `(?s).*Could not resolve &quot;./doesnotexist&quot;.*`)</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15483" rel="noopener" target="_blank">PR #15483</a></span><span class="pm"><span class="a">+44</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">common/hexec/exec_test.go</span><span class="h">index 67871dc79..8ccb253cc 100644</span><span class="h">@@ -566,7 +566,7 @@ func TestCheckReadPath(t *testing.T) {</span><span class="c"> 	c.Assert(e.CheckReadPath(filepath.Join(site, &quot;assets&quot;, &quot;..&quot;, &quot;assets&quot;, &quot;a.js&quot;)), qt.IsNil)</span><span class="c"> 	c.Assert(e.CheckReadPath(secret), qt.ErrorMatches, `&quot;.*secret.txt&quot; resolves to &quot;.*secret.txt&quot; outside the project.*allowRead.*`)</span><span class="c"> 	c.Assert(e.CheckReadPath(slink), qt.ErrorMatches, `&quot;.*slink.js&quot; resolves to &quot;.*secret.txt&quot; outside the project.*allowRead.*`)</span><span class="r">-	c.Assert(e.CheckReadPath(filepath.Join(site, &quot;doesnotexist.js&quot;)), qt.ErrorMatches, `.*no such file.*`)</span><span class="a">+	c.Assert(e.CheckReadPath(filepath.Join(site, &quot;doesnotexist.js&quot;)), qt.IsNil)</span><span class="c"> </span><span class="c"> 	e = newExec(&quot;.&quot;, outside)</span><span class="c"> 	c.Assert(e.CheckReadPath(secret), qt.IsNil)</span><span class="f">common/hexec/nodesymlinks.go</span><span class="h">index ba0dfb8fc..29e765196 100644</span><span class="h">@@ -14,6 +14,7 @@</span><span class="c"> package hexec</span><span class="c"> </span><span class="c"> import (</span><span class="a">+	&quot;errors&quot;</span><span class="c"> 	&quot;fmt&quot;</span><span class="c"> 	&quot;io/fs&quot;</span><span class="c"> 	&quot;os&quot;</span><span class="h">@@ -44,9 +45,12 @@ func (e *Exec) checkNodeSymlinks(kind string, roots []string) error {</span><span class="c"> 	return nil</span><span class="c"> }</span><span class="c"> </span><span class="a">+var errReadPathNotExist = errors.New(&quot;read path does not exist&quot;)</span><span class="a">+</span><span class="c"> // CheckReadPath fails if filename resolves outside the allowRead roots.</span><span class="c"> // Used by in-process tools (e.g. ESBuild) that read files on their own,</span><span class="c"> // so they get the same boundary as the Node.js tools.</span><span class="a">+// A filename that does not exist passes, as there is nothing to read.</span><span class="c"> func (e *Exec) CheckReadPath(filename string) error {</span><span class="c"> 	_, err := e.readPathChecks.GetOrCreate(filename, func() (bool, error) {</span><span class="c"> 		roots := e.nodeReadRoots(&quot;&quot;)</span><span class="h">@@ -55,6 +59,10 @@ func (e *Exec) CheckReadPath(filename string) error {</span><span class="c"> 		}</span><span class="c"> 		target, err := filepath.EvalSymlinks(filename)</span><span class="c"> 		if err != nil {</span><span class="a">+			if os.IsNotExist(err) {</span><span class="a">+				// Don&#39;t cache this; the file may be created later.</span><span class="a">+				return false, errReadPathNotExist</span><span class="a">+			}</span><span class="c"> 			return false, err</span><span class="c"> 		}</span><span class="c"> 		if !isBelowAny(target, evalSymlinks(roots)) {</span><span class="h">@@ -62,6 +70,9 @@ func (e *Exec) CheckReadPath(filename string) error {</span><span class="c"> 		}</span><span class="c"> 		return true, nil</span><span class="c"> 	})</span><span class="a">+	if err == errReadPathNotExist {</span><span class="a">+		return nil</span><span class="a">+	}</span><span class="c"> 	return err</span><span class="c"> }</span><span class="c"> </span><span class="f">resources/resource_transformers/js/js_integration_test.go</span><span class="h">index 5f13f41e7..3cca43fad 100644</span><span class="h">@@ -546,3 +546,35 @@ p::before { content: &quot;日本語&quot;; }</span><span class="c"> 	_, err := hugolib.TestE(t, files, hugolib.TestOptOsFs())</span><span class="c"> 	b.Assert(err, qt.ErrorMatches, `.*unsupported charset: &quot;foo&quot;.*`)</span><span class="c"> }</span><span class="a">+</span><span class="a">+// Issue 15481.</span><span class="a">+func TestBuildBrowserDisabledModuleExtensionless(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;, &quot;robotsTXT&quot;, &quot;section&quot;, &quot;page&quot;]</span><span class="a">+-- assets/main.js --</span><span class="a">+import value from &quot;browser-disabled-repro&quot;;</span><span class="a">+console.log(value);</span><span class="a">+-- node_modules/browser-disabled-repro/package.json --</span><span class="a">+{</span><span class="a">+  &quot;name&quot;: &quot;browser-disabled-repro&quot;,</span><span class="a">+  &quot;version&quot;: &quot;1.0.0&quot;,</span><span class="a">+  &quot;main&quot;: &quot;index.js&quot;,</span><span class="a">+  &quot;browser&quot;: {</span><span class="a">+    &quot;./util.inspect.js&quot;: false</span><span class="a">+  }</span><span class="a">+}</span><span class="a">+-- node_modules/browser-disabled-repro/index.js --</span><span class="a">+module.exports = require(&quot;./util.inspect&quot;);</span><span class="a">+-- node_modules/browser-disabled-repro/util.inspect.js --</span><span class="a">+module.exports = &quot;EXCLUDED-FROM-BROWSER&quot;;</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ $js := resources.Get &quot;main.js&quot; | js.Build }}</span><span class="a">+JS Content:{{ $js.Content }}:End:</span><span class="a">+`</span><span class="a">+</span><span class="a">+	b := hugolib.Test(t, files, hugolib.TestOptOsFs())</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;(disabled):node_modules/browser-disabled-repro/util.inspect&quot;, &quot;! EXCLUDED-FROM-BROWSER&quot;)</span><span class="a">+}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261105-225610/15467/">Previous · #15467</a>
+  <a class="mid" href="/backtests/hugo/run-20261105-225610/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261105-225610/15484/">Next · #15484</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

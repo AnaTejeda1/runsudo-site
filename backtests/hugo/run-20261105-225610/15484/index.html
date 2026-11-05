@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15484 Possible issue with baseof.html renames on macos — gohugoio/hugo backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #15484 in gohugoio/hugo, run 5 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261105-225610/15484/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261105-225610/">run-20261105-225610</a><span aria-hidden="true">/</span><span aria-current="page">#15484</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15484" rel="noopener" target="_blank">#15484</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15494" rel="noopener" target="_blank">PR #15494</a></span>
+  <span>Run 5 Nov 2026 · <span class="runid">run-20261105-225610</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Possible issue with baseof.html renames on macos</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches identify the same root cause: `tmplAdded` was declared once outside the per-file loop, so the temp file (`baseof.html.tmp.*`, absent from the template store) flipped it to true and the flag leaked into the subsequent `baseof.html` entry, which was then treated as a newly added template instead of a changed one. Both make the decision per file, and the independent tests confirm all three scenarios go from FAIL-ASSERT on base to PASS on both patches, so correctness on the reported issue is equal. Patch B is the cleaner expression of that fix: it simply collapses the two ifs into one per-file condition, with no other behavioural change. Patch A additionally ANDs in a second lookup, `HasTemplate(pathInfo.Path())`, justified by a comment about language-suffixed templates. That addition is not asked for by the issue, and its two operands are in different forms (one is `Unnormalized().TrimLeadingSlash().PathNoLang()`, the other is the normalized path with its leading slash), so it is unclear from the diff whether the second lookup ever matches; its accompanying `TestRebuildEditBaseofWithLang` would very likely pass on base too, since a template wrongly flagged as &#39;added&#39; still triggers a coarse rebuild that renders the edit. The extra condition therefore obscures the actual fix without demonstrated benefit. On tests, A&#39;s `TestRebuildAddTemplateAndEditBaseofSameBuild` is a genuinely good regression test of the flag-leak root cause independent of temp files, and its atomic-save test models the macOS create-then-remove sequence; B&#39;s single test more directly reproduces the editor behaviour the issue describes (write temp, rename into place) and would fail on base. A has somewhat stronger test coverage, but B&#39;s tighter scope and clearer, risk-free change outweigh that for an issue whose fix is a one-variable scoping error. B wins narrowly.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2h 15m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,403 passed · 5 skipped · 2,451 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">74<small>vs 35 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15484" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p>As Claude said it:</p>
+<pre><code> - Possible Hugo bug: the dev server (v0.169.0-DEV) didn&#39;t pick up my edit to baseof.html. The log showed
+    Template added /baseof.html.tmp.… followed by /baseof.html, but the page stayed unchanged until I restarted
+    the server. The editor saves by writing a temp file and renaming it, which may be what trips it.</code></pre></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+70</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">hugolib/hugo_sites_build.go</span><span class="h">index 0b054bdd5..eb9b0b077 100644</span><span class="h">@@ -879,7 +879,6 @@ func (h *HugoSites) processPartialFileEvents(ctx context.Context, l logg.LevelLo</span><span class="c"> 	logger := h.Log</span><span class="c"> </span><span class="c"> 	var (</span><span class="r">-		tmplAdded          bool</span><span class="c"> 		tmplChanged        bool</span><span class="c"> 		i18nChanged        bool</span><span class="c"> 		needsPagesAssemble bool</span><span class="h">@@ -1032,9 +1031,11 @@ func (h *HugoSites) processPartialFileEvents(ctx context.Context, l logg.LevelLo</span><span class="c"> 		case files.ComponentFolderLayouts:</span><span class="c"> 			tmplChanged = true</span><span class="c"> 			templatePath := pathInfo.Unnormalized().TrimLeadingSlash().PathNoLang()</span><span class="r">-			if !h.GetTemplateStore().HasTemplate(templatePath) {</span><span class="r">-				tmplAdded = true</span><span class="r">-			}</span><span class="a">+			// Note that this must be evaluated per file. Editors doing atomic saves</span><span class="a">+			// (write a temp file, rename it into place) will typically give us a</span><span class="a">+			// new, temporary template in the same change set as the changed one.</span><span class="a">+			// Templates are stored by their full path, which may include a language (e.g. baseof.en.html).</span><span class="a">+			tmplAdded := !h.GetTemplateStore().HasTemplate(templatePath) &amp;&amp; !h.GetTemplateStore().HasTemplate(pathInfo.Path())</span><span class="c"> </span><span class="c"> 			if tmplAdded {</span><span class="c"> 				logger.Println(&quot;Template added&quot;, pathInfo.Path())</span><span class="f">hugolib/rebuild_test.go</span><span class="h">index ac594380f..56efcedf6 100644</span><span class="h">@@ -2417,3 +2417,68 @@ p1 v1</span><span class="c"> 	b.EditFileReplaceAll(&quot;content/p1.md&quot;, &quot;p1 v1&quot;, &quot;p1 v2&quot;).Build()</span><span class="c"> 	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;p1 v2&quot;)</span><span class="c"> }</span><span class="a">+</span><span class="a">+const rebuildBaseofTemplateAddFiles = `</span><span class="a">+-- hugo.toml --</span><span class="a">+title = &quot;Hugo Project&quot;</span><span class="a">+baseURL = &quot;https://example.com&quot;</span><span class="a">+disableKinds = [&quot;term&quot;, &quot;taxonomy&quot;, &quot;sitemap&quot;, &quot;robotstxt&quot;, &quot;404&quot;, &quot;rss&quot;]</span><span class="a">+disableLiveReload = true</span><span class="a">+-- content/p1.md --</span><span class="a">+---</span><span class="a">+title: &quot;P1&quot;</span><span class="a">+---</span><span class="a">+P1 Content.</span><span class="a">+-- layouts/baseof.html --</span><span class="a">+Baseof: {{ .Title }}|</span><span class="a">+{{ block &quot;main&quot; . }}default{{ end }}</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ define &quot;main&quot; }}Home: {{ .Title }}|{{ end }}</span><span class="a">+-- layouts/single.html --</span><span class="a">+{{ define &quot;main&quot; }}Single: {{ .Title }}|{{ end }}</span><span class="a">+`</span><span class="a">+</span><span class="a">+// Some editors save by writing a temporary file next to the original and</span><span class="a">+// renaming it into place. On macOS this gives a Create event for the</span><span class="a">+// temporary file (gone by the time we handle it) and a Remove event for the</span><span class="a">+// original. The edit to the original template must still be picked up.</span><span class="a">+func TestRebuildEditBaseofAtomicSaveWithTempFile(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+	b := TestRunning(t, rebuildBaseofTemplateAddFiles)</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Baseof: Hugo Project|&quot;, &quot;Home: Hugo Project|&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof: P1|&quot;, &quot;Single: P1|&quot;)</span><span class="a">+</span><span class="a">+	tmpFilename := &quot;layouts/baseof.html.tmp.48911.1762358254126&quot;</span><span class="a">+	b.AddFiles(tmpFilename, &quot;Baseof Edited: {{ .Title }}|\n{{ block \&quot;main\&quot; . }}default{{ end }}&quot;)</span><span class="a">+	b.Assert(b.fs.Source.Remove(b.absFilename(tmpFilename)), qt.IsNil)</span><span class="a">+	b.EditFileAtomicReplaceAll(&quot;layouts/baseof.html&quot;, &quot;Baseof&quot;, &quot;Baseof Edited&quot;).Build()</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Baseof Edited: Hugo Project|&quot;, &quot;Home: Hugo Project|&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof Edited: P1|&quot;, &quot;Single: P1|&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="a">+// A new template added in the same change set as an edit to an existing template.</span><span class="a">+func TestRebuildAddTemplateAndEditBaseofSameBuild(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+	b := TestRunning(t, rebuildBaseofTemplateAddFiles)</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof: P1|&quot;, &quot;Single: P1|&quot;)</span><span class="a">+</span><span class="a">+	b.AddFiles(&quot;layouts/page.html&quot;, &quot;{{ define \&quot;main\&quot; }}Page: {{ .Title }}|{{ end }}&quot;)</span><span class="a">+	b.EditFileReplaceAll(&quot;layouts/baseof.html&quot;, &quot;Baseof&quot;, &quot;Baseof Edited&quot;).Build()</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Baseof Edited: Hugo Project|&quot;, &quot;Home: Hugo Project|&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof Edited: P1|&quot;, &quot;Page: P1|&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="a">+// An edit to a language specific base template must be picked up.</span><span class="a">+func TestRebuildEditBaseofWithLang(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+	files := strings.ReplaceAll(rebuildBaseofTemplateAddFiles, &quot;-- layouts/baseof.html --&quot;, &quot;-- layouts/baseof.en.html --&quot;)</span><span class="a">+	b := TestRunning(t, files)</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof: P1|&quot;, &quot;Single: P1|&quot;)</span><span class="a">+</span><span class="a">+	b.EditFileReplaceAll(&quot;layouts/baseof.en.html&quot;, &quot;Baseof&quot;, &quot;Baseof Edited&quot;).Build()</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Baseof Edited: Hugo Project|&quot;, &quot;Home: Hugo Project|&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof Edited: P1|&quot;, &quot;Single: P1|&quot;)</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15494" rel="noopener" target="_blank">PR #15494</a></span><span class="pm"><span class="a">+30</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">hugolib/hugo_sites_build.go</span><span class="h">index 0b054bdd5..13b3b80bc 100644</span><span class="h">@@ -879,7 +879,6 @@ func (h *HugoSites) processPartialFileEvents(ctx context.Context, l logg.LevelLo</span><span class="c"> 	logger := h.Log</span><span class="c"> </span><span class="c"> 	var (</span><span class="r">-		tmplAdded          bool</span><span class="c"> 		tmplChanged        bool</span><span class="c"> 		i18nChanged        bool</span><span class="c"> 		needsPagesAssemble bool</span><span class="h">@@ -1033,10 +1032,6 @@ func (h *HugoSites) processPartialFileEvents(ctx context.Context, l logg.LevelLo</span><span class="c"> 			tmplChanged = true</span><span class="c"> 			templatePath := pathInfo.Unnormalized().TrimLeadingSlash().PathNoLang()</span><span class="c"> 			if !h.GetTemplateStore().HasTemplate(templatePath) {</span><span class="r">-				tmplAdded = true</span><span class="r">-			}</span><span class="r">-</span><span class="r">-			if tmplAdded {</span><span class="c"> 				logger.Println(&quot;Template added&quot;, pathInfo.Path())</span><span class="c"> 				// A new template may require a more coarse grained build.</span><span class="c"> 				base := pathInfo.Base()</span><span class="f">hugolib/rebuild_test.go</span><span class="h">index ac594380f..4f0089239 100644</span><span class="h">@@ -669,6 +669,36 @@ Single: {{ .Title }}|{{ .Content }}|</span><span class="c"> 	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof Edited&quot;)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Issue 15484.</span><span class="a">+func TestRebuildBaseofAtomicSaveViaTempFile(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+baseURL = &quot;https://example.com&quot;</span><span class="a">+disableKinds = [&quot;term&quot;, &quot;taxonomy&quot;, &quot;rss&quot;, &quot;sitemap&quot;]</span><span class="a">+disableLiveReload = true</span><span class="a">+-- content/p1.md --</span><span class="a">+---</span><span class="a">+title: &quot;P1&quot;</span><span class="a">+---</span><span class="a">+-- layouts/baseof.html --</span><span class="a">+Baseof: {{ block &quot;main&quot; . }}{{ end }}</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{ define &quot;main&quot; }}Home.{{ end }}</span><span class="a">+-- layouts/single.html --</span><span class="a">+{{ define &quot;main&quot; }}Single: {{ .Title }}{{ end }}</span><span class="a">+`</span><span class="a">+	b := Test(t, files, TestOptRunning())</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof: Single: P1&quot;)</span><span class="a">+</span><span class="a">+	// Some editors save by writing to a temp file and renaming it into place.</span><span class="a">+	b.AddFiles(&quot;layouts/baseof.html.tmp.1234&quot;, `Baseof Edited: {{ block &quot;main&quot; . }}{{ end }}`).</span><span class="a">+		RenameFile(&quot;layouts/baseof.html.tmp.1234&quot;, &quot;layouts/baseof.html&quot;).Build()</span><span class="a">+	b.AssertFileContent(&quot;public/p1/index.html&quot;, &quot;Baseof Edited: Single: P1&quot;)</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;, &quot;Baseof Edited: Home.&quot;)</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestRebuildWithDeferEditRenderHook(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261105-225610/15481/">Previous · #15481</a>
+  <a class="mid" href="/backtests/hugo/run-20261105-225610/">All tickets in this run</a>
+  <span class="disabled">Next</span>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

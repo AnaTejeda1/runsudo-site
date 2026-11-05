@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15452 Make emojify return a string — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15452 in gohugoio/hugo, run 5 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261105-225610/15452/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261105-225610/">run-20261105-225610</a><span aria-hidden="true">/</span><span aria-current="page">#15452</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15452" rel="noopener" target="_blank">#15452</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15454" rel="noopener" target="_blank">PR #15454</a></span>
+  <span>Run 5 Nov 2026 · <span class="runid">run-20261105-225610</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Make emojify return a string</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical core change in tpl/transform/transform.go: Emojify now returns string instead of template.HTML, so output flows through html/template&#39;s contextual escaping, and both update the existing unit-test expectations accordingly. The independent tests confirm both resolve the issue (both failing base tests pass under A and B). The differences are in tests, docs, and scope. Patch A adds an integration test (TestEmojifyEscapesUntrustedInput) that exercises the exact scenario in the issue — an untrusted title with a script tag piped through transform.Emojify and the emojify alias — asserting it is escaped while emoji replacement still works, and that explicit safeHTML still produces raw markup. That test would fail before the change and pass after, which is exactly what criterion 2 asks for. Patch B adds no new behavioral test; its only test change beyond the type update is a cosmetic reformatting of an unrelated Markdownify assertion, which is pure churn. Patch A also updates the documented returnType in the Emojify docs page from template.HTML to string; the issue explicitly notes the return type is &#39;clearly documented&#39;, so leaving the docs stale (as B does) would leave documentation contradicting the new behavior. On scope, A&#39;s extras are directly tied to the ask, while B&#39;s extra is unrelated noise. A is the better fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">8m 59s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">42 passed · 0 skipped · 42 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">34<small>vs 11 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15452" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>I got this mailed as a security report, and I&#39;ll create this as a security hardening issue to set the boundaries: I&#39;ll label this as a security hardening issue, but I&#39;m <strong>not</strong> creating a GitHub Security Advisory/CVE for (that&#39;s surprisingly lot of work, but that&#39;s not the reason).</p>
+<p>The gist of it is in:</p>
+<pre><code class="lang-handlebars">{{ .Title | transform.Emojify }}</code></pre>
+<p><code>transform.Emojify</code> returns <code>template.HTML</code> and would mark the potentially unsafe <code>.Title</code> (from potentially untrusted content) as safe. But the templates are marked as trusted, the <code>transform.Emojify</code>&#39;s return type is clearly documented, and we have plenty of other cases where a user can create unsafe markup. E.g. the above is technically similar to:</p>
+<pre><code class="lang-handlebars">{{ .Title | safeHTML }}</code></pre>
+<p>Thanks to @Reload3d for reporting this issue.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+29</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">docs/content/en/functions/transform/Emojify.md</span><span class="h">index 99bdfc34b..23a5df0a9 100644</span><span class="h">@@ -6,7 +6,7 @@ keywords: []</span><span class="c"> params:</span><span class="c">   functions_and_methods:</span><span class="c">     aliases: [emojify]</span><span class="r">-    returnType: template.HTML</span><span class="a">+    returnType: string</span><span class="c">     signatures: [transform.Emojify INPUT]</span><span class="c"> ---</span><span class="c"> </span><span class="f">tpl/transform/transform.go</span><span class="h">index f9d0dabb0..f006e28e8 100644</span><span class="h">@@ -85,13 +85,13 @@ type Namespace struct {</span><span class="c"> // Emojify returns a copy of s with all emoji codes replaced with actual emojis.</span><span class="c"> //</span><span class="c"> // See http://www.emoji-cheat-sheet.com/</span><span class="r">-func (ns *Namespace) Emojify(s any) (template.HTML, error) {</span><span class="a">+func (ns *Namespace) Emojify(s any) (string, error) {</span><span class="c"> 	ss, err := cast.ToStringE(s)</span><span class="c"> 	if err != nil {</span><span class="c"> 		return &quot;&quot;, err</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	return template.HTML(helpers.Emojify([]byte(ss))), nil</span><span class="a">+	return string(helpers.Emojify([]byte(ss))), nil</span><span class="c"> }</span><span class="c"> </span><span class="c"> // Highlight returns a copy of CODE as an HTML string with syntax</span><span class="f">tpl/transform/transform_integration_test.go</span><span class="h">index 9109e6c3e..74b801f14 100644</span><span class="h">@@ -640,3 +640,27 @@ i: &amp;i [*h, *h, *h, *h, *h, *h, *h, *h, *h, *h]</span><span class="c"> 	b.Assert(err, qt.IsNotNil)</span><span class="c"> 	b.Assert(err.Error(), qt.Contains, &quot;too many YAML aliases for non-scalar nodes&quot;)</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestEmojifyEscapesUntrustedInput(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- layouts/home.html --</span><span class="a">+Title: {{ .Title | transform.Emojify }}|</span><span class="a">+Alias: {{ .Title | emojify }}|</span><span class="a">+Safe: {{ .Title | emojify | safeHTML }}|</span><span class="a">+-- content/_index.md --</span><span class="a">+---</span><span class="a">+title: &quot;I :heart: &lt;script&gt;alert(1)&lt;/script&gt;&quot;</span><span class="a">+---</span><span class="a">+`</span><span class="a">+	b := hugolib.Test(t, files)</span><span class="a">+</span><span class="a">+	b.AssertFileContent(&quot;public/index.html&quot;,</span><span class="a">+		&quot;Title: I ❤️ &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;|&quot;,</span><span class="a">+		&quot;Alias: I ❤️ &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;|&quot;,</span><span class="a">+		&quot;Safe: I ❤️ &lt;script&gt;alert(1)&lt;/script&gt;|&quot;,</span><span class="a">+	)</span><span class="a">+}</span><span class="f">tpl/transform/transform_test.go</span><span class="h">index a74f9d5b5..80c7555ba 100644</span><span class="h">@@ -37,8 +37,8 @@ func TestEmojify(t *testing.T) {</span><span class="c"> 		s      any</span><span class="c"> 		expect any</span><span class="c"> 	}{</span><span class="r">-		{&quot;:notamoji:&quot;, template.HTML(&quot;:notamoji:&quot;)},</span><span class="r">-		{&quot;I :heart: Hugo&quot;, template.HTML(&quot;I ❤️ Hugo&quot;)},</span><span class="a">+		{&quot;:notamoji:&quot;, &quot;:notamoji:&quot;},</span><span class="a">+		{&quot;I :heart: Hugo&quot;, &quot;I ❤️ Hugo&quot;},</span><span class="c"> 		// errors</span><span class="c"> 		{tstNoStringer{}, false},</span><span class="c"> 	} {</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15454" rel="noopener" target="_blank">PR #15454</a></span><span class="pm"><span class="a">+6</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">tpl/transform/transform.go</span><span class="h">index f9d0dabb0..f006e28e8 100644</span><span class="h">@@ -85,13 +85,13 @@ type Namespace struct {</span><span class="c"> // Emojify returns a copy of s with all emoji codes replaced with actual emojis.</span><span class="c"> //</span><span class="c"> // See http://www.emoji-cheat-sheet.com/</span><span class="r">-func (ns *Namespace) Emojify(s any) (template.HTML, error) {</span><span class="a">+func (ns *Namespace) Emojify(s any) (string, error) {</span><span class="c"> 	ss, err := cast.ToStringE(s)</span><span class="c"> 	if err != nil {</span><span class="c"> 		return &quot;&quot;, err</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	return template.HTML(helpers.Emojify([]byte(ss))), nil</span><span class="a">+	return string(helpers.Emojify([]byte(ss))), nil</span><span class="c"> }</span><span class="c"> </span><span class="c"> // Highlight returns a copy of CODE as an HTML string with syntax</span><span class="f">tpl/transform/transform_test.go</span><span class="h">index a74f9d5b5..e413177fa 100644</span><span class="h">@@ -37,8 +37,8 @@ func TestEmojify(t *testing.T) {</span><span class="c"> 		s      any</span><span class="c"> 		expect any</span><span class="c"> 	}{</span><span class="r">-		{&quot;:notamoji:&quot;, template.HTML(&quot;:notamoji:&quot;)},</span><span class="r">-		{&quot;I :heart: Hugo&quot;, template.HTML(&quot;I ❤️ Hugo&quot;)},</span><span class="a">+		{&quot;:notamoji:&quot;, &quot;:notamoji:&quot;},</span><span class="a">+		{&quot;I :heart: Hugo&quot;, &quot;I ❤️ Hugo&quot;},</span><span class="c"> 		// errors</span><span class="c"> 		{tstNoStringer{}, false},</span><span class="c"> 	} {</span><span class="h">@@ -203,7 +203,8 @@ And then some.</span><span class="c"> 	result, err := ns.Markdownify(context.Background(), text)</span><span class="c"> 	b.Assert(err, qt.IsNil)</span><span class="c"> 	b.Assert(result, qt.Equals, template.HTML(</span><span class="r">-		&quot;&lt;p&gt;#First&lt;/p&gt;\n&lt;p&gt;This is some &lt;em&gt;bold&lt;/em&gt; text.&lt;/p&gt;\n&lt;h2 id=\&quot;second\&quot;&gt;Second&lt;/h2&gt;\n&lt;p&gt;This is some more text.&lt;/p&gt;\n&lt;p&gt;And then some.&lt;/p&gt;\n&quot;))</span><span class="a">+		&quot;&lt;p&gt;#First&lt;/p&gt;\n&lt;p&gt;This is some &lt;em&gt;bold&lt;/em&gt; text.&lt;/p&gt;\n&lt;h2 id=\&quot;second\&quot;&gt;Second&lt;/h2&gt;\n&lt;p&gt;This is some more text.&lt;/p&gt;\n&lt;p&gt;And then some.&lt;/p&gt;\n&quot;,</span><span class="a">+	))</span><span class="c"> }</span><span class="c"> </span><span class="c"> func TestPlainify(t *testing.T) {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261105-225610/15449/">Previous · #15449</a>
+  <a class="mid" href="/backtests/hugo/run-20261105-225610/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261105-225610/15462/">Next · #15462</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

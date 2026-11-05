@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15420 Check deprecated PAGE.IsNode vs jsonify — gohugoio/hugo backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #15420 in gohugoio/hugo, run 5 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261105-225610/15420/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261105-225610/">run-20261105-225610</a><span aria-hidden="true">/</span><span aria-current="page">#15420</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15420" rel="noopener" target="_blank">#15420</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15421" rel="noopener" target="_blank">PR #15421</a></span>
+  <span>Run 5 Nov 2026 · <span class="runid">run-20261105-225610</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Check deprecated PAGE.IsNode vs jsonify</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The solver hit its turn or time cap.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2h 30m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 141 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15420" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p><a href="https://discourse.gohugo.io/t/page-isnode-warn-when-using-jsonify-in-template-is-this-a-bug/57640" rel="noopener nofollow" target="_blank">https://discourse.gohugo.io/t/page-isnode-warn-when-using-jsonify-in-template-is-this-a-bug/57640</a></p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15421" rel="noopener" target="_blank">PR #15421</a></span><span class="pm"><span class="a">+86</span> <span class="r">−55</span></span></div><pre class="diff"><span class="f">hugolib/siteJSONEncode_test.go</span><span class="h">index 363e5247a..3985c0694 100644</span><span class="h">@@ -26,7 +26,7 @@ func TestEncodePage(t *testing.T) {</span><span class="c"> 	files := `</span><span class="c"> -- hugo.toml --</span><span class="c"> baseURL = &quot;https://example.org&quot;</span><span class="a">+-- layouts/all.html --</span><span class="c"> Page: |{{ index .Site.RegularPages 0 | jsonify }}|</span><span class="c"> Site: {{ site | jsonify }}</span><span class="c"> -- content/page.md --</span><span class="h">@@ -37,7 +37,8 @@ date: 2019-02-28</span><span class="c"> </span><span class="c"> Content.</span><span class="c"> `</span><span class="r">-	b := Test(t, files)</span><span class="a">+	b := Test(t, files, TestOptWarn())</span><span class="c"> </span><span class="c"> 	b.AssertFileContent(&quot;public/index.html&quot;, `&quot;Date&quot;:&quot;2019-02-28T00:00:00Z&quot;`)</span><span class="a">+	b.AssertLogContains(&quot;! WARN&quot;, &quot;! deprecated&quot;, &quot;! IsNode&quot;)</span><span class="c"> }</span><span class="f">resources/page/page.go</span><span class="h">index 1f74f6926..211cc5b05 100644</span><span class="h">@@ -221,11 +221,6 @@ type PageMetaProvider interface {</span><span class="c"> 	// The title used for links.</span><span class="c"> 	LinkTitle() string</span><span class="c"> </span><span class="r">-	// IsNode returns whether this is a branch node (e.g. a section).</span><span class="r">-	//</span><span class="r">-	// Deprecated: Use IsBranch or &quot;not IsPage&quot; instead.</span><span class="r">-	IsNode() bool</span><span class="r">-</span><span class="c"> 	// IsBranch returns whether this is a branch node, i.e. a node that</span><span class="c"> 	// can have descendants (home, section, taxonomy or term).</span><span class="c"> 	IsBranch() bool</span><span class="h">@@ -257,6 +252,15 @@ type PageMetaProvider interface {</span><span class="c"> 	// The configured weight, used as the first sort value in the default</span><span class="c"> 	// page sort if non-zero.</span><span class="c"> 	Weight() int</span><span class="a">+</span><span class="a">+	DeprecatedPageMetaProvider</span><span class="a">+}</span><span class="a">+</span><span class="a">+type DeprecatedPageMetaProvider interface {</span><span class="a">+	// IsNode returns whether this is a branch node (e.g. a section).</span><span class="a">+	//</span><span class="a">+	// Deprecated: Use IsBranch or &quot;not IsPage&quot; instead.</span><span class="a">+	IsNode() bool</span><span class="c"> }</span><span class="c"> </span><span class="c"> // NamedPageMetaValue returns a named metadata value from a PageMetaResource.</span><span class="f">resources/page/page_generate/generate_page_wrappers.go</span><span class="h">index f1f288f89..0d56e8c34 100644</span><span class="h">@@ -23,6 +23,7 @@ import (</span><span class="c"> </span><span class="c"> 	&quot;github.com/gohugoio/hugo/codegen&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/resources/page&quot;</span><span class="a">+	&quot;github.com/gohugoio/hugo/resources/resource&quot;</span><span class="c"> )</span><span class="c"> </span><span class="c"> const header = `// Copyright 2019 The Hugo Authors. All rights reserved.</span><span class="h">@@ -42,7 +43,9 @@ const header = `// Copyright 2019 The Hugo Authors. All rights reserved.</span><span class="c"> `</span><span class="c"> </span><span class="c"> var (</span><span class="r">-	pageInterface = reflect.TypeFor[page.PageMetaProvider]()</span><span class="a">+	pageInterface                 = reflect.TypeFor[page.PageMetaResource]()</span><span class="a">+	pageDeprecatedInterface       = reflect.TypeFor[page.DeprecatedPageMetaProvider]()</span><span class="a">+	resourceDataProviderInterface = reflect.TypeFor[resource.ResourceDataProvider]()</span><span class="c"> </span><span class="c"> 	packageDir = filepath.FromSlash(&quot;resources/page&quot;)</span><span class="c"> )</span><span class="h">@@ -65,11 +68,12 @@ func generateMarshalJSON(c *codegen.Inspector) error {</span><span class="c"> </span><span class="c"> 	includes := []reflect.Type{pageInterface}</span><span class="c"> </span><span class="r">-	excludes := []reflect.Type{}</span><span class="a">+	excludes := []reflect.Type{pageDeprecatedInterface, resourceDataProviderInterface}</span><span class="c"> </span><span class="c"> 	methods := c.MethodsFromTypes(</span><span class="c"> 		includes,</span><span class="r">-		excludes)</span><span class="a">+		excludes,</span><span class="a">+	)</span><span class="c"> </span><span class="c"> 	if len(methods) == 0 {</span><span class="c"> 		return errors.New(&quot;no methods found&quot;)</span><span class="f">resources/page/page_marshaljson.autogen.go</span><span class="h">index afe595754..38488cf85 100644</span><span class="h">@@ -17,7 +17,9 @@ package page</span><span class="c"> </span><span class="c"> import (</span><span class="c"> 	&quot;encoding/json&quot;</span><span class="a">+	&quot;github.com/gohugoio/hugo/common/hmaps&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/config&quot;</span><span class="a">+	&quot;github.com/gohugoio/hugo/media&quot;</span><span class="c"> 	&quot;time&quot;</span><span class="c"> )</span><span class="c"> </span><span class="h">@@ -34,7 +36,6 @@ func MarshalPageToJSON(p Page) ([]byte, error) {</span><span class="c"> 	kind := p.Kind()</span><span class="c"> 	layout := p.Layout()</span><span class="c"> 	linkTitle := p.LinkTitle()</span><span class="r">-	isNode := p.IsNode()</span><span class="c"> 	isBranch := p.IsBranch()</span><span class="c"> 	isPage := p.IsPage()</span><span class="c"> 	path := p.Path()</span><span class="h">@@ -44,53 +45,72 @@ func MarshalPageToJSON(p Page) ([]byte, error) {</span><span class="c"> 	sitemap := p.Sitemap()</span><span class="c"> 	typ := p.Type()</span><span class="c"> 	weight := p.Weight()</span><span class="a">+	resourceType := p.ResourceType()</span><span class="a">+	mediaType := p.MediaType()</span><span class="a">+	permalink := p.Permalink()</span><span class="a">+	relPermalink := p.RelPermalink()</span><span class="a">+	name := p.Name()</span><span class="a">+	title := p.Title()</span><span class="a">+	params := p.Params()</span><span class="c"> </span><span class="c"> 	s := struct {</span><span class="r">-		Date        time.Time</span><span class="r">-		Lastmod     time.Time</span><span class="r">-		PublishDate time.Time</span><span class="r">-		ExpiryDate  time.Time</span><span class="r">-		BundleType  string</span><span class="r">-		Description string</span><span class="r">-		Draft       bool</span><span class="r">-		IsHome      bool</span><span class="r">-		Keywords    []string</span><span class="r">-		Kind        string</span><span class="r">-		Layout      string</span><span class="r">-		LinkTitle   string</span><span class="r">-		IsNode      bool</span><span class="r">-		IsBranch    bool</span><span class="r">-		IsPage      bool</span><span class="r">-		Path        string</span><span class="r">-		Slug        string</span><span class="r">-		IsSection   bool</span><span class="r">-		Section     string</span><span class="r">-		Sitemap     config.SitemapConfig</span><span class="r">-		Type        string</span><span class="r">-		Weight      int</span><span class="a">+		Date         time.Time</span><span class="a">+		Lastmod      time.Time</span><span class="a">+		PublishDate  time.Time</span><span class="a">+		ExpiryDate   time.Time</span><span class="a">+		BundleType   string</span><span class="a">+		Description  string</span><span class="a">+		Draft        bool</span><span class="a">+		IsHome       bool</span><span class="a">+		Keywords     []string</span><span class="a">+		Kind         string</span><span class="a">+		Layout       string</span><span class="a">+		LinkTitle    string</span><span class="a">+		IsBranch     bool</span><span class="a">+		IsPage       bool</span><span class="a">+		Path         string</span><span class="a">+		Slug         string</span><span class="a">+		IsSection    bool</span><span class="a">+		Section      string</span><span class="a">+		Sitemap      config.SitemapConfig</span><span class="a">+		Type         string</span><span class="a">+		Weight       int</span><span class="a">+		ResourceType string</span><span class="a">+		MediaType    media.Type</span><span class="a">+		Permalink    string</span><span class="a">+		RelPermalink string</span><span class="a">+		Name         string</span><span class="a">+		Title        string</span><span class="a">+		Params       hmaps.Params</span><span class="c"> 	}{</span><span class="r">-		Date:        date,</span><span class="r">-		Lastmod:     lastmod,</span><span class="r">-		PublishDate: publishDate,</span><span class="r">-		ExpiryDate:  expiryDate,</span><span class="r">-		BundleType:  bundleType,</span><span class="r">-		Description: description,</span><span class="r">-		Draft:       draft,</span><span class="r">-		IsHome:      isHome,</span><span class="r">-		Keywords:    keywords,</span><span class="r">-		Kind:        kind,</span><span class="r">-		Layout:      layout,</span><span class="r">-		LinkTitle:   linkTitle,</span><span class="r">-		IsNode:      isNode,</span><span class="r">-		IsBranch:    isBranch,</span><span class="r">-		IsPage:      isPage,</span><span class="r">-		Path:        path,</span><span class="r">-		Slug:        slug,</span><span class="r">-		IsSection:   isSection,</span><span class="r">-		Section:     section,</span><span class="r">-		Sitemap:     sitemap,</span><span class="r">-		Type:        typ,</span><span class="r">-		Weight:      weight,</span><span class="a">+		Date:         date,</span><span class="a">+		Lastmod:      lastmod,</span><span class="a">+		PublishDate:  publishDate,</span><span class="a">+		ExpiryDate:   expiryDate,</span><span class="a">+		BundleType:   bundleType,</span><span class="a">+		Description:  description,</span><span class="a">+		Draft:        draft,</span><span class="a">+		IsHome:       isHome,</span><span class="a">+		Keywords:     keywords,</span><span class="a">+		Kind:         kind,</span><span class="a">+		Layout:       layout,</span><span class="a">+		LinkTitle:    linkTitle,</span><span class="a">+		IsBranch:     isBranch,</span><span class="a">+		IsPage:       isPage,</span><span class="a">+		Path:         path,</span><span class="a">+		Slug:         slug,</span><span class="a">+		IsSection:    isSection,</span><span class="a">+		Section:      section,</span><span class="a">+		Sitemap:      sitemap,</span><span class="a">+		Type:         typ,</span><span class="a">+		Weight:       weight,</span><span class="a">+		ResourceType: resourceType,</span><span class="a">+		MediaType:    mediaType,</span><span class="a">+		Permalink:    permalink,</span><span class="a">+		RelPermalink: relPermalink,</span><span class="a">+		Name:         name,</span><span class="a">+		Title:        title,</span><span class="a">+		Params:       params,</span><span class="c"> 	}</span><span class="c"> </span><span class="c"> 	return json.Marshal(&amp;s)</span><span class="f">tpl/debug/debug.go</span><span class="h">index 3909cbfa2..b4ac2719a 100644</span><span class="h">@@ -16,6 +16,7 @@ package debug</span><span class="c"> </span><span class="c"> import (</span><span class="c"> 	&quot;encoding/json&quot;</span><span class="a">+	&quot;fmt&quot;</span><span class="c"> 	&quot;sort&quot;</span><span class="c"> 	&quot;sync&quot;</span><span class="c"> 	&quot;time&quot;</span><span class="h">@@ -109,7 +110,7 @@ type Namespace struct {</span><span class="c"> func (ns *Namespace) Dump(val any) string {</span><span class="c"> 	b, err := json.MarshalIndent(val, &quot;&quot;, &quot;  &quot;)</span><span class="c"> 	if err != nil {</span><span class="r">-		return &quot;&quot;</span><span class="a">+		return fmt.Sprintf(&quot;Failed to Dump %T: %s&quot;, val, err)</span><span class="c"> 	}</span><span class="c"> 	return string(b)</span><span class="c"> }</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261105-225610/15358/">Previous · #15358</a>
+  <a class="mid" href="/backtests/hugo/run-20261105-225610/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261105-225610/15449/">Next · #15449</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

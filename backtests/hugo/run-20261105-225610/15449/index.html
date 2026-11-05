@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15449 Build hangs forever after 10 page render errors: `renderPages` blocks on `pages &lt;- p` after `errorCollator` calls `Stop` — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15449 in gohugoio/hugo, run 5 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261105-225610/15449/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261105-225610/">run-20261105-225610</a><span aria-hidden="true">/</span><span aria-current="page">#15449</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15449" rel="noopener" target="_blank">#15449</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15450" rel="noopener" target="_blank">PR #15450</a></span>
+  <span>Run 5 Nov 2026 · <span class="runid">run-20261105-225610</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">Build hangs forever after 10 page render errors: <code>renderPages</code> blocks on <code>pages &lt;- p</code> after <code>errorCollator</code> calls <code>Stop</code></h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the identical root-cause fix: the walker&#39;s send becomes `case pages &lt;- p:` inside the select on `s.h.Done()`, so the walk can always exit after `errorCollator` calls `Stop`, and `renderPages` reaches `close(pages)`, `wg.Wait()` and `&lt;-errs`. Independent tests confirm both resolve the hang (both FAIL-ASSERT on base, PASS on A and B), so correctness on the reported scenario is equal.
+
+Patch B goes slightly further in ways the issue itself points at and that reduce risk rather than add it. It buffers `errs` (the issue&#39;s own suggestion) so the collator can never block on its final send. More importantly, it fixes the existing early return on `w.Walk` error: on base and on Patch A, a walk error returns before `close(pages)`/`wg.Wait()`, leaving the `pageRenderer` goroutines parked on `&lt;-pages` and the collator parked on `errs` forever. The issue explicitly warns about exactly this class of early return. Patch B&#39;s restructuring (capture `walkErr`, always close/wait/drain, then return `walkErr` first) is small, easy to reason about, and preserves the error precedence. This is the kind of edge-case error handling the craft criterion asks for, not unrelated churn.
+
+Tests are near-equivalent: same reproducer (50 pages, GOMAXPROCS=1, NUMWORKERMULTIPLIER=2, 10 iterations with a timeout), both would fail before and pass after. Patch B additionally asserts the collated error mentions the layout path, slightly strengthening the check that errors are actually reported, and lives in the existing build-errors test file next to related tests, with a comment explaining the regression. Patch A creates a new file and uses a tighter 10s timeout, which is marginally more prone to false failures on slow CI. Both share the same minor hazard of mutating process-global GOMAXPROCS in a package with parallel tests, so that is a wash.
+
+Patch B also adds an explanatory comment at the select explaining why the send must select on Done, which helps future readers. Net: equal on the core fix, B better on edge handling and craft with no added risk.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2h 3m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,389 passed · 5 skipped · 2,437 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">62<small>vs 62 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15449" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>This report was written by Claude Opus 5.5</p>
+<h2>What version of Hugo are you using?</h2>
+<pre><code class="lang-text">hugo v0.168.0-e27a6760c5547237f87d353aebe0580feadb20f4 linux/amd64 BuildDate=2026-10-13T16:42:50Z VendorInfo=gohugoio</code></pre>
+<h2>Does this issue reproduce with the latest release?</h2>
+<p>Yes.</p>
+<h2>What happened</h2>
+<p>When a build has 10 or more page render errors, <code>hugo</code> sometimes never exits.<br>It prints no error, uses no CPU, and waits forever. A SIGQUIT dump shows the<br>page walker in <code>renderPages</code> blocked sending to <code>pages</code>, and <code>errorCollator</code><br>blocked on its final send to <code>errs</code>. No <code>pageRenderer</code> goroutines are left.</p>
+<p>The hang is a race. With default settings, the reproducer below hung in 26 of<br>500 builds on a 16-CPU linux/amd64 machine. With `GOMAXPROCS=1<br>HUGO_NUMWORKERMULTIPLIER=2` (the script&#39;s defaults; they only change<br>scheduling), it hung in 30 of 30 builds (3 runs of the script, 10 builds each,<br>about 50 seconds per run).</p>
+<h2>Expected</h2>
+<p>The build fails promptly and prints the collated render errors.</p>
+<h2>Reproducer</h2>
+<p>POSIX shell. It creates a site in <code>$(mktemp -d)</code> whose pages all fail to render<br>(<code>.Content</code> on a nil resource), builds it <code>RUNS</code> times, treats a build that<br>doesn&#39;t exit within <code>LIMIT</code> seconds as hung, and prints the goroutine dump of<br>the first hung build (<code>timeout -s QUIT</code>). It deletes the site when done.</p>
+<pre><code class="lang-sh">#!/bin/sh
+# Build a site whose pages all fail to render, RUNS times; report builds
+# that don&#39;t exit within LIMIT seconds and print the first one&#39;s goroutines.
+HUGO=${HUGO:-hugo}
+PAGES=${PAGES:-50}
+RUNS=${RUNS:-10}
+LIMIT=${LIMIT:-5}
+# Scheduling settings that make the race hit almost every time.
+# Set both to &quot;&quot; to use Hugo&#39;s defaults (the hang is then much rarer).
+export GOMAXPROCS=&quot;${GOMAXPROCS-1}&quot;
+export HUGO_NUMWORKERMULTIPLIER=&quot;${HUGO_NUMWORKERMULTIPLIER-2}&quot;
+
+dir=$(mktemp -d) || exit 1
+trap &#39;rm -rf &quot;$dir&quot;&#39; EXIT
+trap &#39;exit 130&#39; INT TERM
+
+site=$dir/site
+mkdir -p &quot;$site/layouts&quot; &quot;$site/content&quot;
+printf &#39;disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]\n&#39; &gt; &quot;$site/hugo.toml&quot;
+# .Content on a nil resource: every page fails to render.
+printf &#39;{{ (resources.Get &quot;missing.svg&quot;).Content }}\n&#39; &gt; &quot;$site/layouts/single.html&quot;
+cp &quot;$site/layouts/single.html&quot; &quot;$site/layouts/list.html&quot;
+i=1
+while [ &quot;$i&quot; -le &quot;$PAGES&quot; ]; do
+  printf -- &#39;---\ntitle: p%s\n---\n&#39; &quot;$i&quot; &gt; &quot;$site/content/p$i.md&quot;
+  i=$((i + 1))
+done
+
+&quot;$HUGO&quot; version
+echo &quot;GOMAXPROCS=$GOMAXPROCS HUGO_NUMWORKERMULTIPLIER=$HUGO_NUMWORKERMULTIPLIER PAGES=$PAGES&quot;
+hung=0 n=1
+while [ &quot;$n&quot; -le &quot;$RUNS&quot; ]; do
+  timeout -s QUIT &quot;$LIMIT&quot; &quot;$HUGO&quot; -s &quot;$site&quot; -d &quot;$dir/public&quot; &gt; &quot;$dir/log&quot; 2&gt;&amp;1
+  if [ $? = 124 ]; then
+    hung=$((hung + 1))
+    echo &quot;build $n: hung (no exit after ${LIMIT}s)&quot;
+    [ &quot;$hung&quot; = 1 ] &amp;&amp; cp &quot;$dir/log&quot; &quot;$dir/first-hang&quot;
+  else
+    echo &quot;build $n: exited&quot;
+  fi
+  n=$((n + 1))
+done
+echo &quot;hung in $hung of $RUNS builds&quot;
+if [ &quot;$hung&quot; -gt 0 ]; then
+  echo &quot;--- output of first hung build (SIGQUIT goroutine dump) ---&quot;
+  cat &quot;$dir/first-hang&quot;
+  exit 1
+fi</code></pre>
+<p>Run it with <code>HUGO=/path/to/hugo sh repro.sh</code>. For Hugo&#39;s default scheduling,<br>run <code>GOMAXPROCS= HUGO_NUMWORKERMULTIPLIER= RUNS=500 sh repro.sh</code>.</p>
+<h3>Example output</h3>
+<p>From one run of the script above (<code>HUGO=/path/to/hugo-0.168.0 sh repro.sh</code>).<br>The goroutine dump is trimmed to its header and the two blocked goroutines,<br>with runtime frames and frame addresses removed.</p>
+<pre><code class="lang-text">hugo v0.168.0-e27a6760c5547237f87d353aebe0580feadb20f4 linux/amd64 BuildDate=2026-10-13T16:42:50Z VendorInfo=gohugoio
+GOMAXPROCS=1 HUGO_NUMWORKERMULTIPLIER=2 PAGES=50
+build 1: hung (no exit after 5s)
+...
+build 10: hung (no exit after 5s)
+hung in 10 of 10 builds
+--- output of first hung build (SIGQUIT goroutine dump) ---
+Start building sites … 
+hugo v0.168.0-e27a6760c5547237f87d353aebe0580feadb20f4 linux/amd64 BuildDate=2026-10-13T16:42:50Z VendorInfo=gohugoio
+
+SIGQUIT: quit
+...
+goroutine 10 gp=0x11c2c5fce3c0 m=nil [chan send]:
+github.com/gohugoio/hugo/hugolib.(*Site).renderPages.func1({0x2fcd600?, 0x11c2c5d48600?}, {0x2fc04c8?, 0x11c2c6789e30?})
+	/root/project/hugo/hugolib/site_render.go:98 +0xa9
+github.com/gohugoio/hugo/hugolib/doctree.(*NodeShiftTreeWalker[...]).Walk.func1.1({0x2fc04c8, 0x11c2c6789e30})
+	/root/project/hugo/hugolib/doctree/nodeshifttree.go:603 +0x24e
+...
+github.com/gohugoio/hugo/hugolib.(*Site).renderPages(0x11c2c644db00, 0x11c2c5efd3c0)
+	/root/project/hugo/hugolib/site_render.go:106 +0x30b
+github.com/gohugoio/hugo/hugolib.(*Site).render(0x11c2c644db00, 0x11c2c5efd3c0)
+	/root/project/hugo/hugolib/site.go:1776 +0x34
+...
+github.com/gohugoio/hugo/hugolib.(*HugoSites).Build(0x11c2c64fe908, {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, {0x0, ...})
+	/root/project/hugo/hugolib/hugo_sites_build.go:195 +0xb5e
+...
+
+goroutine 16 gp=0x11c2c5bc7680 m=nil [chan send]:
+github.com/gohugoio/hugo/hugolib.(*Site).errorCollator.func1()
+	/root/project/hugo/hugolib/site.go:1577 +0x4c
+github.com/gohugoio/hugo/hugolib.(*Site).errorCollator(0x11c2c644db00, 0x11c2c67a6e70, 0x11c2c5c2cf98?)
+	/root/project/hugo/hugolib/site.go:1588 +0x170
+github.com/gohugoio/hugo/hugolib.(*Site).renderPages.gowrap1()
+	/root/project/hugo/hugolib/site_render.go:78 +0x1f
+created by github.com/gohugoio/hugo/hugolib.(*Site).renderPages in goroutine 10
+	/root/project/hugo/hugolib/site_render.go:78 +0xe5</code></pre>
+<p>The main goroutine waits in <code>errgroup.(*Group).Wait</code> in<br><code>commands.(*hugoBuilder).fullBuild</code>. The other goroutines are idle runtime and<br>cache goroutines.</p>
+<h2>Analysis</h2>
+<p>Line numbers are for the v0.168.0 tag.</p>
+<p><a href="https://github.com/gohugoio/hugo/blob/v0.168.0/hugolib/site_render.go#L91-L104" rel="noopener nofollow" target="_blank"> 0  L91–L104</a>,<br>the walk handler in <code>renderPages</code>, checks for cancellation only before it<br>blocks:</p>
+<pre><code class="lang-go">select {
+case &lt;-s.h.Done():
+	return radix.WalkStop, nil
+default:
+	pages &lt;- p // L98
+}</code></pre>
+<p><a href="https://github.com/gohugoio/hugo/blob/v0.168.0/hugolib/site.go#L1574-L1588" rel="noopener nofollow" target="_blank"> 0  L1574–L1588</a>,<br><code>errorCollator</code>, calls <code>s.h.Stop()</code> after <code>maxErrors</code> (10) errors (L1583–L1586)<br>and stops reading <code>results</code>. Each <code>pageRenderer</code> then sees <code>Done()</code> in<br><code>sendErr</code> on its next error<br>(<a href="https://github.com/gohugoio/hugo/blob/v0.168.0/hugolib/site_render.go#L132-L139" rel="noopener nofollow" target="_blank"> 0  L132–L139</a>)<br>and returns, so nothing reads <code>pages</code> any more.</p>
+<p>If the walker passed its <code>Done()</code> check before <code>Stop()</code> and is blocked on the<br>full <code>pages</code> channel (buffered to <code>numWorkers</code>, L75), the send at L98 never<br>completes. The walk never returns, so <code>close(pages)</code>, <code>wg.Wait()</code> and<br><code>err := &lt;-errs</code><br>(<a href="https://github.com/gohugoio/hugo/blob/v0.168.0/hugolib/site_render.go#L110-L116" rel="noopener nofollow" target="_blank">L110–L116</a>)<br>are never reached. The deferred <code>errs &lt;- ...</code> in <code>errorCollator</code> (<code>site.go</code><br>L1577, unbuffered <code>errs</code>, <code>site_render.go</code> L76) then blocks too, and the<br>collated errors are never returned or printed.</p>
+<h2>Suggested fix</h2>
+<p>Make the send itself select on <code>Done()</code>, so the walker can always leave:</p>
+<pre><code class="lang-go">select {
+case &lt;-s.h.Done():
+	return radix.WalkStop, nil
+case pages &lt;- p:
+}</code></pre>
+<p>With that, <code>renderPages</code> always reaches <code>&lt;-errs</code>, so the collator&#39;s final send<br>completes. Making <code>errs</code> buffered (<code>make(chan error, 1)</code>) would also stop the<br>collator goroutine blocking if a future change returns early before L116.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+56</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">hugolib/hugo_sites_build_errors_test.go</span><span class="h">index 3209f664d..c9e733c4e 100644</span><span class="h">@@ -3,8 +3,10 @@ package hugolib</span><span class="c"> import (</span><span class="c"> 	&quot;fmt&quot;</span><span class="c"> 	&quot;path/filepath&quot;</span><span class="a">+	&quot;runtime&quot;</span><span class="c"> 	&quot;strings&quot;</span><span class="c"> 	&quot;testing&quot;</span><span class="a">+	&quot;time&quot;</span><span class="c"> </span><span class="c"> 	qt &quot;github.com/frankban/quicktest&quot;</span><span class="c"> 	&quot;github.com/gohugoio/hugo/common/herrors&quot;</span><span class="h">@@ -587,6 +589,52 @@ title: &quot;A page&quot;</span><span class="c"> 	qt.Assert(t, err.Error(), qt.Contains, &quot;timed out rendering the page content&quot;)</span><span class="c"> }</span><span class="c"> </span><span class="a">+// Many page render errors used to make the build hang forever: after</span><span class="a">+// maxErrors the renderers stopped consuming pages while the page walker was</span><span class="a">+// blocked sending to the full pages channel.</span><span class="a">+func TestErrorManyPageRenderErrorsDoesNotHang(t *testing.T) {</span><span class="a">+	// Not parallel: these settings are process global. They make the race</span><span class="a">+	// hit (almost) every time on unfixed code.</span><span class="a">+	t.Setenv(&quot;HUGO_NUMWORKERMULTIPLIER&quot;, &quot;2&quot;)</span><span class="a">+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))</span><span class="a">+</span><span class="a">+	var filesBuilder strings.Builder</span><span class="a">+	filesBuilder.WriteString(`</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]</span><span class="a">+-- layouts/single.html --</span><span class="a">+{{ (resources.Get &quot;missing.svg&quot;).Content }}</span><span class="a">+-- layouts/list.html --</span><span class="a">+{{ (resources.Get &quot;missing.svg&quot;).Content }}</span><span class="a">+`)</span><span class="a">+	for i := range 50 {</span><span class="a">+		filesBuilder.WriteString(fmt.Sprintf(`</span><span class="a">+-- content/p%d.md --</span><span class="a">+---</span><span class="a">+title: p%d</span><span class="a">+---</span><span class="a">+`, i, i))</span><span class="a">+	}</span><span class="a">+	files := filesBuilder.String()</span><span class="a">+</span><span class="a">+	for i := range 10 {</span><span class="a">+		done := make(chan error, 1)</span><span class="a">+		go func() {</span><span class="a">+			_, err := TestE(t, files)</span><span class="a">+			done &lt;- err</span><span class="a">+		}()</span><span class="a">+</span><span class="a">+		select {</span><span class="a">+		case err := &lt;-done:</span><span class="a">+			qt.Assert(t, err, qt.Not(qt.IsNil))</span><span class="a">+			qt.Assert(t, err.Error(), qt.Contains, &quot;failed to render pages&quot;)</span><span class="a">+			qt.Assert(t, err.Error(), qt.Contains, filepath.FromSlash(&quot;/layouts/&quot;))</span><span class="a">+		case &lt;-time.After(30 * time.Second):</span><span class="a">+			t.Fatalf(&quot;build %d did not finish: hung after page render errors&quot;, i)</span><span class="a">+		}</span><span class="a">+	}</span><span class="a">+}</span><span class="a">+</span><span class="c"> func TestErrorTemplateRuntime(t *testing.T) {</span><span class="c"> 	t.Parallel()</span><span class="c"> </span><span class="f">hugolib/site_render.go</span><span class="h">index b453c4193..4c82fa3e4 100644</span><span class="h">@@ -73,7 +73,7 @@ func (s *Site) renderPages(ctx *siteRenderContext) error {</span><span class="c"> </span><span class="c"> 	results := make(chan error)</span><span class="c"> 	pages := make(chan *pageState, numWorkers) // buffered for performance</span><span class="r">-	errs := make(chan error)</span><span class="a">+	errs := make(chan error, 1)                // buffered so errorCollator can always deliver its result and exit</span><span class="c"> </span><span class="c"> 	go s.errorCollator(results, errs)</span><span class="c"> </span><span class="h">@@ -91,11 +91,12 @@ func (s *Site) renderPages(ctx *siteRenderContext) error {</span><span class="c"> 		Handle: func(key string, n contentNode) (radix.WalkFlag, error) {</span><span class="c"> 			if p, ok := n.(*pageState); ok {</span><span class="c"> 				if cfg.shouldRender(ctx.infol, p) {</span><span class="a">+					// The renderers may have stopped consuming pages (e.g. after</span><span class="a">+					// too many errors), so the send must also select on Done.</span><span class="c"> 					select {</span><span class="c"> 					case &lt;-s.h.Done():</span><span class="c"> 						return radix.WalkStop, nil</span><span class="r">-					default:</span><span class="r">-						pages &lt;- p</span><span class="a">+					case pages &lt;- p:</span><span class="c"> 					}</span><span class="c"> 				}</span><span class="c"> 			}</span><span class="h">@@ -103,9 +104,7 @@ func (s *Site) renderPages(ctx *siteRenderContext) error {</span><span class="c"> 		},</span><span class="c"> 	}</span><span class="c"> </span><span class="r">-	if err := w.Walk(context.Background()); err != nil {</span><span class="r">-		return err</span><span class="r">-	}</span><span class="a">+	walkErr := w.Walk(context.Background())</span><span class="c"> </span><span class="c"> 	close(pages)</span><span class="c"> </span><span class="h">@@ -114,6 +113,9 @@ func (s *Site) renderPages(ctx *siteRenderContext) error {</span><span class="c"> 	close(results)</span><span class="c"> </span><span class="c"> 	err := &lt;-errs</span><span class="a">+	if walkErr != nil {</span><span class="a">+		return walkErr</span><span class="a">+	}</span><span class="c"> 	if err != nil {</span><span class="c"> 		return fmt.Errorf(&quot;%v failed to render pages: %w&quot;, s.resolveDimensionNames(), err)</span><span class="c"> 	}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15450" rel="noopener" target="_blank">PR #15450</a></span><span class="pm"><span class="a">+60</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">hugolib/site_render.go</span><span class="h">index b453c4193..03e8133ab 100644</span><span class="h">@@ -94,8 +94,7 @@ func (s *Site) renderPages(ctx *siteRenderContext) error {</span><span class="c"> 					select {</span><span class="c"> 					case &lt;-s.h.Done():</span><span class="c"> 						return radix.WalkStop, nil</span><span class="r">-					default:</span><span class="r">-						pages &lt;- p</span><span class="a">+					case pages &lt;- p:</span><span class="c"> 					}</span><span class="c"> 				}</span><span class="c"> 			}</span><span class="f">hugolib/site_render_test.go</span><span class="h">new file mode 100644</span><span class="h">index 000000000..d69da11f3</span><span class="h">@@ -0,0 +1,59 @@</span><span class="a">+// Copyright 2026 The Hugo Authors. All rights reserved.</span><span class="a">+//</span><span class="a">+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span><span class="a">+// you may not use this file except in compliance with the License.</span><span class="a">+// You may obtain a copy of the License at</span><span class="a">+// http://www.apache.org/licenses/LICENSE-2.0</span><span class="a">+//</span><span class="a">+// Unless required by applicable law or agreed to in writing, software</span><span class="a">+// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span><span class="a">+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span><span class="a">+// See the License for the specific language governing permissions and</span><span class="a">+// limitations under the License.</span><span class="a">+</span><span class="a">+package hugolib</span><span class="a">+</span><span class="a">+import (</span><span class="a">+	&quot;fmt&quot;</span><span class="a">+	&quot;runtime&quot;</span><span class="a">+	&quot;strings&quot;</span><span class="a">+	&quot;testing&quot;</span><span class="a">+	&quot;time&quot;</span><span class="a">+</span><span class="a">+	qt &quot;github.com/frankban/quicktest&quot;</span><span class="a">+)</span><span class="a">+</span><span class="a">+// Issue 15449.</span><span class="a">+func TestRenderPagesManyErrorsShouldNotHang(t *testing.T) {</span><span class="a">+	// These only change scheduling, but makes the race hit almost every time.</span><span class="a">+	t.Setenv(&quot;HUGO_NUMWORKERMULTIPLIER&quot;, &quot;2&quot;)</span><span class="a">+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))</span><span class="a">+</span><span class="a">+	var files strings.Builder</span><span class="a">+	files.WriteString(`</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&quot;taxonomy&quot;, &quot;term&quot;, &quot;rss&quot;, &quot;sitemap&quot;]</span><span class="a">+-- layouts/single.html --</span><span class="a">+{{ (resources.Get &quot;missing.svg&quot;).Content }}</span><span class="a">+-- layouts/list.html --</span><span class="a">+{{ (resources.Get &quot;missing.svg&quot;).Content }}</span><span class="a">+`)</span><span class="a">+	for i := range 50 {</span><span class="a">+		fmt.Fprintf(&amp;files, &quot;-- content/p%d.md --\n---\ntitle: p%d\n---\n&quot;, i, i)</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	for range 10 {</span><span class="a">+		done := make(chan error, 1)</span><span class="a">+		go func() {</span><span class="a">+			_, err := TestE(t, files.String())</span><span class="a">+			done &lt;- err</span><span class="a">+		}()</span><span class="a">+		select {</span><span class="a">+		case err := &lt;-done:</span><span class="a">+			qt.Assert(t, err, qt.IsNotNil)</span><span class="a">+			qt.Assert(t, err.Error(), qt.Contains, &quot;failed to render pages&quot;)</span><span class="a">+		case &lt;-time.After(10 * time.Second):</span><span class="a">+			t.Fatal(&quot;build hung&quot;)</span><span class="a">+		}</span><span class="a">+	}</span><span class="a">+}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261105-225610/15420/">Previous · #15420</a>
+  <a class="mid" href="/backtests/hugo/run-20261105-225610/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261105-225610/15452/">Next · #15452</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

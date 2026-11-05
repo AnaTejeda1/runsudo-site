@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15467 images.Overlay and images.Mask output name changes depending on whether the overlaid image came from the file cache — gohugoio/hugo backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15467 in gohugoio/hugo, run 5 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261105-225610/15467/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><a href="/backtests/hugo/run-20261105-225610/">run-20261105-225610</a><span aria-hidden="true">/</span><span aria-current="page">#15467</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/gohugoio/hugo/issues/15467" rel="noopener" target="_blank">#15467</a></span>
+  <span>Merged fix <a href="https://github.com/gohugoio/hugo/pull/15468" rel="noopener" target="_blank">PR #15468</a></span>
+  <span>Run 5 Nov 2026 · <span class="runid">run-20261105-225610</span></span>
+  <span>gohugoio/hugo</span>
+</div>
+<h1 class="ticket-title">images.Overlay and images.Mask output name changes depending on whether the overlaid image came from the file cache</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the identical root-cause fix: setting sourceFilenameIsHash(true) on the create path of ImageCache.getOrCreate so a processed image&#39;s Key() is the same whether it was built fresh or read from the file cache. Both pass all four independent stability tests (overlay, mask, not-processed-twice, cold vs warm cache). The difference is the side effect the issue explicitly warned about: sourceFilenameIsHash also gates Publish(), which skips writing when the target already exists. With Patch A, a resources.Copy of a processed image clones that flag into a resource whose target path is user-chosen and not a content hash, so after the source changes the copy is never republished. The independent test TestBtJudgeCopyOfProcessedImageRepublished passes on base and on B but fails on A, confirming A introduces a real regression in production behaviour. Patch B anticipates this by resetting the flag in genericResource.cloneTo with a clear comment, and adds a dedicated test for it alongside a 3-build stability test that also asserts the resource cache file count. B&#39;s tests are more thorough (exercise overlay, mask, key format, file count, and the copy regression); A&#39;s single test is adequate but narrower. Scope-wise B&#39;s extra cloneTo change is a necessary companion to the fix rather than unrelated churn. B is the better patch on correctness and tests.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 42m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">1,119 passed · 2 skipped · 1,155 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">77<small>vs 28 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/gohugoio/hugo/issues/15467" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>This issue report was written by Claude Opus 5.5, and checked against Hugo v0.168.0.</p>
+<h3>What version of Hugo are you using (<code>hugo version</code>)?</h3>
+<p>&lt;pre&gt;<br>$ hugo version<br>hugo v0.168.0-e27a6760c5547237f87d353aebe0580feadb20f4+extended linux/amd64 BuildDate=2026-10-13T16:42:50Z VendorInfo=gohugoio<br>&lt;/pre&gt;</p>
+<h3>Does this issue reproduce with the latest release?</h3>
+<p>Yes. It also reproduces with v0.167.0, and the code involved is unchanged on master (77230eb).</p>
+<h3>Description</h3>
+<p>When the image passed to <code>images.Overlay</code> (or <code>images.Mask</code>) was itself processed, the filtered image&#39;s file name depends on whether that processed image was created in this build or read from the file cache. With an empty resource cache, build 1 publishes the overlay under one name and build 2 under another. The bytes are identical. From build 2 onwards the name stays the same.</p>
+<p>Expected: the same name in every build.<br>Actual: one name in the first build after the overlaid image is (re)processed, and a different name in later builds.</p>
+<h3>Reproduction</h3>
+<pre><code class="lang-sh">#!/usr/bin/env bash
+# Usage: ./repro.sh [extra hugo flags, e.g. --gc]
+set -euo pipefail
+cd &quot;$(mktemp -d)&quot;
+mkdir -p assets layouts
+# 64x64 solid-colour PNG
+echo &#39;iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAATklEQVR42u3PQQkAAAgEsIt20Y1mBN/CYAWWaV+LgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMBlAXfcAS0jwTZyAAAAAElFTkSuQmCC&#39; | base64 -d &gt; assets/a.png
+echo &quot;disableKinds = [&#39;page&#39;, &#39;rss&#39;, &#39;section&#39;, &#39;sitemap&#39;, &#39;taxonomy&#39;, &#39;term&#39;]&quot; &gt; hugo.toml
+cat &gt; layouts/home.html &lt;&lt;&#39;HTML&#39;
+{{- $a := resources.Get &quot;a.png&quot; -}}
+{{- $s := $a.Process &quot;resize 32x&quot; -}}
+overlay={{ ($a | images.Filter (images.Overlay $s 0 0)).RelPermalink }} key={{ $s.Key }}
+HTML
+for i in 1 2 3; do
+  ${HUGO:-hugo} --quiet &quot;$@&quot;
+  echo &quot;build $i: $(cat public/index.html)&quot;
+  echo &quot;  resources/_gen/images: $(ls resources/_gen/images | tr &#39;\n&#39; &#39; &#39;)&quot;
+done
+(cd public &amp;&amp; md5sum a_hu_*.png)</code></pre>
+<p>Output with v0.168.0:</p>
+<pre><code>$ ./repro.sh
+build 1: overlay=/a_hu_41f8c20fc0cc13b7.png key=/a_hu_498f860d9a6e2307.png_2100844135326038661
+  resources/_gen/images: a_hu_41f8c20fc0cc13b7.png a_hu_498f860d9a6e2307.png
+build 2: overlay=/a_hu_2068adca79b7981a.png key=/a_hu_498f860d9a6e2307.png
+  resources/_gen/images: a_hu_2068adca79b7981a.png a_hu_41f8c20fc0cc13b7.png a_hu_498f860d9a6e2307.png
+build 3: overlay=/a_hu_2068adca79b7981a.png key=/a_hu_498f860d9a6e2307.png
+  resources/_gen/images: a_hu_2068adca79b7981a.png a_hu_41f8c20fc0cc13b7.png a_hu_498f860d9a6e2307.png
+afcf7e427a895667f311c7877366ee4a  a_hu_2068adca79b7981a.png
+afcf7e427a895667f311c7877366ee4a  a_hu_41f8c20fc0cc13b7.png
+
+$ ./repro.sh --gc
+build 1: overlay=/a_hu_41f8c20fc0cc13b7.png key=/a_hu_498f860d9a6e2307.png_2100844135326038661
+  resources/_gen/images: a_hu_41f8c20fc0cc13b7.png a_hu_498f860d9a6e2307.png
+build 2: overlay=/a_hu_2068adca79b7981a.png key=/a_hu_498f860d9a6e2307.png
+  resources/_gen/images: a_hu_2068adca79b7981a.png a_hu_498f860d9a6e2307.png
+build 3: overlay=/a_hu_2068adca79b7981a.png key=/a_hu_498f860d9a6e2307.png
+  resources/_gen/images: a_hu_2068adca79b7981a.png a_hu_498f860d9a6e2307.png
+afcf7e427a895667f311c7877366ee4a  a_hu_2068adca79b7981a.png
+afcf7e427a895667f311c7877366ee4a  a_hu_41f8c20fc0cc13b7.png</code></pre>
+<p><code>$s.Key</code> has a <code>_&lt;hash&gt;</code> suffix in build 1 and none in build 2. Both overlay files in <code>public/</code> have the same MD5. Replacing <code>images.Overlay $s 0 0</code> with <code>images.Mask $s</code> gives the same pattern: two names, identical bytes.</p>
+<h3>Cause</h3>
+<ul><li>On a file cache hit, <code>ImageCache.getOrCreate</code> marks the image with <code>setSourceFilenameIsHash(true)</code>. The <code>create</code> path just below it does not: <a href="https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/image_cache.go#L67" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/image_cache.go#L67</a></li><li><code>genericResource.Key()</code> appends <code>_&lt;hash&gt;</code> only when <code>!l.sourceFilenameIsHash</code> (<code>includeHashInKey</code> is always true for images, <a href="https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/resource_spec.go#L204" rel="noopener nofollow" target="_blank">resource_spec.go#L204</a>): <a href="https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/resource.go#L465" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/resource.go#L465</a></li><li><code>Overlay</code> and <code>Mask</code> put the other image&#39;s <code>Key()</code> into the filter options, and the filter options feed into the output name: <a href="https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/images/filters.go#L51" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/images/filters.go#L51</a> <a href="https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/images/filters.go#L59" rel="noopener nofollow" target="_blank">https://github.com/gohugoio/hugo/blob/77230eba0469604d28434a8eacee868f3274e6ac/resources/images/filters.go#L59</a></li></ul>
+<h3>Impact</h3>
+<ul><li>The overlay is processed a second time in build 2, under its new name.</li><li>With <code>--gc</code>, build 2 deletes the build-1 file, so the cache only settles on the second build after a processed overlay source changes.</li><li>The published URL depends on the state of the resource cache. Two builds of the same commit, one with a warm cache and one with a cold cache, publish the same bytes under different URLs. That causes needless uploads on deploy and churns CDN caches.</li></ul>
+<h3>Possible fix</h3>
+<p>Making the key of a processed image the same whether it was created in this build or read from the cache would fix this, for example by setting the flag in both paths, or by having <code>Overlay</code>/<code>Mask</code> use a key that does not depend on where the image came from. Note that <code>sourceFilenameIsHash</code> also affects <code>Publish()</code> (resource.go#L513), so the first option may have other effects. I have not tested either option.</p>
+<p>Related: #8066 (which image&#39;s name an overlay&#39;s output takes; it does not cover this instability) and #11856 (a processed image&#39;s name differing after a cache read, now closed).</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+77</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">resources/image_cache.go</span><span class="h">index 4a33a0f23..0d4a3183a 100644</span><span class="h">@@ -90,6 +90,9 @@ func (c *ImageCache) getOrCreate(</span><span class="c"> 			img.setOpenSource(func() (hugio.ReadSeekCloser, error) {</span><span class="c"> 				return c.fcache.Fs.Open(info.Name)</span><span class="c"> 			})</span><span class="a">+			// Mark it the same way as in read above, so e.g. Key() is</span><span class="a">+			// the same whether the image was created or read from the file cache.</span><span class="a">+			img.setSourceFilenameIsHash(true)</span><span class="c"> 			return img.EncodeTo(conf, conv, w)</span><span class="c"> 		}</span><span class="c"> </span><span class="f">resources/resource.go</span><span class="h">index 69facb098..e47d1ad78 100644</span><span class="h">@@ -432,6 +432,8 @@ func (l *genericResource) setTargetPath(d internal.ResourcePaths) {</span><span class="c"> func (l *genericResource) cloneTo(targetPath string) resource.Resource {</span><span class="c"> 	c := l.clone()</span><span class="c"> 	c.paths = c.paths.FromTargetPath(targetPath)</span><span class="a">+	// The new target filename is user provided and not a hash of the content.</span><span class="a">+	c.sourceFilenameIsHash = false</span><span class="c"> 	return c</span><span class="c"> }</span><span class="c"> </span><span class="f">resources/resources_integration_test.go</span><span class="h">index 69863eaf2..9de610789 100644</span><span class="h">@@ -258,3 +258,75 @@ This was assets/a.txt</span><span class="c"> 	b.Assert(err, qt.IsNil)</span><span class="c"> 	b.AssertFileContent(&quot;public/p1/b.txt&quot;, &quot;This was assets/a.txt&quot;)</span><span class="c"> }</span><span class="a">+</span><span class="a">+// The output name of images.Overlay and images.Mask must not depend on whether</span><span class="a">+// the overlaid/mask image was created in this build or read from the file cache.</span><span class="a">+func TestOverlayAndMaskOfProcessedImageStableAcrossBuilds(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	workingDir := t.TempDir()</span><span class="a">+</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;, &#39;rss&#39;, &#39;section&#39;, &#39;sitemap&#39;, &#39;taxonomy&#39;, &#39;term&#39;]</span><span class="a">+-- assets/a.png --</span><span class="a">+iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAATklEQVR42u3PQQkAAAgEsIt20Y1mBN/CYAWWaV+LgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMBlAXfcAS0jwTZyAAAAAElFTkSuQmCC</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{- $a := resources.Get &quot;a.png&quot; -}}</span><span class="a">+{{- $s := $a.Process &quot;resize 32x&quot; -}}</span><span class="a">+overlay={{ ($a | images.Filter (images.Overlay $s 0 0)).RelPermalink }}|</span><span class="a">+mask={{ ($a | images.Filter (images.Mask $s)).RelPermalink }}|</span><span class="a">+key={{ $s.Key }}|</span><span class="a">+`</span><span class="a">+</span><span class="a">+	var first string</span><span class="a">+	for i := range 3 {</span><span class="a">+		b := hugolib.Test(t, files, hugolib.TestOptOsFs(), hugolib.TestOptWithConfig(func(cfg *hugolib.IntegrationTestConfig) {</span><span class="a">+			cfg.WorkingDir = workingDir</span><span class="a">+		}))</span><span class="a">+</span><span class="a">+		content := b.FileContent(&quot;public/index.html&quot;)</span><span class="a">+		b.Assert(content, qt.Contains, &quot;overlay=/a_hu_&quot;)</span><span class="a">+		b.Assert(content, qt.Contains, &quot;mask=/a_hu_&quot;)</span><span class="a">+		b.Assert(content, qt.Matches, `(?s).*key=/a_hu_[0-9a-f]+\.png\|.*`)</span><span class="a">+		if i == 0 {</span><span class="a">+			first = content</span><span class="a">+		} else {</span><span class="a">+			b.Assert(content, qt.Equals, first, qt.Commentf(&quot;build %d&quot;, i+1))</span><span class="a">+		}</span><span class="a">+		// The processed resize, the overlay and the mask.</span><span class="a">+		b.AssertFileCount(&quot;resources/_gen/images&quot;, 3)</span><span class="a">+	}</span><span class="a">+}</span><span class="a">+</span><span class="a">+// A copy of a processed image is published to a user provided filename,</span><span class="a">+// so it must be republished when the processed image changes.</span><span class="a">+func TestCopyOfProcessedImageRepublishedOnChange(t *testing.T) {</span><span class="a">+	t.Parallel()</span><span class="a">+</span><span class="a">+	workingDir := t.TempDir()</span><span class="a">+</span><span class="a">+	pngs := []string{</span><span class="a">+		&quot;iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAATklEQVR42u3PQQkAAAgEsIt20Y1mBN/CYAWWaV+LgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMBlAXfcAS0jwTZyAAAAAElFTkSuQmCC&quot;,</span><span class="a">+		&quot;iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==&quot;,</span><span class="a">+	}</span><span class="a">+</span><span class="a">+	for i, png := range []string{pngs[0], pngs[1], pngs[0]} {</span><span class="a">+		files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;, &#39;rss&#39;, &#39;section&#39;, &#39;sitemap&#39;, &#39;taxonomy&#39;, &#39;term&#39;]</span><span class="a">+-- assets/a.png --</span><span class="a">+` + png + `</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{- $r := (resources.Get &quot;a.png&quot;).Resize &quot;32x&quot; -}}</span><span class="a">+{{- $r.RelPermalink }}|{{ (resources.Copy &quot;img/x.png&quot; $r).RelPermalink -}}</span><span class="a">+`</span><span class="a">+		b := hugolib.Test(t, files, hugolib.TestOptOsFs(), hugolib.TestOptWithConfig(func(cfg *hugolib.IntegrationTestConfig) {</span><span class="a">+			cfg.WorkingDir = workingDir</span><span class="a">+		}))</span><span class="a">+</span><span class="a">+		processed, copied, _ := strings.Cut(b.FileContent(&quot;public/index.html&quot;), &quot;|&quot;)</span><span class="a">+		b.Assert(copied, qt.Equals, &quot;/img/x.png&quot;)</span><span class="a">+		b.Assert(b.FileContent(&quot;public/img/x.png&quot;), qt.Equals, b.FileContent(&quot;public&quot;+processed), qt.Commentf(&quot;i=%d&quot;, i))</span><span class="a">+	}</span><span class="a">+}</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/gohugoio/hugo/pull/15468" rel="noopener" target="_blank">PR #15468</a></span><span class="pm"><span class="a">+28</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">resources/image_cache.go</span><span class="h">index 4a33a0f23..de9f28f6a 100644</span><span class="h">@@ -90,6 +90,7 @@ func (c *ImageCache) getOrCreate(</span><span class="c"> 			img.setOpenSource(func() (hugio.ReadSeekCloser, error) {</span><span class="c"> 				return c.fcache.Fs.Open(info.Name)</span><span class="c"> 			})</span><span class="a">+			img.setSourceFilenameIsHash(true)</span><span class="c"> 			return img.EncodeTo(conf, conv, w)</span><span class="c"> 		}</span><span class="c"> </span><span class="f">resources/images/images_integration_test.go</span><span class="h">index 189597ee7..578d59544 100644</span><span class="h">@@ -311,3 +311,30 @@ giphy.avif resized: {{ ($avif.Resize &quot;10x&quot;).FrameCount }}|</span><span class="c"> 		&quot;giphy.avif resized: 1|&quot;,</span><span class="c"> 	)</span><span class="c"> }</span><span class="a">+</span><span class="a">+func TestOverlayAndMaskKeyStableAcrossBuildsIssue15467(t *testing.T) {</span><span class="a">+	files := `</span><span class="a">+-- hugo.toml --</span><span class="a">+disableKinds = [&#39;page&#39;,&#39;rss&#39;,&#39;section&#39;,&#39;sitemap&#39;,&#39;taxonomy&#39;,&#39;term&#39;]</span><span class="a">+-- assets/sunset.jpg --</span><span class="a">+sourcefilename: ../testdata/sunset.jpg</span><span class="a">+-- layouts/home.html --</span><span class="a">+{{- $a := resources.Get &quot;sunset.jpg&quot; -}}</span><span class="a">+{{- $s := $a.Process &quot;resize 32x&quot; -}}</span><span class="a">+overlay={{ ($a | images.Filter (images.Overlay $s 0 0)).RelPermalink }}|mask={{ ($a | images.Filter (images.Mask $s)).RelPermalink }}|key={{ $s.Key }}|</span><span class="a">+`</span><span class="a">+	tempDir := t.TempDir()</span><span class="a">+	var first string</span><span class="a">+	for i := range 2 {</span><span class="a">+		b := hugolib.Test(t, files, hugolib.TestOptWithConfig(func(cfg *hugolib.IntegrationTestConfig) {</span><span class="a">+			cfg.NeedsOsFS = true</span><span class="a">+			cfg.WorkingDir = tempDir</span><span class="a">+		}))</span><span class="a">+		content := b.FileContent(&quot;public/index.html&quot;)</span><span class="a">+		if i == 0 {</span><span class="a">+			first = content</span><span class="a">+		} else if content != first {</span><span class="a">+			t.Fatalf(&quot;output changed between builds:\nbuild 1: %s\nbuild 2: %s&quot;, first, content)</span><span class="a">+		}</span><span class="a">+	}</span><span class="a">+}</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/hugo/run-20261105-225610/15462/">Previous · #15462</a>
+  <a class="mid" href="/backtests/hugo/run-20261105-225610/">All tickets in this run</a>
+  <a href="/backtests/hugo/run-20261105-225610/15481/">Next · #15481</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

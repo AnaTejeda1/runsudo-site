@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gohugoio/hugo · 5 Nov 2026 — sudo backtests</title>
+<meta name="description" content="7 of 10 tickets judged better than the merged fix on gohugoio/hugo, run 5 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/hugo/run-20261105-225610/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/hugo/">hugo</a><span aria-hidden="true">/</span><span aria-current="page">run-20261105-225610</span></p>
+<h1>gohugoio/hugo</h1>
+<p class="lead">Static site generator written in Go.</p>
+<div class="card summary">
+  <p class="k">This run · 5 Nov 2026 · <span class="runid">run-20261105-225610</span></p>
+  <p class="big">70%<small>judged better than the merged fix</small></p>
+  <p class="sub">7 of 10 tickets. Issues fixed by one maintainer, shared by link.</p>
+  <div class="bar" role="img" aria-label="7 better, 0 par, 1 tie, 1 worse, 1 error"><span class="b-better" style="width:70%"></span><span class="b-tie" style="width:10%"></span><span class="b-worse" style="width:10%"></span><span class="b-error" style="width:10%"></span></div>
+  <div class="counts"><span class="better"><i></i>7 better</span><span class="par"><i></i>0 par</span><span class="tie"><i></i>1 tie</span><span class="worse"><i></i>1 worse</span><span class="error"><i></i>1 error</span></div>
+</div>
+<section>
+  <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
+  <div class="runs">
+<details class="run" id="run-20261105-225610" open>
+  <summary>
+    <span class="date">5 Nov 2026<span class="runid">run-20261105-225610</span></span>
+    <span class="bars"><div class="bar thin" role="img" aria-label="7 better, 0 par, 1 tie, 1 worse, 1 error"><span class="b-better" style="width:70%"></span><span class="b-tie" style="width:10%"></span><span class="b-worse" style="width:10%"></span><span class="b-error" style="width:10%"></span></div><span class="counts"><span class="better">7 better</span><span class="par">0 par</span><span class="tie">1 tie</span><span class="worse">1 worse</span><span class="error">1 error</span></span></span>
+    <span class="notes">Issues fixed by one maintainer, shared by link</span>
+    <span class="meta">10 tickets · <a href="/backtests/hugo/run-20261105-225610/">permalink</a></span>
+  </summary>
+  <div class="runbody">
+<div class="filters" role="group" aria-label="Filter tickets by verdict"><button type="button" data-filter="all" aria-pressed="true">All 10</button><button type="button" class="better" data-filter="better" aria-pressed="false">Better 7</button><button type="button" class="par" data-filter="par" aria-pressed="false">Par 0</button><button type="button" class="tie" data-filter="tie" aria-pressed="false">Tie 1</button><button type="button" class="worse" data-filter="worse" aria-pressed="false">Worse 1</button><button type="button" class="error" data-filter="error" aria-pressed="false">Error 1</button></div>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Issue</th><th>Title</th><th>Verdict</th><th class="num">Lines ours / merged</th><th>Test suite</th></tr></thead>
+    <tbody>
+<tr class="link" data-verdict="better"><td class="id">#14044</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/14044/">Automatic summary may generate invalid HTML with blockquotes and lists</a></td><td><span class="pill better">Better</span></td><td class="num">148 / 226</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15330</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15330/">hugo server: page cut at its previous length when another content file changes in the same batch</a></td><td><span class="pill better">Better</span></td><td class="num">227 / 52</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15358</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15358/">tpl/collections: intersect/union/uniq collapse or drop distinct big integers beyond the float64 exact range</a></td><td><span class="pill better">Better</span></td><td class="num">134 / 292</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="error"><td class="id">#15420</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15420/">Check deprecated PAGE.IsNode vs jsonify</a></td><td><span class="pill error">Error</span></td><td class="num">0 / 141</td><td class="tests"><span class="muted">Not run</span></td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15449</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15449/">Build hangs forever after 10 page render errors: <code>renderPages</code> blocks on <code>pages &lt;- p</code> after <code>errorCollator</code> calls <code>Stop</code></a></td><td><span class="pill better">Better</span></td><td class="num">62 / 62</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15452</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15452/">Make emojify return a string</a></td><td><span class="pill better">Better</span></td><td class="num">34 / 11</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="tie"><td class="id">#15462</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15462/">Fix some Plainify issues</a></td><td><span class="pill tie">Tie</span></td><td class="num">123 / 581</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15467</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15467/">images.Overlay and images.Mask output name changes depending on whether the overlaid image came from the file cache</a></td><td><span class="pill better">Better</span></td><td class="num">77 / 28</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#15481</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15481/">js.Build: browser:false modules with extensionless require fail with lstat in v0.168.0</a></td><td><span class="pill better">Better</span></td><td class="num">65 / 45</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#15484</td><td class="title"><a href="/backtests/hugo/run-20261105-225610/15484/">Possible issue with baseof.html renames on macos</a></td><td><span class="pill worse">Worse</span></td><td class="num">74 / 35</td><td class="tests">No new failures</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+</details>
+  </div>
+</section>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.runbody').forEach(function(panel){
+    var f=panel.querySelector('.filters');if(!f)return;
+    var rows=panel.querySelectorAll('tr[data-verdict]');
+    f.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-filter]');if(!b)return;
+      var v=b.getAttribute('data-filter');
+      f.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+      rows.forEach(function(r){r.hidden=v!=='all'&&r.getAttribute('data-verdict')!==v});
+    });
+  });
+})();
+</script>
+</body>
+</html>
