@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#14619 Spurious comma in `parametrize` causes obfuscated crash — pytest-dev/pytest backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #14619 in pytest-dev/pytest, run 7 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261107-005830/14619/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261107-005830/">run-20261107-005830</a><span aria-hidden="true">/</span><span aria-current="page">#14619</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/14619" rel="noopener" target="_blank">#14619</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/14978" rel="noopener" target="_blank">PR #14978</a></span>
+  <span>Run 7 Nov 2026 · <span class="runid">run-20261107-005830</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title">Spurious comma in <code>parametrize</code> causes obfuscated crash</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the primary crash at the same spot by catching the TypeError from len(param.values) in ParameterSet._for_parametrize and raising a clean, nodeid-prefixed fail() message. The independent tests confirm both resolve the None/int/tuple-argnames crash scenarios. The difference is the issue&#39;s second ask: showing a string value as the character sequence it is unpacked into ([&#39;f&#39;, &#39;o&#39;, &#39;o&#39;]). Patch B implements this (converting str values to a list in the mismatch message) and the independent test for it passes only under B; Patch A ignores that part entirely and fails that test. On tests, B is stronger: it parametrizes over four argnames forms (&#39;x,&#39;, (&#39;x&#39;,), &#39;x, y&#39;, (&#39;x&#39;,&#39;y&#39;)), adds an unsized-object case where __len__ itself raises TypeError, and a dedicated string-display test, all of which would fail on base. A adds a single test for the None case. On craft, both are comparable; B&#39;s error message reads naturally and its explanatory comments and changelog are accurate, while A&#39;s suggestion to use a one-element tuple is a nice touch but does not compensate for the missing string-display improvement. B&#39;s extra AUTHORS-less diff and A&#39;s AUTHORS edit are neutral. B is the more complete fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 39s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">124 passed · 1 skipped · 125 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">119<small>vs 43 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/14619" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>This is a regression in pytest 9.1.</p>
+<pre><code class="lang-python">@pytest.mark.parametrize(&quot;x,&quot;, [None, &quot;foo&quot;, &quot;bar&quot;])  # Spurious comma after parameter name
+def test1(x):
+    pass</code></pre>
+<p>output:</p>
+<pre><code>________________________________________________________________ ERROR collecting test.py ________________________________________________________________
+.pixi/envs/py314/lib/python3.14/site-packages/pluggy/_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.pixi/envs/py314/lib/python3.14/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.pixi/envs/py314/lib/python3.14/site-packages/_pytest/python.py:250: in pytest_pycollect_makeitem
+    return list(collector._genfunctions(name, obj))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.pixi/envs/py314/lib/python3.14/site-packages/_pytest/python.py:476: in _genfunctions
+    self.ihook.pytest_generate_tests.call_extra(methods, dict(metafunc=metafunc))
+.pixi/envs/py314/lib/python3.14/site-packages/pluggy/_hooks.py:573: in call_extra
+    return self._hookexec(self.name, hookimpls, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.pixi/envs/py314/lib/python3.14/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.pixi/envs/py314/lib/python3.14/site-packages/_pytest/python.py:124: in pytest_generate_tests
+    metafunc.parametrize(*marker.args, **marker.kwargs, _param_mark=marker)
+.pixi/envs/py314/lib/python3.14/site-packages/_pytest/python.py:1316: in parametrize
+    argnames, parametersets = ParameterSet._for_parametrize(
+.pixi/envs/py314/lib/python3.14/site-packages/_pytest/mark/structures.py:218: in _for_parametrize
+    if len(param.values) != len(argnames):
+       ^^^^^^^^^^^^^^^^^
+E   TypeError: object of type &#39;NoneType&#39; has no len()</code></pre>
+<p>As there is no hint as to where the offending test is, the only way to find it is to bisect the whole module.</p>
+<p>If the first value is a string, pytest cleanly points at the offending test, but IMHO the error message is improvable as it could better clarify that it&#39;s treating the first string as a sequence:</p>
+<pre><code class="lang-python">@pytest.mark.parametrize(&quot;x,&quot;, [&quot;foo&quot;, &quot;bar&quot;])
+def test1(x):
+    pass</code></pre>
+<p>output:</p>
+<pre><code>test.py::test1: in &quot;parametrize&quot; the number of names (1):
+  [&#39;x&#39;]
+must be equal to the number of values (3):
+  foo</code></pre>
+<p>suggested output:</p>
+<pre><code>test.py::test1: in &quot;parametrize&quot; the number of names (1):
+  [&#39;x&#39;]
+must be equal to the number of values (3):
+  [&#39;f&#39;, &#39;o&#39;, &#39;o&#39;]</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+115</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">changelog/14619.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..faad581cf</span><span class="h">@@ -0,0 +1,2 @@</span><span class="a">+Fixed an obscure ``TypeError`` crash during collection when a :ref:`@pytest.mark.parametrize &lt;pytest.mark.parametrize ref&gt;` value cannot be unpacked into the argument names, for example ``None`` with ``&quot;x,&quot;`` (a spurious trailing comma) or with multiple names -- pytest now reports a clean error pointing at the offending test.</span><span class="a">+Additionally, when a string value is unpacked into the names, the error message now shows it as the sequence of characters it is treated as.</span><span class="f">src/_pytest/mark/structures.py</span><span class="h">index 635cf9d47..4c585b07a 100644</span><span class="h">@@ -159,7 +159,7 @@ class ParameterSet(NamedTuple):</span><span class="c">             return cls.param(parameterset)</span><span class="c">         else:</span><span class="c">             # TODO: Refactor to fix this type-ignore. Currently the following</span><span class="r">-            # passes type-checking but crashes:</span><span class="a">+            # passes type-checking but only fails at collection time:</span><span class="c">             #</span><span class="c">             #   @pytest.mark.parametrize((&#39;x&#39;, &#39;y&#39;), [1, 2])</span><span class="c">             #   def test_foo(x, y): pass</span><span class="h">@@ -217,7 +217,27 @@ class ParameterSet(NamedTuple):</span><span class="c">         if parameters:</span><span class="c">             # Check all parameter sets have the correct number of values.</span><span class="c">             for param in parameters:</span><span class="r">-                if len(param.values) != len(argnames):</span><span class="a">+                # A raw argvalue is stored as-is by extract_from when it should</span><span class="a">+                # be unpacked into several names, so it may not be a sequence.</span><span class="a">+                try:</span><span class="a">+                    values_len = len(param.values)</span><span class="a">+                except TypeError:</span><span class="a">+                    msg = (</span><span class="a">+                        &#39;{nodeid}: in &quot;parametrize&quot; with names ({names_len}):\n&#39;</span><span class="a">+                        &quot;  {names}\n&quot;</span><span class="a">+                        &quot;each value must be a sequence of {names_len} value(s), got:\n&quot;</span><span class="a">+                        &quot;  {values!r}&quot;</span><span class="a">+                    )</span><span class="a">+                    fail(</span><span class="a">+                        msg.format(</span><span class="a">+                            nodeid=nodeid,</span><span class="a">+                            values=param.values,</span><span class="a">+                            names=argnames,</span><span class="a">+                            names_len=len(argnames),</span><span class="a">+                        ),</span><span class="a">+                        pytrace=False,</span><span class="a">+                    )</span><span class="a">+                if values_len != len(argnames):</span><span class="c">                     msg = (</span><span class="c">                         &#39;{nodeid}: in &quot;parametrize&quot; the number of names ({names_len}):\n&#39;</span><span class="c">                         &quot;  {names}\n&quot;</span><span class="h">@@ -227,10 +247,14 @@ class ParameterSet(NamedTuple):</span><span class="c">                     fail(</span><span class="c">                         msg.format(</span><span class="c">                             nodeid=nodeid,</span><span class="r">-                            values=param.values,</span><span class="a">+                            # Show strings as the sequence of characters they</span><span class="a">+                            # are being unpacked into.</span><span class="a">+                            values=list(param.values)</span><span class="a">+                            if isinstance(param.values, str)</span><span class="a">+                            else param.values,</span><span class="c">                             names=argnames,</span><span class="c">                             names_len=len(argnames),</span><span class="r">-                            values_len=len(param.values),</span><span class="a">+                            values_len=values_len,</span><span class="c">                         ),</span><span class="c">                         pytrace=False,</span><span class="c">                     )</span><span class="f">testing/test_mark.py</span><span class="h">index 706ae8120..a4c643fa8 100644</span><span class="h">@@ -612,6 +612,91 @@ def test_parametrized_collect_with_wrong_args(pytester: Pytester) -&gt; None:</span><span class="c">     )</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &quot;argnames&quot;, [&quot;&#39;x,&#39;&quot;, &quot;(&#39;x&#39;,)&quot;, &quot;&#39;x, y&#39;&quot;, &quot;(&#39;x&#39;, &#39;y&#39;)&quot;], ids=repr</span><span class="a">+)</span><span class="a">+def test_parametrized_collect_with_non_sequence_value(</span><span class="a">+    pytester: Pytester, argnames: str</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A value which cannot be unpacked into the names reports a clean</span><span class="a">+    collection error pointing at the test, instead of crashing (#14619).&quot;&quot;&quot;</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        f&quot;&quot;&quot;</span><span class="a">+        import pytest</span><span class="a">+</span><span class="a">+        @pytest.mark.parametrize({argnames}, [None, &quot;foo&quot;, &quot;bar&quot;])</span><span class="a">+        def test_func():</span><span class="a">+            pass</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest()</span><span class="a">+    result.assert_outcomes(errors=1)</span><span class="a">+    result.stdout.fnmatch_lines(</span><span class="a">+        [</span><span class="a">+            &#39;test_parametrized_collect_with_non_sequence_value.py::test_func: in &quot;parametrize&quot; with names (*):&#39;,</span><span class="a">+            &quot;each value must be a sequence of * value(s), got:&quot;,</span><span class="a">+            &quot;  None&quot;,</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+    result.stdout.no_fnmatch_line(&quot;*TypeError*&quot;)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_parametrized_collect_with_unsized_value(pytester: Pytester) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A value whose len() raises (e.g. a 0-d numpy array) also reports a</span><span class="a">+    clean collection error (#14619).&quot;&quot;&quot;</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import pytest</span><span class="a">+</span><span class="a">+        class Unsized:</span><span class="a">+            def __len__(self):</span><span class="a">+                raise TypeError(&quot;len() of unsized object&quot;)</span><span class="a">+</span><span class="a">+            def __repr__(self):</span><span class="a">+                return &quot;Unsized()&quot;</span><span class="a">+</span><span class="a">+        @pytest.mark.parametrize(&quot;x,&quot;, [Unsized()])</span><span class="a">+        def test_func(x):</span><span class="a">+            pass</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest()</span><span class="a">+    result.assert_outcomes(errors=1)</span><span class="a">+    result.stdout.fnmatch_lines(</span><span class="a">+        [</span><span class="a">+            &#39;test_parametrized_collect_with_unsized_value.py::test_func: in &quot;parametrize&quot; with names (1):&#39;,</span><span class="a">+            &quot;each value must be a sequence of 1 value(s), got:&quot;,</span><span class="a">+            &quot;  Unsized()&quot;,</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+    result.stdout.no_fnmatch_line(&quot;*TypeError*&quot;)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_parametrized_collect_with_wrong_args_string_value(</span><span class="a">+    pytester: Pytester,</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A string value unpacked into the names is shown as its characters (#14619).&quot;&quot;&quot;</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import pytest</span><span class="a">+</span><span class="a">+        @pytest.mark.parametrize(&quot;x,&quot;, [&quot;foo&quot;, &quot;bar&quot;])</span><span class="a">+        def test_func(x):</span><span class="a">+            pass</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest()</span><span class="a">+    result.assert_outcomes(errors=1)</span><span class="a">+    result.stdout.fnmatch_lines(</span><span class="a">+        [</span><span class="a">+            &#39;test_parametrized_collect_with_wrong_args_string_value.py::test_func: in &quot;parametrize&quot; the number of names (1):&#39;,</span><span class="a">+            &quot;  [&#39;x&#39;]&quot;,</span><span class="a">+            &quot;must be equal to the number of values (3):&quot;,</span><span class="a">+            &quot;  [&#39;f&#39;, &#39;o&#39;, &#39;o&#39;]&quot;,</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_parametrized_with_kwargs(pytester: Pytester) -&gt; None:</span><span class="c">     &quot;&quot;&quot;Test collect parametrized func with wrong number of args.&quot;&quot;&quot;</span><span class="c">     py_file = pytester.makepyfile(</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/14978" rel="noopener" target="_blank">PR #14978</a></span><span class="pm"><span class="a">+41</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">AUTHORS</span><span class="h">index daa6a471e..ad4c20938 100644</span><span class="h">@@ -343,6 +343,7 @@ Mihail Milushev</span><span class="c"> Mike Fiedler (miketheman)</span><span class="c"> Mike Hoyle (hoylemd)</span><span class="c"> Mike Lundy</span><span class="a">+Mike Ma</span><span class="c"> Milan Lesnek</span><span class="c"> minbang930</span><span class="c"> Miro Hrončok</span><span class="f">changelog/14619.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..8f7f788af</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed a crash in ``pytest.mark.parametrize`` when a non-sequence value is passed for a parameter set. It now provides a clear error message during collection.</span><span class="f">src/_pytest/mark/structures.py</span><span class="h">index 635cf9d47..34a004f48 100644</span><span class="h">@@ -217,7 +217,20 @@ class ParameterSet(NamedTuple):</span><span class="c">         if parameters:</span><span class="c">             # Check all parameter sets have the correct number of values.</span><span class="c">             for param in parameters:</span><span class="r">-                if len(param.values) != len(argnames):</span><span class="a">+                try:</span><span class="a">+                    values_len = len(param.values)</span><span class="a">+                except TypeError:</span><span class="a">+                    values_len = None</span><span class="a">+                if values_len is None:</span><span class="a">+                    fail(</span><span class="a">+                        f&#39;{nodeid}: in &quot;parametrize&quot; expected a sequence of values, &#39;</span><span class="a">+                        &quot;for a single value use a one-element tuple like &quot;</span><span class="a">+                        &quot;(&#39;value&#39;,), &quot;</span><span class="a">+                        f&quot;got {type(param.values).__name__}:\n&quot;</span><span class="a">+                        f&quot;  {param.values}&quot;,</span><span class="a">+                        pytrace=False,</span><span class="a">+                    )</span><span class="a">+                if values_len != len(argnames):</span><span class="c">                     msg = (</span><span class="c">                         &#39;{nodeid}: in &quot;parametrize&quot; the number of names ({names_len}):\n&#39;</span><span class="c">                         &quot;  {names}\n&quot;</span><span class="h">@@ -230,7 +243,7 @@ class ParameterSet(NamedTuple):</span><span class="c">                             values=param.values,</span><span class="c">                             names=argnames,</span><span class="c">                             names_len=len(argnames),</span><span class="r">-                            values_len=len(param.values),</span><span class="a">+                            values_len=values_len,</span><span class="c">                         ),</span><span class="c">                         pytrace=False,</span><span class="c">                     )</span><span class="f">testing/test_mark.py</span><span class="h">index 706ae8120..9698aca35 100644</span><span class="h">@@ -612,6 +612,30 @@ def test_parametrized_collect_with_wrong_args(pytester: Pytester) -&gt; None:</span><span class="c">     )</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_parametrized_collect_with_non_sequence_values(pytester: Pytester) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Test collect parametrized func with tuple-style argnames and scalar values.&quot;&quot;&quot;</span><span class="a">+    py_file = pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import pytest</span><span class="a">+</span><span class="a">+        @pytest.mark.parametrize(&quot;x,&quot;, [None])</span><span class="a">+        def test_func(x):</span><span class="a">+            pass</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    result = pytester.runpytest(py_file)</span><span class="a">+    result.stdout.fnmatch_lines(</span><span class="a">+        [</span><span class="a">+            &quot;test_parametrized_collect_with_non_sequence_values.py::test_func: &quot;</span><span class="a">+            &#39;in &quot;parametrize&quot; expected a sequence of values, &#39;</span><span class="a">+            &quot;for a single value use a one-element tuple like (&#39;value&#39;,), &quot;</span><span class="a">+            &quot;got NoneType:&quot;,</span><span class="a">+            &quot;  None&quot;,</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_parametrized_with_kwargs(pytester: Pytester) -&gt; None:</span><span class="c">     &quot;&quot;&quot;Test collect parametrized func with wrong number of args.&quot;&quot;&quot;</span><span class="c">     py_file = pytester.makepyfile(</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261107-005830/14445/">Previous · #14445</a>
+  <a class="mid" href="/backtests/pytest/run-20261107-005830/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261107-005830/15005/">Next · #15005</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

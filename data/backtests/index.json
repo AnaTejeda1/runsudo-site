@@ -603,6 +603,32 @@
           "judge": "panel"
         }
       ]
+    },
+    {
+      "slug": "pytest",
+      "name": "pytest-dev/pytest",
+      "description": "",
+      "languages": [],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-11-07",
+          "id": "run-20261107-005830",
+          "source_runs": [
+            "run-20261107-005830"
+          ],
+          "tickets": 10,
+          "better": 8,
+          "par": 0,
+          "worse": 1,
+          "tie": 0,
+          "error": 1,
+          "notes": "Issues fixed by one maintainer, shared by link",
+          "footnote": "",
+          "judge": "panel",
+          "unlisted": true
+        }
+      ]
     }
   ],
   "events": []

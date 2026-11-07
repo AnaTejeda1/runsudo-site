@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#12223 junit-xml output attribute can be too big to handle with -vv — pytest-dev/pytest backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #12223 in pytest-dev/pytest, run 7 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261107-005830/12223/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261107-005830/">run-20261107-005830</a><span aria-hidden="true">/</span><span aria-current="page">#12223</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/12223" rel="noopener" target="_blank">#12223</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/commit/13ba5cba07f56728d25d89cc7f5f0b24b06c3b95" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 7 Nov 2026 · <span class="runid">run-20261107-005830</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title">junit-xml output attribute can be too big to handle with -vv</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The solver hit its turn or time cap.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 30m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 127 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/12223" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Suppose you have a test that may fail with a very large diff; say:</p>
+<pre><code class="lang-python">def test_xyz() -&gt; None:
+    assert [&quot;x&quot;] * 10_000 == [&quot;x\n&quot;] * 10_000</code></pre>
+<p>With normal verbosity (0), the junit-xml output would look like this:</p>
+<pre><code class="lang-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+&lt;testsuites&gt;
+ &lt;testsuite errors=&quot;0&quot; failures=&quot;1&quot; hostname=&quot;...&quot; name=&quot;pytest&quot; skipped=&quot;0&quot; tests=&quot;1&quot; time=&quot;1.172&quot; timestamp=&quot;...&quot;&gt;
+  &lt;testcase classname=&quot;test_file&quot; file=&quot;test_file.py&quot; line=&quot;0&quot; name=&quot;test_xyz&quot; time=&quot;0.767&quot;&gt;
+   &lt;failure message=&quot;AssertionError: assert [&#39;x&#39;, &#39;x&#39;, &#39;x...&#39;x&#39;, &#39;x&#39;, ...] == [&#39;x\n&#39;, &#39;x\n&#39;...&#39;, &#39;x\n&#39;, ...]
+  At index 0 diff: &#39;x&#39; != &#39;x\n&#39;
+  Use -v to get more diff&quot;&gt;
+    def test_xyz() -&amp;gt; None:
+&amp;gt;       assert [&quot;x&quot;] * 10_000 == [&quot;x\n&quot;] * 10_000
+E       AssertionError: assert [&#39;x&#39;, &#39;x&#39;, &#39;x...&#39;x&#39;, &#39;x&#39;, ...] == [&#39;x\n&#39;, &#39;x\n&#39;...&#39;, &#39;x\n&#39;, ...]
+E         At index 0 diff: &#39;x&#39; != &#39;x\n&#39;
+E         Use -v to get more diff
+
+test_file.py:2: AssertionError
+   &lt;/failure&gt;
+  &lt;/testcase&gt;
+ &lt;/testsuite&gt;
+&lt;/testsuites&gt;</code></pre>
+<p>noting the <code>&lt;failure message=&#39;...&#39;&gt;</code> tag&#39;s message and body both have a <code>Use -v to get more diff</code>.</p>
+<p>If you do supply a <code>-vv</code>, then both the body of the <code>&lt;failure&gt;</code> tag, AND the content of the <code>message</code> attribute can be very large. The latter can be problematic for parsers, and projects like BeautifulSoup and lxml will fail to parse this correctly (truncating or crashing, respectively).</p>
+<p>Maybe this is a limitation of the junit schema, but is there anything acceptable that can be done to reduce only the content of the message attribute? I think it&#39;s more expected and &quot;fine&quot; for the body of a tag to be really long, but an attribute less so.</p>
+<p>applies to pytest 8.1.1</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/commit/13ba5cba07f56728d25d89cc7f5f0b24b06c3b95" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+125</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">changelog/12223.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..f2379c80b</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+The ``message`` attribute of ``&lt;failure&gt;`` and ``&lt;error&gt;`` elements in ``--junitxml`` reports is now shortened to whole lines within 500 characters. When something is dropped, it ends with a note pointing to the element text, which still holds the full report. Previously, very verbose assertion output (e.g. with ``-vv``) produced attributes tens of thousands of characters long, which some XML parsers fail on.</span><span class="f">src/_pytest/junitxml.py</span><span class="h">index 06bb9fd5d..d33b81a74 100644</span><span class="h">@@ -69,6 +69,41 @@ def bin_xml_escape(arg: object) -&gt; str:</span><span class="c">     return re.sub(illegal_xml_re, repl, str(arg))</span><span class="c"> </span><span class="c"> </span><span class="a">+# Budget for the ``message`` attribute of &lt;failure&gt; and &lt;error&gt; elements.</span><span class="a">+# The full report is always written as the element text.</span><span class="a">+MESSAGE_ATTR_BUDGET = 500</span><span class="a">+</span><span class="a">+</span><span class="a">+def shorten_message(msg: str, budget: int = MESSAGE_ATTR_BUDGET) -&gt; str:</span><span class="a">+    &quot;&quot;&quot;Shorten ``msg`` for use in a ``message`` attribute.</span><span class="a">+</span><span class="a">+    Whole lines are kept while they fit in ``budget`` characters; a first</span><span class="a">+    line that is longer than ``budget`` on its own is cut. If anything was</span><span class="a">+    dropped, a final line points readers to the element text, which holds</span><span class="a">+    the full report.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    lines = msg.splitlines() or [&quot;&quot;]</span><span class="a">+    kept: list[str] = []</span><span class="a">+    size = 0</span><span class="a">+    for line in lines:</span><span class="a">+        if kept and size + len(line) + 1 &gt; budget:</span><span class="a">+            break</span><span class="a">+        kept.append(line)</span><span class="a">+        size += len(line) + 1</span><span class="a">+    shortened = &quot;\n&quot;.join(kept)</span><span class="a">+    first_line_cut = len(shortened) &gt; budget</span><span class="a">+    if first_line_cut:</span><span class="a">+        shortened = shortened[:budget] + &quot;...&quot;</span><span class="a">+    remaining = len(lines) - len(kept)</span><span class="a">+    if remaining:</span><span class="a">+        note = f&quot;+{remaining} more line{&#39;s&#39; if remaining &gt; 1 else &#39;&#39;}&quot;</span><span class="a">+    elif first_line_cut:</span><span class="a">+        note = &quot;truncated&quot;</span><span class="a">+    else:</span><span class="a">+        return msg</span><span class="a">+    return f&quot;{shortened}\n[{note}; full report in element text]&quot;</span><span class="a">+</span><span class="a">+</span><span class="c"> def merge_family(left, right) -&gt; None:</span><span class="c">     result = {}</span><span class="c">     for kl, vl in left.items():</span><span class="h">@@ -213,7 +248,7 @@ class _NodeReporter:</span><span class="c">                 message = reprcrash.message</span><span class="c">             else:</span><span class="c">                 message = str(report.longrepr)</span><span class="r">-            message = bin_xml_escape(message)</span><span class="a">+            message = bin_xml_escape(shorten_message(message))</span><span class="c">             self._add_simple(&quot;failure&quot;, message, str(report.longrepr))</span><span class="c"> </span><span class="c">     def append_collect_error(self, report: CollectReport) -&gt; None:</span><span class="h">@@ -236,7 +271,9 @@ class _NodeReporter:</span><span class="c">             msg = f&#39;failed on teardown with &quot;{reason}&quot;&#39;</span><span class="c">         else:</span><span class="c">             msg = f&#39;failed on setup with &quot;{reason}&quot;&#39;</span><span class="r">-        self._add_simple(&quot;error&quot;, bin_xml_escape(msg), str(report.longrepr))</span><span class="a">+        self._add_simple(</span><span class="a">+            &quot;error&quot;, bin_xml_escape(shorten_message(msg)), str(report.longrepr)</span><span class="a">+        )</span><span class="c"> </span><span class="c">     def append_skipped(self, report: TestReport) -&gt; None:</span><span class="c">         if hasattr(report, &quot;wasxfail&quot;):</span><span class="f">testing/test_junitxml.py</span><span class="h">index 3b51495ac..c607d9f68 100644</span><span class="h">@@ -18,6 +18,7 @@ from _pytest.junitxml import _JunitFamily</span><span class="c"> from _pytest.junitxml import _JunitLogging</span><span class="c"> from _pytest.junitxml import bin_xml_escape</span><span class="c"> from _pytest.junitxml import LogXML</span><span class="a">+from _pytest.junitxml import shorten_message</span><span class="c"> from _pytest.monkeypatch import MonkeyPatch</span><span class="c"> from _pytest.pytester import Pytester</span><span class="c"> from _pytest.pytester import RunResult</span><span class="h">@@ -655,6 +656,49 @@ class TestPython:</span><span class="c">         fnode = tnode.get_first_by_tag(&quot;failure&quot;)</span><span class="c">         fnode.assert_attr(message=&quot;AssertionError: An error\nassert 0&quot;)</span><span class="c"> </span><span class="a">+    def test_failure_message_is_shortened(</span><span class="a">+        self, pytester: Pytester, run_and_parse: RunAndParse</span><span class="a">+    ) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;Long failure messages are shortened in the attribute, but kept in</span><span class="a">+        full in the element text (#12223).&quot;&quot;&quot;</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+            def test_fail():</span><span class="a">+                assert list(range(200)) == list(range(199)) + [999]</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        _result, dom = run_and_parse(&quot;-vv&quot;)</span><span class="a">+        fnode = dom.get_first_by_tag(&quot;failure&quot;)</span><span class="a">+        message = fnode[&quot;message&quot;]</span><span class="a">+        assert message.startswith(&quot;assert [0, 1, 2, &quot;)</span><span class="a">+        assert message.endswith(&quot;; full report in element text]&quot;)</span><span class="a">+        assert len(message) &lt; 1000</span><span class="a">+        assert &quot;Full diff:&quot; in fnode.text</span><span class="a">+        assert &quot;999&quot; in fnode.text</span><span class="a">+</span><span class="a">+    def test_error_message_is_shortened(</span><span class="a">+        self, pytester: Pytester, run_and_parse: RunAndParse</span><span class="a">+    ) -&gt; None:</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+            @pytest.fixture</span><span class="a">+            def arg():</span><span class="a">+                raise ValueError(&quot;a&quot; * 2000)</span><span class="a">+</span><span class="a">+            def test_function(arg):</span><span class="a">+                pass</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        _result, dom = run_and_parse()</span><span class="a">+        fnode = dom.get_first_by_tag(&quot;error&quot;)</span><span class="a">+        assert fnode[&quot;message&quot;].startswith(&#39;failed on setup with &quot;ValueError: aaa&#39;)</span><span class="a">+        assert fnode[&quot;message&quot;].endswith(</span><span class="a">+            &quot;...\n[truncated; full report in element text]&quot;</span><span class="a">+        )</span><span class="a">+        assert &quot;a&quot; * 2000 in fnode.text</span><span class="a">+</span><span class="c">     @parametrize_families</span><span class="c">     def test_failure_escape(</span><span class="c">         self, pytester: Pytester, run_and_parse: RunAndParse, xunit_family: _JunitFamily</span><span class="h">@@ -1881,3 +1925,44 @@ def test_invalid_junit_option_value(pytester: Pytester, name: str, value: str) -</span><span class="c">     result.stderr.fnmatch_lines(</span><span class="c">         [f&quot;*ERROR: *config option &#39;{name}&#39; expects one of *, got &#39;{value}&#39;&quot;]</span><span class="c">     )</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &quot;msg&quot;,</span><span class="a">+    [</span><span class="a">+        &quot;&quot;,</span><span class="a">+        &quot;assert 0&quot;,</span><span class="a">+        &quot;AssertionError: Regex pattern did not match.\n&quot;</span><span class="a">+        &quot;  Expected regex: &#39;foo&#39;\n&quot;</span><span class="a">+        &quot;  Actual message: &#39;bar&#39;&quot;,</span><span class="a">+        &quot;x&quot; * 500,</span><span class="a">+        &quot;trailing newline\n&quot;,</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_shorten_message_keeps_short_messages(msg: str) -&gt; None:</span><span class="a">+    assert shorten_message(msg) == msg</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_shorten_message_cuts_on_line_boundary() -&gt; None:</span><span class="a">+    msg = &quot;\n&quot;.join(f&quot;line {i:3}&quot; for i in range(100))</span><span class="a">+    assert shorten_message(msg, budget=20) == (</span><span class="a">+        &quot;line   0\nline   1\n[+98 more lines; full report in element text]&quot;</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_shorten_message_cuts_single_long_line() -&gt; None:</span><span class="a">+    assert shorten_message(&quot;x&quot; * 30, budget=10) == (</span><span class="a">+        &quot;xxxxxxxxxx...\n[truncated; full report in element text]&quot;</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_shorten_message_cuts_long_first_line_with_more_lines() -&gt; None:</span><span class="a">+    assert shorten_message(&quot;x&quot; * 30 + &quot;\nsecond&quot;, budget=10) == (</span><span class="a">+        &quot;xxxxxxxxxx...\n[+1 more line; full report in element text]&quot;</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_shorten_message_before_escaping() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Shortening happens on the raw text, so escapes are never split.&quot;&quot;&quot;</span><span class="a">+    escaped = bin_xml_escape(shorten_message(&quot;\x1b&quot; * 20, budget=5))</span><span class="a">+    assert escaped == &quot;#x1B&quot; * 5 + &quot;...\n[truncated; full report in element text]&quot;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261107-005830/10745/">Previous · #10745</a>
+  <a class="mid" href="/backtests/pytest/run-20261107-005830/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261107-005830/14445/">Next · #14445</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
