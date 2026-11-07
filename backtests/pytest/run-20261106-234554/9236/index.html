@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#9236 `LogCaptureHandler` can be garbage collected when `caplog` fixture is in use — pytest-dev/pytest backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #9236 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/9236/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#9236</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/9236" rel="noopener" target="_blank">#9236</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/15128" rel="noopener" target="_blank">PR #15128</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title"><code>LogCaptureHandler</code> can be garbage collected when <code>caplog</code> fixture is in use</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The issue&#39;s trigger is an old-style hookwrapper whose teardown raises (outcome.get_result() on the failing xfail test). On pluggy &lt; 1.6 that aborts the remaining wrapper teardowns, so the logging plugin&#39;s pytest_runtest_call wrapper is left suspended; when the garbage collector finalises it during a later test, its catching_logs contexts exit and remove the shared LogCaptureHandler from the root logger. Patch B fixes this at the root by requiring pluggy&gt;=1.6, where all wrapper teardowns run even if one raises. That also fixes the same leak for every other plugin wrapper (capture, etc.), not just logging. Its test reproduces the issue&#39;s exact conftest/test scenario, correctly runs in a subprocess (with a clear comment on why in-process would hide the bug), and would fail on the old dependency and pass after the bump. The change is minimal and the changelog explains the mechanism. Patch A instead works around the symptom inside catching_logs with module-level reference counts keyed by (logger, handler) plus a global ordered list of contexts that hand off orig_level to each other on out-of-order exit. It does make caplog survive a GC&#39;d leaked context, and its tests exercise that, but it leaves the actual defect (skipped teardowns) in place for everything else, adds global mutable state and branching (including an &#39;attached by someone else&#39; path) that is easy to get subtly wrong, and its main tests construct the leak artificially via private plugin API rather than the issue&#39;s scenario. The evidence note that the reference fix touches only config files is consistent with B&#39;s approach. B is the more correct, better-scoped fix with a more faithful regression test.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 59s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">389 passed · 13 skipped · 406 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">178<small>vs 50 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/9236" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><ul><li><input type="checkbox" disabled checked> a detailed description of the bug or problem you are having</li></ul>
+<p>In our tests we have had issues with the <code>caplog</code> fixture not correctly saving every log into <code>caplog.messages</code> and <code>caplog.records</code>. From what I can tell, the underlying issue is that in some circumstances the <code>LogCaptureHandler</code>s that <code>caplog</code> relies on can get garbage collected.</p>
+<p>There seem to be a lot of issues in this area (#5160, #8977,  #7335 etc.), but I&#39;m not sure if any of them are the specific case that I have experienced.</p>
+<ul><li><input type="checkbox" disabled checked> minimal example if possible</li></ul>
+<p>Some debugging has got me to the stage where I have a MWE that reproduces the problem:</p>
+<p><code>test.py</code>:</p>
+<pre><code class="lang-python">import gc
+import logging
+import sys
+
+import pytest
+
+logging.basicConfig()
+logger = logging.getLogger()
+
+
+# No idea why this test must be an xfail, but we do not hit the error if this is an empty pass
+@pytest.mark.xfail
+def test_other_test():
+    assert False
+
+
+def test_a_test_with_caplog(caplog):
+    print(logging.root.handlers)
+    gc.collect()
+    print(logging.root.handlers)
+    logger.error(&quot;TEST&quot;)
+    assert caplog.messages[0] == &quot;TEST&quot;, caplog.messages</code></pre>
+<p><code>conftest.py</code>:</p>
+<pre><code class="lang-python"># It is unclear if this makes a difference (as the number of objects is so small we would be
+# unlikely to hit a GC anyway)
+# import gc
+# gc.disable()
+
+import pytest
+
+
+# Despite this being a noop, it is required to hit the issue
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    outcome = yield
+    outcome.get_result()</code></pre>
+<p>If you run <code>pytest test.py</code>, then it fails with the following:</p>
+<pre><code class="lang-bash">❯ pytest test.py
+======================================================== test session starts ========================================================
+platform darwin -- Python 3.8.3, pytest-6.2.5, py-1.10.0, pluggy-1.0.0
+rootdir: /Users/james/code/pytest_example
+collected 2 items                                                                                                                   
+
+test.py xF                                                                                                                    [100%]
+
+============================================================= FAILURES ==============================================================
+______________________________________________________ test_a_test_with_caplog ______________________________________________________
+
+caplog = &lt;_pytest.logging.LogCaptureFixture object at 0x1024ebc10&gt;
+
+    def test_a_test_with_caplog(caplog):
+        print(logging.root.handlers)
+        gc.collect()
+        print(logging.root.handlers)
+        logger.error(&quot;TEST&quot;)
+&gt;       assert caplog.messages[0] == &quot;TEST&quot;, caplog.messages
+E       IndexError: list index out of range
+
+test.py:22: IndexError
+------------------------------------------------------- Captured stdout call --------------------------------------------------------
+[&lt;_LiveLoggingNullHandler (NOTSET)&gt;, &lt;_FileHandler /dev/null (NOTSET)&gt;, &lt;LogCaptureHandler (NOTSET)&gt;, &lt;LogCaptureHandler (NOTSET)&gt;]
+[&lt;_LiveLoggingNullHandler (NOTSET)&gt;, &lt;_FileHandler /dev/null (NOTSET)&gt;]
+====================================================== short test summary info ======================================================
+FAILED test.py::test_a_test_with_caplog - IndexError: list index out of range
+=================================================== 1 failed, 1 xfailed in 0.04s ====================================================</code></pre>
+<p>However, if you remove the <code>gc.collect()</code> call from the test, it passes:</p>
+<pre><code class="lang-bash">❯ pytest test.py
+======================================================== test session starts ========================================================
+platform darwin -- Python 3.8.3, pytest-6.2.5, py-1.10.0, pluggy-1.0.0
+rootdir: /Users/james/code/pytest_example
+collected 2 items                                                                                                                   
+
+test.py x.                                                                                                                    [100%]
+
+=================================================== 1 passed, 1 xfailed in 0.04s ====================================================</code></pre>
+<ul><li><input type="checkbox" disabled checked> output of <code>pip list</code> from the virtual environment you are using</li></ul>
+<pre><code class="lang-bash">❯ pip list
+Package                           Version  
+--------------------------------- ---------
+appdirs                           1.4.4    
+attrs                             21.2.0   
+backports.entry-points-selectable 1.1.0    
+CacheControl                      0.12.6   
+cachy                             0.3.0    
+certifi                           2021.10.8
+charset-normalizer                2.0.7    
+cleo                              0.8.1    
+clikit                            0.6.2    
+crashtest                         0.3.1    
+distlib                           0.3.3    
+filelock                          3.0.12   
+html5lib                          1.1      
+idna                              3.2      
+iniconfig                         1.1.1    
+keyring                           21.8.0   
+lockfile                          0.12.2   
+msgpack                           1.0.2    
+packaging                         20.9     
+pastel                            0.2.1    
+pbr                               5.4.5    
+pexpect                           4.8.0    
+pip                               19.2.3   
+pkginfo                           1.7.1    
+platformdirs                      2.4.0    
+pluggy                            1.0.0    
+poetry                            1.1.11   
+poetry-core                       1.0.7    
+ptyprocess                        0.7.0    
+py                                1.10.0   
+pylev                             1.4.0    
+pyparsing                         2.4.7    
+pytest                            6.2.5    
+requests                          2.26.0   
+requests-toolbelt                 0.9.1    
+setuptools                        41.2.0   
+shellingham                       1.4.0    
+six                               1.15.0   
+stevedore                         2.0.0    
+toml                              0.10.2   
+tomlkit                           0.7.2    
+urllib3                           1.26.7   
+virtualenv                        20.8.1   
+virtualenv-clone                  0.5.4    
+virtualenvwrapper                 4.8.4    
+webencodings                      0.5.1    
+WARNING: You are using pip version 19.2.3, however version 21.3.1 is available.
+You should consider upgrading via the &#39;pip install --upgrade pip&#39; command.</code></pre>
+<ul><li><input type="checkbox" disabled checked> pytest and operating system versions</li></ul>
+<p><code>pytest 6.2.5</code> and MacOS BigSur 11.6.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+171</span> <span class="r">−7</span></span></div><pre class="diff"><span class="f">changelog/9236.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..9bcf54a35</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed :fixture:`caplog` (and log reporting) intermittently missing records when a stale logging context from a previous test, e.g. a leaked hook generator, was finalized by the garbage collector: it no longer detaches the shared capture handlers or restores the root logger level while another test still relies on them.</span><span class="f">src/_pytest/logging.py</span><span class="h">index 6e80e6ba3..70091bb4e 100644</span><span class="h">@@ -19,6 +19,7 @@ import os</span><span class="c"> from pathlib import Path</span><span class="c"> import re</span><span class="c"> from types import TracebackType</span><span class="a">+from typing import Any</span><span class="c"> from typing import final</span><span class="c"> from typing import Generic</span><span class="c"> from typing import Literal</span><span class="h">@@ -342,6 +343,20 @@ def pytest_addoption(parser: Parser) -&gt; None:</span><span class="c"> _HandlerType = TypeVar(&quot;_HandlerType&quot;, bound=logging.Handler)</span><span class="c"> </span><span class="c"> </span><span class="a">+# Number of active ``catching_logs`` contexts which attached a given handler to</span><span class="a">+# a given logger. The same handler instance is reused by several (possibly</span><span class="a">+# overlapping) contexts, e.g. the ``LoggingPlugin`` handlers, so a handler is</span><span class="a">+# only detached once the last context which attached it exits. Otherwise a</span><span class="a">+# context exiting out of order -- e.g. a leaked hook generator finalized later</span><span class="a">+# by the garbage collector -- would detach a handler another active context</span><span class="a">+# still relies on (#9236).</span><span class="a">+_handler_attachments: dict[tuple[logging.Logger, logging.Handler], int] = {}</span><span class="a">+</span><span class="a">+# Active ``catching_logs`` contexts which changed the root logger level, in the</span><span class="a">+# order they were entered, so out of order exits restore the right level.</span><span class="a">+_root_level_contexts: list[catching_logs[Any]] = []</span><span class="a">+</span><span class="a">+</span><span class="c"> # Not using @contextmanager for performance reasons.</span><span class="c"> class catching_logs(Generic[_HandlerType]):</span><span class="c">     &quot;&quot;&quot;Context manager that prepares the whole logging machinery properly.&quot;&quot;&quot;</span><span class="h">@@ -353,13 +368,28 @@ class catching_logs(Generic[_HandlerType]):</span><span class="c">         self.level = level</span><span class="c">         self.attached_loggers: list[logging.Logger] = []</span><span class="c"> </span><span class="a">+    def _attach(self, logger: logging.Logger) -&gt; None:</span><span class="a">+        key = (logger, self.handler)</span><span class="a">+        count = _handler_attachments.get(key)</span><span class="a">+        if count is not None:</span><span class="a">+            # Re-attach in case it was removed behind our back, e.g. by</span><span class="a">+            # ``logging.basicConfig(force=True)``.</span><span class="a">+            logger.addHandler(self.handler)</span><span class="a">+            _handler_attachments[key] = count + 1</span><span class="a">+        elif self.handler not in logger.handlers:</span><span class="a">+            logger.addHandler(self.handler)</span><span class="a">+            _handler_attachments[key] = 1</span><span class="a">+        else:</span><span class="a">+            # Attached by someone else, who is responsible for removing it.</span><span class="a">+            return</span><span class="a">+        self.attached_loggers.append(logger)</span><span class="a">+</span><span class="c">     def __enter__(self) -&gt; _HandlerType:</span><span class="c">         root_logger = logging.getLogger()</span><span class="c">         if self.level is not None:</span><span class="c">             self.handler.setLevel(self.level)</span><span class="c">         # Attach to root logger.</span><span class="r">-        root_logger.addHandler(self.handler)</span><span class="r">-        self.attached_loggers.append(root_logger)</span><span class="a">+        self._attach(root_logger)</span><span class="c">         # Attach to all non-propagating loggers (won&#39;t reach root).</span><span class="c">         # Note that will miss loggers that *become* non-propagating</span><span class="c">         # after the `__enter__`. Not worth the trouble for now.</span><span class="h">@@ -369,13 +399,13 @@ class catching_logs(Generic[_HandlerType]):</span><span class="c">                 and not logger.propagate</span><span class="c">                 and logger is not root_logger</span><span class="c">             ):</span><span class="r">-                logger.addHandler(self.handler)</span><span class="r">-                self.attached_loggers.append(logger)</span><span class="a">+                self._attach(logger)</span><span class="c">         if self.level is not None:</span><span class="c">             # Non-propagating loggers still inherit the level (unless a logger</span><span class="c">             # explicitly set level), so only do this on the root logger.</span><span class="c">             self.orig_level = root_logger.level</span><span class="c">             root_logger.setLevel(min(self.orig_level, self.level))</span><span class="a">+            _root_level_contexts.append(self)</span><span class="c">         return self.handler</span><span class="c"> </span><span class="c">     def __exit__(</span><span class="h">@@ -385,10 +415,23 @@ class catching_logs(Generic[_HandlerType]):</span><span class="c">         exc_tb: TracebackType | None,</span><span class="c">     ) -&gt; None:</span><span class="c">         root_logger = logging.getLogger()</span><span class="r">-        if self.level is not None:</span><span class="r">-            root_logger.setLevel(self.orig_level)</span><span class="a">+        if self in _root_level_contexts:</span><span class="a">+            index = _root_level_contexts.index(self)</span><span class="a">+            if index == len(_root_level_contexts) - 1:</span><span class="a">+                root_logger.setLevel(self.orig_level)</span><span class="a">+            else:</span><span class="a">+                # A context entered after this one is still active: hand it</span><span class="a">+                # our original level to restore once it exits instead.</span><span class="a">+                _root_level_contexts[index + 1].orig_level = self.orig_level</span><span class="a">+            del _root_level_contexts[index]</span><span class="c">         for logger in self.attached_loggers:</span><span class="r">-            logger.removeHandler(self.handler)</span><span class="a">+            key = (logger, self.handler)</span><span class="a">+            count = _handler_attachments[key] - 1</span><span class="a">+            if count:</span><span class="a">+                _handler_attachments[key] = count</span><span class="a">+            else:</span><span class="a">+                del _handler_attachments[key]</span><span class="a">+                logger.removeHandler(self.handler)</span><span class="c">         self.attached_loggers.clear()</span><span class="c"> </span><span class="c"> </span><span class="f">testing/logging/test_fixture.py</span><span class="h">index 95c0f44b7..ba4c76894 100644</span><span class="h">@@ -6,6 +6,8 @@ from collections.abc import Iterator</span><span class="c"> import logging</span><span class="c"> </span><span class="c"> from _pytest.logging import caplog_records_key</span><span class="a">+from _pytest.logging import catching_logs</span><span class="a">+from _pytest.logging import LogCaptureHandler</span><span class="c"> from _pytest.pytester import Pytester</span><span class="c"> import pytest</span><span class="c"> </span><span class="h">@@ -542,3 +544,121 @@ def test_log_report_captures_according_to_config_option_upon_failure(</span><span class="c">         [&quot;*Print message*&quot;, &quot;*INFO log message*&quot;, &quot;*WARNING log message*&quot;]</span><span class="c">     )</span><span class="c">     assert result.ret == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_caplog_survives_gc_of_leaked_runtest_context(pytester: Pytester) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A stale logging hook context finalized by the garbage collector during</span><span class="a">+    a later test must not detach the handlers or restore the root logger level</span><span class="a">+    the current test relies on (#9236).&quot;&quot;&quot;</span><span class="a">+    pytester.makeconftest(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import pytest</span><span class="a">+</span><span class="a">+        @pytest.hookimpl(wrapper=True)</span><span class="a">+        def pytest_runtest_call(item):</span><span class="a">+            if item.name == &quot;test_leak&quot;:</span><span class="a">+                # Simulate a hook generator left suspended (e.g. by a</span><span class="a">+                # misbehaving hook wrapper), only finalized later by the gc.</span><span class="a">+                plugin = item.config.pluginmanager.getplugin(&quot;logging-plugin&quot;)</span><span class="a">+                cm = plugin._runtest_for(item, &quot;call&quot;)</span><span class="a">+                cm.__enter__()</span><span class="a">+                cm.cycle = cm</span><span class="a">+            return (yield)</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import gc</span><span class="a">+        import logging</span><span class="a">+</span><span class="a">+        logger = logging.getLogger(__name__)</span><span class="a">+</span><span class="a">+        def test_leak():</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+        def test_caplog_after_gc(caplog):</span><span class="a">+            gc.collect()</span><span class="a">+            logger.info(&quot;INFO message&quot;)</span><span class="a">+            logger.error(&quot;ERROR message&quot;)</span><span class="a">+            assert caplog.messages == [&quot;INFO message&quot;, &quot;ERROR message&quot;]</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest(&quot;--log-level=INFO&quot;)</span><span class="a">+    result.assert_outcomes(passed=2)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_caplog_reattached_after_removal_with_leaked_context(</span><span class="a">+    pytester: Pytester,</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;While a stale logging hook context is still alive, a handler removed by</span><span class="a">+    a test (e.g. via ``logging.basicConfig(force=True)``) is re-attached for</span><span class="a">+    the following tests (#9236).&quot;&quot;&quot;</span><span class="a">+    pytester.makeconftest(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import pytest</span><span class="a">+</span><span class="a">+        @pytest.hookimpl(wrapper=True)</span><span class="a">+        def pytest_runtest_call(item):</span><span class="a">+            if item.name == &quot;test_leak&quot;:</span><span class="a">+                plugin = item.config.pluginmanager.getplugin(&quot;logging-plugin&quot;)</span><span class="a">+                cm = plugin._runtest_for(item, &quot;call&quot;)</span><span class="a">+                cm.__enter__()</span><span class="a">+                item.config.stash_leaked_cm = cm</span><span class="a">+            return (yield)</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import logging</span><span class="a">+</span><span class="a">+        logger = logging.getLogger(__name__)</span><span class="a">+</span><span class="a">+        def test_leak():</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+        def test_reconfigure():</span><span class="a">+            logging.basicConfig(force=True)</span><span class="a">+</span><span class="a">+        def test_caplog_after(caplog):</span><span class="a">+            logger.warning(&quot;hello&quot;)</span><span class="a">+            assert caplog.messages == [&quot;hello&quot;]</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest_subprocess()</span><span class="a">+    result.assert_outcomes(passed=3)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_catching_logs_out_of_order_exit() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Overlapping catching_logs contexts sharing a handler keep it attached and</span><span class="a">+    the root logger level lowered until the last one exits (#9236).&quot;&quot;&quot;</span><span class="a">+    root_logger = logging.getLogger()</span><span class="a">+    orig_level = root_logger.level</span><span class="a">+    handler = LogCaptureHandler()</span><span class="a">+</span><span class="a">+    first = catching_logs(handler, level=logging.INFO)</span><span class="a">+    second = catching_logs(handler, level=logging.DEBUG)</span><span class="a">+    first.__enter__()</span><span class="a">+    second.__enter__()</span><span class="a">+    assert root_logger.level == min(orig_level, logging.DEBUG)</span><span class="a">+</span><span class="a">+    # The first context exits while the second one is still active.</span><span class="a">+    first.__exit__(None, None, None)</span><span class="a">+    assert handler in root_logger.handlers</span><span class="a">+    assert root_logger.level == min(orig_level, logging.DEBUG)</span><span class="a">+</span><span class="a">+    second.__exit__(None, None, None)</span><span class="a">+    assert handler not in root_logger.handlers</span><span class="a">+    assert root_logger.level == orig_level</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_catching_logs_keeps_externally_attached_handler() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;catching_logs does not remove a handler it did not attach itself.&quot;&quot;&quot;</span><span class="a">+    root_logger = logging.getLogger()</span><span class="a">+    handler = LogCaptureHandler()</span><span class="a">+    root_logger.addHandler(handler)</span><span class="a">+    try:</span><span class="a">+        with catching_logs(handler):</span><span class="a">+            assert handler in root_logger.handlers</span><span class="a">+        assert handler in root_logger.handlers</span><span class="a">+    finally:</span><span class="a">+        root_logger.removeHandler(handler)</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/15128" rel="noopener" target="_blank">PR #15128</a></span><span class="pm"><span class="a">+48</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">changelog/9236.packaging.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..76de357da</span><span class="h">@@ -0,0 +1,6 @@</span><span class="a">+``pluggy&gt;=1.6`` is now required.</span><span class="a">+</span><span class="a">+Older pluggy versions stopped running the remaining hook wrapper teardowns once an</span><span class="a">+old-style ``hookwrapper`` raised in its own teardown. The logging plugin&#39;s wrapper was</span><span class="a">+left suspended, and when it was finalised later it detached the handler that</span><span class="a">+:fixture:`caplog` of a subsequent test was recording through, so that test saw no records.</span><span class="f">pyproject.toml</span><span class="h">index e7dcef6e0..8e68acdac 100644</span><span class="h">@@ -51,7 +51,7 @@ dependencies = [</span><span class="c">     &quot;exceptiongroup&gt;=1; python_version&lt;&#39;3.11&#39;&quot;,</span><span class="c">     &quot;iniconfig&gt;=2&quot;,</span><span class="c">     &quot;packaging&gt;=24&quot;,</span><span class="r">-    &quot;pluggy&gt;=1.5,&lt;2&quot;,</span><span class="a">+    &quot;pluggy&gt;=1.6,&lt;2&quot;,</span><span class="c">     &quot;pygments&gt;=2.15&quot;,</span><span class="c">     &quot;tomli&gt;=2; python_version&lt;&#39;3.11&#39;&quot;,</span><span class="c"> ]</span><span class="f">testing/logging/test_fixture.py</span><span class="h">index 95c0f44b7..ce6e8a319 100644</span><span class="h">@@ -502,6 +502,46 @@ def test_captures_despite_exception(pytester: Pytester) -&gt; None:</span><span class="c">     assert result.ret == 1</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_caplog_survives_earlier_hookwrapper_raising_in_teardown(</span><span class="a">+    pytester: Pytester,</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;#9236: pluggy &lt; 1.6 skipped the remaining teardowns once an old-style</span><span class="a">+    hookwrapper raised in its own, leaving the logging plugin&#39;s wrapper</span><span class="a">+    suspended. Finalising it later detached the handler ``caplog`` of the</span><span class="a">+    next test was recording through.&quot;&quot;&quot;</span><span class="a">+    pytester.makeconftest(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import pytest</span><span class="a">+</span><span class="a">+        @pytest.hookimpl(hookwrapper=True)</span><span class="a">+        def pytest_runtest_call(item):</span><span class="a">+            outcome = yield</span><span class="a">+            outcome.get_result()</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import gc</span><span class="a">+        import logging</span><span class="a">+</span><span class="a">+        def test_fails():</span><span class="a">+            assert False</span><span class="a">+</span><span class="a">+        def test_caplog(caplog):</span><span class="a">+            gc.collect()</span><span class="a">+            logging.getLogger().error(&quot;TEST&quot;)</span><span class="a">+            assert caplog.messages == [&quot;TEST&quot;]</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    # In-process, the HookRecorder keeps the failing call&#39;s CallInfo, whose</span><span class="a">+    # traceback keeps the suspended wrapper reachable: it is never finalised</span><span class="a">+    # and the test would pass on the affected pluggy versions too.</span><span class="a">+    result = pytester.runpytest_subprocess(</span><span class="a">+        &quot;-W&quot;, &quot;ignore::pluggy.PluggyTeardownRaisedWarning&quot;</span><span class="a">+    )</span><span class="a">+    result.assert_outcomes(passed=1, failed=1)</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_log_report_captures_according_to_config_option_upon_failure(</span><span class="c">     pytester: Pytester,</span><span class="c"> ) -&gt; None:</span><span class="f">uv.lock</span><span class="h">index 065a1fdcd..621c4d9eb 100644</span><span class="h">@@ -554,7 +554,7 @@ requires-dist = [</span><span class="c">     { name = &quot;numpy&quot;, marker = &quot;extra == &#39;dev&#39;&quot;, specifier = &quot;&gt;=1.26&quot; },</span><span class="c">     { name = &quot;packaging&quot;, specifier = &quot;&gt;=24&quot; },</span><span class="c">     { name = &quot;pexpect&quot;, marker = &quot;extra == &#39;dev&#39;&quot;, specifier = &quot;&gt;=4.9&quot; },</span><span class="r">-    { name = &quot;pluggy&quot;, specifier = &quot;&gt;=1.5,&lt;2&quot; },</span><span class="a">+    { name = &quot;pluggy&quot;, specifier = &quot;&gt;=1.6,&lt;2&quot; },</span><span class="c">     { name = &quot;pygments&quot;, specifier = &quot;&gt;=2.15&quot; },</span><span class="c">     { name = &quot;pytest-xdist&quot;, marker = &quot;extra == &#39;dev&#39;&quot;, specifier = &quot;&gt;=3.5&quot; },</span><span class="c">     { name = &quot;pyyaml&quot;, marker = &quot;extra == &#39;dev&#39;&quot; },</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/8321/">Previous · #8321</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/9924/">Next · #9924</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

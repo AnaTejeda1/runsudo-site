@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15132 Native TOML numeric faulthandler_timeout is rejected — pytest-dev/pytest backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15132 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/15132/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#15132</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/15132" rel="noopener" target="_blank">#15132</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/15133" rel="noopener" target="_blank">PR #15133</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title">Native TOML numeric faulthandler_timeout is rejected</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical source change: `parser.addini(&quot;faulthandler_timeout&quot;, ..., type=float | str, default=0.0)`, so correctness is equal and the independent tests confirm both fix the reported rejection of native TOML ints/floats while keeping quoted strings working. The difference is in tests, docs, and scope. Patch A adds one small parametrized test that only checks `getini` returns the raw value (5, 0.01, or the string), which verifies acceptance but not that the value is actually honoured by the timeout path. Patch B adds broader coverage: it goes through `get_timeout_config_value` (the real consumer, which coerces to float), checks the empty-string disable case, checks that INI values still coerce, checks that non-numeric non-string TOML values (bool, array) are still rejected, and adds an end-to-end subprocess test showing a native TOML float actually triggers the traceback dump. One risk in B is that the invalid-value test asserts an exact error-message fragment (`expects one of float | string`) whose wording I cannot verify from the diff; if it differs the test would fail, but the rest of B&#39;s suite stands independently. B also updates the reference docs (`:type:` and the `--help` listing) to reflect the new accepted type, which A leaves stale. B&#39;s incidental doc change to `minversion = &quot;3.0&quot;` is unrelated churn, though harmless and arguably a correction. A&#39;s AUTHORS edit is neutral. Overall B delivers the same fix with meaningfully stronger regression coverage and kept documentation consistent, so B is the better patch.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 19s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">22 passed · 0 skipped · 22 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">84<small>vs 22 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/15132" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Summary</h2>
+<p><code>faulthandler_timeout</code> rejects native numeric values in TOML configuration, even though the option is documented as a float and the TOML examples use a number.</p>
+<h2>Reproduction</h2>
+<p>On pytest <code>main</code> at <code>f5240bef4</code>, with Python 3.12 on Windows:</p>
+<pre><code class="lang-toml">[pytest]
+faulthandler_timeout = 5</code></pre>
+<p>Running a test produces:</p>
+<pre><code class="lang-text">ERROR: pytest.toml: config option &#39;faulthandler_timeout&#39; expects a string, got int: 5</code></pre>
+<p>The same option works when configured through INI-style configuration or as a quoted TOML string.</p>
+<h2>Expected behavior</h2>
+<p>Native TOML integers and floats should be accepted for this float-valued option, consistent with the documentation and the other typed TOML options.</p>
+<p>I have a small local fix and regression test ready for review.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+80</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">changelog/15132.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..a9db0380c</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+The :confval:`faulthandler_timeout` configuration option now accepts integer and float values in TOML configuration files, while still accepting strings for backward compatibility.</span><span class="f">doc/en/reference/reference.rst</span><span class="h">index 540742624..e55f48605 100644</span><span class="h">@@ -1650,9 +1650,12 @@ passed multiple times. The expected format is ``name=value``. For example::</span><span class="c"> </span><span class="c"> </span><span class="c"> .. confval:: faulthandler_timeout</span><span class="r">-   :type: ``float``</span><span class="a">+   :type: ``float | str``</span><span class="c">    :default: ``0`` (disabled)</span><span class="c"> </span><span class="a">+   .. versionchanged:: 9.2</span><span class="a">+        Added support for specifying the value as a number in TOML configuration.</span><span class="a">+</span><span class="c">    Dumps the tracebacks of all threads if a test takes longer than ``X`` seconds to run (including</span><span class="c">    fixture setup and teardown). Implemented using the :func:`faulthandler.dump_traceback_later` function,</span><span class="c">    so all caveats there apply.</span><span class="h">@@ -2222,7 +2225,7 @@ passed multiple times. The expected format is ``name=value``. For example::</span><span class="c">        .. code-block:: toml</span><span class="c"> </span><span class="c">             [pytest]</span><span class="r">-            minversion = 3.0  # will fail if we run with pytest-2.8</span><span class="a">+            minversion = &quot;3.0&quot;  # will fail if we run with pytest-2.8</span><span class="c"> </span><span class="c">    .. tab:: ini</span><span class="c"> </span><span class="h">@@ -3787,7 +3790,7 @@ All the command-line flags can also be obtained by running ``pytest --help``::</span><span class="c">                             Default value for --log-file-date-format</span><span class="c">       log_auto_indent (string):</span><span class="c">                             Default value for --log-auto-indent</span><span class="r">-      faulthandler_timeout (string):</span><span class="a">+      faulthandler_timeout (float | string):</span><span class="c">                             Dump the traceback of all threads if a test takes</span><span class="c">                             more than TIMEOUT seconds to finish</span><span class="c">       faulthandler_exit_on_timeout (bool):</span><span class="f">src/_pytest/faulthandler.py</span><span class="h">index 080cf5838..e92b98936 100644</span><span class="h">@@ -24,7 +24,7 @@ def pytest_addoption(parser: Parser) -&gt; None:</span><span class="c">         &quot;Exit the test process if a test takes more than &quot;</span><span class="c">         &quot;faulthandler_timeout seconds to finish&quot;</span><span class="c">     )</span><span class="r">-    parser.addini(&quot;faulthandler_timeout&quot;, help_timeout, default=0.0)</span><span class="a">+    parser.addini(&quot;faulthandler_timeout&quot;, help_timeout, type=float | str, default=0.0)</span><span class="c">     parser.addini(</span><span class="c">         &quot;faulthandler_exit_on_timeout&quot;, help_exit_on_timeout, type=&quot;bool&quot;, default=False</span><span class="c">     )</span><span class="f">testing/test_faulthandler.py</span><span class="h">index 67ca221f3..3c7053c43 100644</span><span class="h">@@ -118,6 +118,78 @@ def test_timeout(pytester: Pytester, enabled: bool) -&gt; None:</span><span class="c">     assert result.ret == 0</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    (&quot;value&quot;, &quot;expected&quot;),</span><span class="a">+    [(&quot;5&quot;, 5.0), (&quot;0.5&quot;, 0.5), (&#39;&quot;5&quot;&#39;, 5.0), (&#39;&quot;0.5&quot;&#39;, 0.5), (&#39;&quot;&quot;&#39;, 0.0)],</span><span class="a">+)</span><span class="a">+def test_timeout_toml_value(pytester: Pytester, value: str, expected: float) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Native TOML numbers are accepted for faulthandler_timeout, as are</span><span class="a">+    strings for backward compatibility (#15132).&quot;&quot;&quot;</span><span class="a">+    from _pytest.faulthandler import get_timeout_config_value</span><span class="a">+</span><span class="a">+    pytester.maketoml(</span><span class="a">+        f&quot;&quot;&quot;</span><span class="a">+        [pytest]</span><span class="a">+        faulthandler_timeout = {value}</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    config = pytester.parseconfig()</span><span class="a">+    assert get_timeout_config_value(config) == expected</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&quot;value&quot;, [&quot;true&quot;, &quot;[1]&quot;])</span><span class="a">+def test_timeout_toml_invalid_value(pytester: Pytester, value: str) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Non-numeric, non-string TOML values are still rejected (#15132).&quot;&quot;&quot;</span><span class="a">+    pytester.maketoml(</span><span class="a">+        f&quot;&quot;&quot;</span><span class="a">+        [pytest]</span><span class="a">+        faulthandler_timeout = {value}</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    pytester.makepyfile(&quot;def test_ok(): pass&quot;)</span><span class="a">+    result = pytester.runpytest()</span><span class="a">+    result.stderr.fnmatch_lines(</span><span class="a">+        [&quot;*config option &#39;faulthandler_timeout&#39; expects one of float | string, got *&quot;]</span><span class="a">+    )</span><span class="a">+    assert result.ret == pytest.ExitCode.USAGE_ERROR</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize((&quot;value&quot;, &quot;expected&quot;), [(&quot;5&quot;, 5.0), (&quot;&quot;, 0.0)])</span><span class="a">+def test_timeout_ini_value(pytester: Pytester, value: str, expected: float) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;INI values keep being coerced to a float, an empty value disables it.&quot;&quot;&quot;</span><span class="a">+    from _pytest.faulthandler import get_timeout_config_value</span><span class="a">+</span><span class="a">+    pytester.makeini(</span><span class="a">+        f&quot;&quot;&quot;</span><span class="a">+        [pytest]</span><span class="a">+        faulthandler_timeout = {value}</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    config = pytester.parseconfig()</span><span class="a">+    assert get_timeout_config_value(config) == expected</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_timeout_toml_number_dumps_traceback(pytester: Pytester) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;End to end: a native TOML number enables the timeout (#15132).&quot;&quot;&quot;</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    import os, time</span><span class="a">+    def test_timeout():</span><span class="a">+        time.sleep(1 if &quot;CI&quot; in os.environ else 0.1)</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    pytester.maketoml(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        [pytest]</span><span class="a">+        faulthandler_timeout = 0.01</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest_subprocess()</span><span class="a">+    result.stderr.fnmatch_lines([&quot;*most recent call first*&quot;])</span><span class="a">+    result.stdout.fnmatch_lines([&quot;*1 passed*&quot;])</span><span class="a">+    assert result.ret == 0</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.keep_ci_var</span><span class="c"> @pytest.mark.skipif(</span><span class="c">     &quot;CI&quot; in os.environ and sys.platform == &quot;linux&quot; and sys.version_info &gt;= (3, 14),</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/15133" rel="noopener" target="_blank">PR #15133</a></span><span class="pm"><span class="a">+21</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">AUTHORS</span><span class="h">index 3d74b238d..f621dd6dd 100644</span><span class="h">@@ -204,6 +204,7 @@ Grig Gheorghiu</span><span class="c"> Grigorii Eremeev (budulianin)</span><span class="c"> Guido Wesdorp</span><span class="c"> Guoqiang Zhang</span><span class="a">+hfycium</span><span class="c"> Hamza Mobeen</span><span class="c"> Harald Armin Massa</span><span class="c"> Harshna</span><span class="f">changelog/15132.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..1bcb0b05a</span><span class="h">@@ -0,0 +1,2 @@</span><span class="a">+Native TOML numeric values are now accepted for the ``faulthandler_timeout``</span><span class="a">+configuration option.</span><span class="f">src/_pytest/faulthandler.py</span><span class="h">index 080cf5838..e92b98936 100644</span><span class="h">@@ -24,7 +24,7 @@ def pytest_addoption(parser: Parser) -&gt; None:</span><span class="c">         &quot;Exit the test process if a test takes more than &quot;</span><span class="c">         &quot;faulthandler_timeout seconds to finish&quot;</span><span class="c">     )</span><span class="r">-    parser.addini(&quot;faulthandler_timeout&quot;, help_timeout, default=0.0)</span><span class="a">+    parser.addini(&quot;faulthandler_timeout&quot;, help_timeout, type=float | str, default=0.0)</span><span class="c">     parser.addini(</span><span class="c">         &quot;faulthandler_exit_on_timeout&quot;, help_exit_on_timeout, type=&quot;bool&quot;, default=False</span><span class="c">     )</span><span class="f">testing/test_faulthandler.py</span><span class="h">index 67ca221f3..78681d572 100644</span><span class="h">@@ -118,6 +118,23 @@ def test_timeout(pytester: Pytester, enabled: bool) -&gt; None:</span><span class="c">     assert result.ret == 0</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    (&quot;value&quot;, &quot;expected&quot;), [(5, 5), (0.01, 0.01), (&#39;&quot;0.01&quot;&#39;, &quot;0.01&quot;)]</span><span class="a">+)</span><span class="a">+def test_timeout_toml(</span><span class="a">+    pytester: Pytester, value: float | str, expected: float | str</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;The timeout accepts native TOML numbers and strings.&quot;&quot;&quot;</span><span class="a">+    pytester.maketoml(</span><span class="a">+        f&quot;&quot;&quot;</span><span class="a">+        [pytest]</span><span class="a">+        faulthandler_timeout = {value}</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    config = pytester.parseconfig()</span><span class="a">+    assert config.getini(&quot;faulthandler_timeout&quot;) == expected</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.keep_ci_var</span><span class="c"> @pytest.mark.skipif(</span><span class="c">     &quot;CI&quot; in os.environ and sys.platform == &quot;linux&quot; and sys.version_info &gt;= (3, 14),</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/15052/">Previous · #15052</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/15172/">Next · #15172</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

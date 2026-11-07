@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#9924 Leakage of NUMBER option out of docstring scope — pytest-dev/pytest backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #9924 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/9924/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#9924</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/9924" rel="noopener" target="_blank">#9924</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/15033" rel="noopener" target="_blank">PR #15033</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title">Leakage of NUMBER option out of docstring scope</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the same root cause the same way: pytest&#39;s runner raises out of DocTestRunner.run (on failure without --doctest-continue-on-failure, on exceptions, and on skip/xfail outcomes) before CPython&#39;s __run reaches its `self.optionflags = original_optionflags` restore, so per-example directives leak into later doctests sharing the module runner. Patch A saves/restores around `self.runner.run` in `DoctestItem.runtest`; Patch B overrides `run` in the custom runner class. Since runtest is the only caller of run, the two are functionally equivalent, and the independent tests confirm both pass every scenario (including exception and continue-on-failure). B&#39;s placement is slightly more self-contained, but A&#39;s placement is equally correct and simpler.
+
+The difference is in tests. Patch A adds two parametrized regression tests that use `assert_outcomes` with exact counts, cover failure and exception in the first doctest, cover enabling NUMBER, enabling ELLIPSIS, and disabling ELLIPSIS (the opposite direction of leakage, where a leaked `-ELLIPSIS` would make a later test wrongly fail), and separately cover skip and xfail outcomes, which also bypass doctest&#39;s restore. Each of these would fail before the fix and pass after. Patch B&#39;s single test covers failure/exception/skip with +NUMBER only and asserts merely that some failing nodeid ends with the second test&#39;s name, a weaker check that does not pin down total outcomes. Neither test is skipped at runtime (the `pytest.skip` in B is inside a doctest example, not the test itself).
+
+Scope and craft are comparable: both add a one-line changelog and an accurate comment; B&#39;s changelog is more specific, A&#39;s mentions skip/xfail. On balance A wins narrowly on more thorough, precise test coverage with an equivalent fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">3m 33s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">149 passed · 2 skipped · 151 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">56<small>vs 94 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/9924" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>&lt;!--<br>Thanks for submitting an issue!</p>
+<p>Quick check-list while reporting bugs:<br>--&gt;</p>
+<ul><li><input type="checkbox" disabled checked> a detailed description of the bug or problem you are having</li><li><input type="checkbox" disabled checked> output of <code>pip list</code> from the virtual environment you are using</li><li><input type="checkbox" disabled checked> pytest and operating system versions</li><li><input type="checkbox" disabled checked> minimal example if possible</li></ul>
+<p>This was originally noted in #9892, but there is a more targeted MRE here.</p>
+<h3>MRE</h3>
+<p>Running <code>pytest --doctest-modules test_x.py</code> with <code>x=1, 2 or 3</code> results in the following pattern of failing and passing tests.  The test inside <code>test_wo_number</code> incorrectly passes only on the cases (test_1.py and test_2.py) where a failing test that uses <code>NUMBER</code> (test_w_off_by_2_number) also exists in the same module.   This leakage does not occur when there are tests that pass that utilize <code>NUMBER</code> (test_3.py)</p>
+<pre><code class="lang-py"># test_1.py
+def test_w_number():
+    &quot;&quot;&quot;
+    Correctly Passes
+
+    Examples
+    --------
+    &gt;&gt;&gt; 1.  # doctest: +NUMBER
+    0.
+    &quot;&quot;&quot;
+
+def test_w_off_by_2_number():
+    &quot;&quot;&quot;
+    Correctly Fails
+
+    Examples
+    --------
+    &gt;&gt;&gt; 0.  # doctest: +NUMBER
+    2.
+    &quot;&quot;&quot;
+
+def test_wo_number():
+    &quot;&quot;&quot;
+    Incorrectly Passes
+
+    Examples
+    --------
+    &gt;&gt;&gt; 1.
+    0.
+    &quot;&quot;&quot;</code></pre>
+<pre><code class="lang-py"># test_2.py
+def test_w_off_by_2_number():
+    &quot;&quot;&quot;
+    Correctly Fails
+
+    Examples
+    --------
+    &gt;&gt;&gt; 0.  # doctest: +NUMBER
+    2.
+    &quot;&quot;&quot;
+
+
+def test_wo_number():
+    &quot;&quot;&quot;
+    Incorrectly Passes
+
+    Examples
+    --------
+    &gt;&gt;&gt; 1.
+    0.
+    &quot;&quot;&quot;</code></pre>
+<pre><code class="lang-py"># test_3.py
+def test_w_number():
+    &quot;&quot;&quot;
+    Correctly Passes
+
+    Examples
+    --------
+    &gt;&gt;&gt; 1.  # doctest: +NUMBER
+    0.
+    &quot;&quot;&quot;
+
+def test_wo_number():
+    &quot;&quot;&quot;
+    Correctly Fails
+
+    Examples
+    --------
+    &gt;&gt;&gt; 1.
+    0.
+    &quot;&quot;&quot;</code></pre>
+<h3>pip list</h3>
+<pre><code class="lang-txt">Package    Version
+---------- -------
+attrs      21.4.0
+iniconfig  1.1.1
+numpy      1.22.3
+packaging  21.3
+pip        22.0.4
+pluggy     1.0.0
+py         1.11.0
+pyparsing  3.0.8
+pytest     7.1.2
+setuptools 41.2.0
+tomli      2.0.1</code></pre>
+<h3>system version</h3>
+<p>CentOS 7.9</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+56</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">changelog/9924.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..2e2872f09</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed doctest option directives such as ``+NUMBER`` leaking into the following doctests of the same module when a doctest stopped early, e.g. on failure without ``--doctest-continue-on-failure``.</span><span class="f">src/_pytest/doctest.py</span><span class="h">index ea894b3f4..5992c9679 100644</span><span class="h">@@ -196,6 +196,24 @@ def _init_runner_class() -&gt; type[doctest.DocTestRunner]:</span><span class="c">             super().__init__(checker=checker, verbose=verbose, optionflags=optionflags)</span><span class="c">             self.continue_on_failure = continue_on_failure</span><span class="c"> </span><span class="a">+        def run(</span><span class="a">+            self,</span><span class="a">+            test: doctest.DocTest,</span><span class="a">+            compileflags: int | None = None,</span><span class="a">+            out=None,</span><span class="a">+            clear_globs: bool = True,</span><span class="a">+        ) -&gt; doctest.TestResults:</span><span class="a">+            # The runner is shared between all doctests of a module/file, and</span><span class="a">+            # DocTestRunner only restores the optionflags modified by per-example</span><span class="a">+            # directives (e.g. ``# doctest: +NUMBER``) if the run completes</span><span class="a">+            # normally; when a failure is raised mid-run (#9924) they would leak</span><span class="a">+            # into the following doctests, so restore them here.</span><span class="a">+            original_optionflags = self.optionflags</span><span class="a">+            try:</span><span class="a">+                return super().run(test, compileflags, out, clear_globs)</span><span class="a">+            finally:</span><span class="a">+                self.optionflags = original_optionflags</span><span class="a">+</span><span class="c">         def report_failure(</span><span class="c">             self,</span><span class="c">             out,</span><span class="f">testing/test_doctest.py</span><span class="h">index a2b91bc40..33393714b 100644</span><span class="h">@@ -1199,6 +1199,43 @@ class TestLiterals:</span><span class="c">         reprec = pytester.inline_run()</span><span class="c">         reprec.assertoutcome(passed=1)</span><span class="c"> </span><span class="a">+    @pytest.mark.parametrize(</span><span class="a">+        &quot;first_examples&quot;,</span><span class="a">+        [</span><span class="a">+            pytest.param([&quot;&gt;&gt;&gt; 0.  # doctest: +NUMBER&quot;, &quot;2.&quot;], id=&quot;failure&quot;),</span><span class="a">+            pytest.param([&quot;&gt;&gt;&gt; 1 / 0  # doctest: +NUMBER&quot;], id=&quot;exception&quot;),</span><span class="a">+            pytest.param(</span><span class="a">+                [&quot;&gt;&gt;&gt; import pytest; pytest.skip(&#39;skipped&#39;)  # doctest: +NUMBER&quot;],</span><span class="a">+                id=&quot;skip&quot;,</span><span class="a">+            ),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+    @pytest.mark.parametrize(&quot;continue_on_failure&quot;, [False, True])</span><span class="a">+    def test_number_does_not_leak_to_other_doctests(</span><span class="a">+        self, pytester: Pytester, first_examples: list[str], continue_on_failure: bool</span><span class="a">+    ) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;Option directives of an example which stops the run must not leak</span><span class="a">+        into the following doctests of the same module (#9924).&quot;&quot;&quot;</span><span class="a">+        first_body = &quot;&quot;.join(f&quot;    {line}\n&quot; for line in first_examples)</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            &quot;def test_a_with_number():\n&quot;</span><span class="a">+            &#39;    &quot;&quot;&quot;\n&#39;</span><span class="a">+            f&quot;{first_body}&quot;</span><span class="a">+            &#39;    &quot;&quot;&quot;\n&#39;</span><span class="a">+            &quot;\n&quot;</span><span class="a">+            &quot;def test_b_without_number():\n&quot;</span><span class="a">+            &#39;    &quot;&quot;&quot;\n&#39;</span><span class="a">+            &quot;    &gt;&gt;&gt; 1.\n&quot;</span><span class="a">+            &quot;    0.\n&quot;</span><span class="a">+            &#39;    &quot;&quot;&quot;\n&#39;</span><span class="a">+        )</span><span class="a">+        args = [&quot;--doctest-modules&quot;]</span><span class="a">+        if continue_on_failure:</span><span class="a">+            args.append(&quot;--doctest-continue-on-failure&quot;)</span><span class="a">+        reprec = pytester.inline_run(*args)</span><span class="a">+        failed = [rep.nodeid for rep in reprec.getfailures()]</span><span class="a">+        assert any(nodeid.endswith(&quot;.test_b_without_number&quot;) for nodeid in failed)</span><span class="a">+</span><span class="c"> </span><span class="c"> class TestDoctestSkips:</span><span class="c">     &quot;&quot;&quot;</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/15033" rel="noopener" target="_blank">PR #15033</a></span><span class="pm"><span class="a">+91</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">changelog/9924.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..9e26bc6c5</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed doctest option flags leaking between docstrings after a failure, skip, or expected failure.</span><span class="f">src/_pytest/doctest.py</span><span class="h">index ea894b3f4..04d707113 100644</span><span class="h">@@ -297,9 +297,14 @@ class DoctestItem(Item):</span><span class="c">         _check_all_skipped(self.dtest)</span><span class="c">         self._disable_output_capturing_for_darwin()</span><span class="c">         failures: list[doctest.DocTestFailure] = []</span><span class="r">-        # Type ignored because we change the type of `out` from what</span><span class="r">-        # doctest expects.</span><span class="r">-        self.runner.run(self.dtest, out=failures)  # type: ignore[arg-type]</span><span class="a">+        optionflags = self.runner.optionflags</span><span class="a">+        try:</span><span class="a">+            # Type ignored because we change the type of `out` from what</span><span class="a">+            # doctest expects.</span><span class="a">+            self.runner.run(self.dtest, out=failures)  # type: ignore[arg-type]</span><span class="a">+        finally:</span><span class="a">+            # Our runner can raise before doctest restores its option flags.</span><span class="a">+            self.runner.optionflags = optionflags</span><span class="c">         if failures:</span><span class="c">             raise MultipleDoctestFailures(failures)</span><span class="c"> </span><span class="f">testing/test_doctest.py</span><span class="h">index a2b91bc40..a322e9eb2 100644</span><span class="h">@@ -272,6 +272,35 @@ class TestDoctests:</span><span class="c">             ]</span><span class="c">         )</span><span class="c"> </span><span class="a">+    @pytest.mark.parametrize(&quot;outcome&quot;, [&quot;skip&quot;, &quot;xfail&quot;])</span><span class="a">+    @pytest.mark.parametrize(&quot;continue_on_failure&quot;, [False, True])</span><span class="a">+    def test_optionflags_restored_after_outcome(</span><span class="a">+        self, pytester: Pytester, outcome: str, continue_on_failure: bool</span><span class="a">+    ) -&gt; None:</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            f&quot;&quot;&quot;</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+            def first():</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+                &gt;&gt;&gt; pytest.{outcome}(&quot;reason&quot;)  # doctest: -ELLIPSIS</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+</span><span class="a">+            def second():</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+                &gt;&gt;&gt; print(&quot;foobar&quot;)</span><span class="a">+                foo...</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        args = [&quot;--doctest-modules&quot;]</span><span class="a">+        if continue_on_failure:</span><span class="a">+            args.append(&quot;--doctest-continue-on-failure&quot;)</span><span class="a">+        result = pytester.runpytest(*args)</span><span class="a">+        result.assert_outcomes(</span><span class="a">+            passed=1, skipped=int(outcome == &quot;skip&quot;), xfailed=int(outcome == &quot;xfail&quot;)</span><span class="a">+        )</span><span class="a">+</span><span class="c">     def test_docstring_partial_context_around_error(self, pytester: Pytester):</span><span class="c">         &quot;&quot;&quot;Test that we show some context before the actual line of a failing</span><span class="c">         doctest.</span><span class="h">@@ -679,6 +708,59 @@ class TestDoctests:</span><span class="c">         reprec = pytester.inline_run(p, &quot;--doctest-modules&quot;)</span><span class="c">         reprec.assertoutcome(failed=1, passed=1)</span><span class="c"> </span><span class="a">+    @pytest.mark.parametrize(&quot;continue_on_failure&quot;, [False, True])</span><span class="a">+    @pytest.mark.parametrize(&quot;first_example&quot;, [&quot;0.&quot;, &quot;1 / 0&quot;])</span><span class="a">+    @pytest.mark.parametrize(</span><span class="a">+        &quot;optionflags, directive, second_example, second_output, passed&quot;,</span><span class="a">+        [</span><span class="a">+            pytest.param(&quot;ELLIPSIS&quot;, &quot;+NUMBER&quot;, &quot;1.&quot;, &quot;0.&quot;, 0, id=&quot;enable-number&quot;),</span><span class="a">+            pytest.param(</span><span class="a">+                &quot;&quot;, &quot;+ELLIPSIS&quot;, &#39;print(&quot;foobar&quot;)&#39;, &quot;foo...&quot;, 0, id=&quot;enable-ellipsis&quot;</span><span class="a">+            ),</span><span class="a">+            pytest.param(</span><span class="a">+                &quot;ELLIPSIS&quot;,</span><span class="a">+                &quot;-ELLIPSIS&quot;,</span><span class="a">+                &#39;print(&quot;foobar&quot;)&#39;,</span><span class="a">+                &quot;foo...&quot;,</span><span class="a">+                1,</span><span class="a">+                id=&quot;disable-ellipsis&quot;,</span><span class="a">+            ),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+    def test_optionflags_do_not_leak_between_docstrings(</span><span class="a">+        self,</span><span class="a">+        pytester: Pytester,</span><span class="a">+        continue_on_failure: bool,</span><span class="a">+        first_example: str,</span><span class="a">+        optionflags: str,</span><span class="a">+        directive: str,</span><span class="a">+        second_example: str,</span><span class="a">+        second_output: str,</span><span class="a">+        passed: int,</span><span class="a">+    ) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;A failing docstring must not change another&#39;s comparison options (#9924).&quot;&quot;&quot;</span><span class="a">+        pytester.makeini(f&quot;[pytest]\ndoctest_optionflags = {optionflags}&quot;)</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            f&quot;&quot;&quot;</span><span class="a">+            def first():</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+                &gt;&gt;&gt; {first_example}  # doctest: {directive}</span><span class="a">+                2.</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+</span><span class="a">+            def second():</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+                &gt;&gt;&gt; {second_example}</span><span class="a">+                {second_output}</span><span class="a">+                &#39;&#39;&#39;</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        args = [&quot;--doctest-modules&quot;]</span><span class="a">+        if continue_on_failure:</span><span class="a">+            args.append(&quot;--doctest-continue-on-failure&quot;)</span><span class="a">+        result = pytester.runpytest(*args)</span><span class="a">+        result.assert_outcomes(failed=2 - passed, passed=passed)</span><span class="a">+</span><span class="c">     def test_ignored_whitespace(self, pytester: Pytester):</span><span class="c">         pytester.makeini(</span><span class="c">             &quot;&quot;&quot;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/9236/">Previous · #9236</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/10210/">Next · #10210</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

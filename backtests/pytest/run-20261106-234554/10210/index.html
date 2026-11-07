@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#10210 `pytest.approx` does not raise in mixed data type nested structures — pytest-dev/pytest backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #10210 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/10210/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#10210</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/10210" rel="noopener" target="_blank">#10210</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/14934" rel="noopener" target="_blank">PR #14934</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title"><code>pytest.approx</code> does not raise in mixed data type nested structures</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way: they replace the `isinstance(x, type(expected))` check with a generic &#39;is this a non-string Collection&#39; predicate in both ApproxMapping and ApproxSequenceLike, and every independent test passes on both. The differences are in craft and tests. Patch B distinguishes, inside a mapping, a nested Mapping (keeps the &#39;nested dictionaries&#39; message) from other nested containers (uses the &#39;nested data structures&#39; message), so `approx({&quot;k&quot;: [1]})` reports accurately. Patch A routes every nested value in a dict through the &#39;nested dictionaries&#39; message, so a list inside a dict is reported as a nested dictionary, which is misleading, and A&#39;s tests codify that inaccurate wording. Patch B&#39;s parametrized construction test is also broader (list/tuple/dict parents each paired with list/tuple/set/dict children) and its comparison test mirrors the issue&#39;s exact reproductions including the equal-values case. Patch A has one small advantage: it excludes bytearray as well as str/bytes, and adds tests for bytes leaves, whereas B would now raise for a bytearray element, an obscure edge the issue does not mention. B&#39;s extra `or _is_sequence_like(x)` is redundant but harmless. On balance B&#39;s more accurate error reporting and more thorough tests outweigh A&#39;s bytearray handling.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 18s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">725 passed · 4 skipped · 729 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">44<small>vs 51 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/10210" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>&lt;!--<br>Thanks for submitting an issue!</p>
+<p>Quick check-list while reporting bugs:<br>--&gt;</p>
+<h3>description</h3>
+<p>when using <code>pytest.approx</code> on nested data structures I&#39;d expect it to raise an exception also for mixed data type containers like a <code>tuple</code> in a <code>list</code>. So far it only works for the same data types e.g. lists in lists, tuples in tuples.<br>For mixed data structures it incorrectly returns <code>False</code>, even though they should match which is a little misleading (also see below).</p>
+<h3>output of <code>pip list</code></h3>
+<pre><code class="lang-console">(venv) kittnjdr@ububox:~/workspace/pytest$ pip list
+Package    Version                 Editable project location
+---------- ----------------------- -------------------------------
+attrs      22.1.0
+iniconfig  1.1.1
+packaging  21.3
+pip        22.1.2
+pluggy     1.0.0
+py         1.11.0
+pyparsing  3.0.9
+pytest     7.2.0.dev232+gcc0092b9d /home/kittnjdr/workspace/pytest
+setuptools 63.2.0
+tomli      2.0.1
+wheel      0.37.1</code></pre>
+<h3>versions</h3>
+<ul><li>pytest: main branch</li><li>OS: ubuntu 22.04</li></ul>
+<h3>minimal reproduction</h3>
+<pre><code class="lang-pycon">&gt;&gt;&gt; import pytest
+&gt;&gt;&gt; [(1.0001,)] == pytest.approx([(1,)], rel=1e-2)
+False
+&gt;&gt;&gt; ({1.0001},) == pytest.approx(({1},), rel=1e-2)
+False
+&gt;&gt;&gt; ({&quot;key&quot;: 1.0001},) == pytest.approx(({&quot;key&quot;: 1},), rel=1e-2)
+False
+&gt;&gt;&gt; (1.0001,) == pytest.approx((1,), rel=1e-2)
+True
+&gt;&gt;&gt; ((1.0001,),) == pytest.approx(((1,),), rel=1e-2)
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;/home/kittnjdr/workspace/pytest/src/_pytest/python_api.py&quot;, line 744, in approx
+    return cls(expected, rel, abs, nan_ok)
+  File &quot;/home/kittnjdr/workspace/pytest/src/_pytest/python_api.py&quot;, line 86, in __init__
+    self._check_type()
+  File &quot;/home/kittnjdr/workspace/pytest/src/_pytest/python_api.py&quot;, line 381, in _check_type
+    raise TypeError(msg.format(x, index, pprint.pformat(self.expected)))
+TypeError: pytest.approx() does not support nested data structures: (1,) at index 0
+  full sequence: ((1,),)</code></pre>
+<p>however, it works fine if both are exactly the same, but here I&#39;d also expect an exception instead of a result (which is correct, but maybe unintentional)</p>
+<pre><code class="lang-pycon">&gt;&gt;&gt; [(1.0,)] == pytest.approx([(1.0,)])
+True</code></pre>
+<h3>test cases</h3>
+<p>These test cases fail, but should pass with the potential bug fixed.</p>
+<pre><code class="lang-diff">diff --git a/testing/python/approx.py b/testing/python/approx.py
+index 6acb466ff..31dd4638b 100644
+--- a/testing/python/approx.py
++++ b/testing/python/approx.py
+@@ -781,6 +781,10 @@ class TestApprox:
+         &quot;x, name&quot;,
+         [
+             pytest.param([[1]], &quot;data structures&quot;, id=&quot;nested-list&quot;),
++            pytest.param([(1,)], &quot;data structures&quot;, id=&quot;nested-list-tuple&quot;),
++            pytest.param([{1}], &quot;data structures&quot;, id=&quot;nested-list-set&quot;),
++            pytest.param([{&quot;key&quot;: 1}], &quot;data structures&quot;, id=&quot;nested-list-dict&quot;),
+             pytest.param({&quot;key&quot;: {&quot;key&quot;: 1}}, &quot;dictionaries&quot;, id=&quot;nested-dict&quot;),
+         ],
+     )</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+42</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">changelog/10194.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..5a3e46ab8</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+:func:`pytest.approx` now raises :class:`TypeError` when the expected value contains a nested data structure of a different type than its container (for example a tuple inside a list, or a list inside a dictionary), instead of silently returning an incorrect comparison result.</span><span class="f">src/_pytest/approx.py</span><span class="h">index d040c249e..52f4e8f15 100644</span><span class="h">@@ -260,9 +260,12 @@ class ApproxMapping(Approx[Mapping[Any, Any]]):</span><span class="c">         __tracebackhide__ = True</span><span class="c"> </span><span class="c">         for key, value in expected.items():</span><span class="r">-            if isinstance(value, type(expected)):</span><span class="a">+            if isinstance(value, Mapping):</span><span class="c">                 msg = &quot;pytest.approx() does not support nested dictionaries: key={!r} value={!r}\n  full mapping={}&quot;</span><span class="c">                 raise TypeError(msg.format(key, value, pprint.pformat(expected)))</span><span class="a">+            if _is_nested_data_structure(value):</span><span class="a">+                msg = &quot;pytest.approx() does not support nested data structures: key={!r} value={!r}\n  full mapping={}&quot;</span><span class="a">+                raise TypeError(msg.format(key, value, pprint.pformat(expected)))</span><span class="c"> </span><span class="c">         super().__init__(expected, rel=rel, abs=abs, nan_ok=nan_ok)</span><span class="c"> </span><span class="h">@@ -358,7 +361,7 @@ class ApproxSequenceLike(Approx[Sequence[Any]]):</span><span class="c">         __tracebackhide__ = True</span><span class="c"> </span><span class="c">         for index, x in enumerate(expected):</span><span class="r">-            if isinstance(x, type(expected)):</span><span class="a">+            if _is_nested_data_structure(x):</span><span class="c">                 msg = &quot;pytest.approx() does not support nested data structures: {!r} at index {}\n  full sequence: {}&quot;</span><span class="c">                 raise TypeError(msg.format(x, index, pprint.pformat(expected)))</span><span class="c"> </span><span class="h">@@ -979,6 +982,14 @@ def _is_sequence_like(expected: object) -&gt; TypeGuard[Sequence[Any]]:</span><span class="c">     )</span><span class="c"> </span><span class="c"> </span><span class="a">+def _is_nested_data_structure(x: object) -&gt; bool:</span><span class="a">+    &quot;&quot;&quot;Return True if ``x`` is a container that cannot be an element of an</span><span class="a">+    expected sequence or mapping (strings and bytes are treated as scalars).&quot;&quot;&quot;</span><span class="a">+    if isinstance(x, str | bytes):</span><span class="a">+        return False</span><span class="a">+    return isinstance(x, Collection) or _is_sequence_like(x)</span><span class="a">+</span><span class="a">+</span><span class="c"> def _as_numpy_array(obj: object) -&gt; ndarray | None:</span><span class="c">     &quot;&quot;&quot;</span><span class="c">     Return an ndarray if the given object is implicitly convertible to ndarray,</span><span class="f">testing/python/approx.py</span><span class="h">index 8cac6f454..ce3c7522d 100644</span><span class="h">@@ -923,7 +923,17 @@ class TestApprox:</span><span class="c">         &quot;x, name&quot;,</span><span class="c">         [</span><span class="c">             pytest.param([[1]], &quot;data structures&quot;, id=&quot;nested-list&quot;),</span><span class="a">+            pytest.param([(1,)], &quot;data structures&quot;, id=&quot;nested-list-tuple&quot;),</span><span class="a">+            pytest.param([{1}], &quot;data structures&quot;, id=&quot;nested-list-set&quot;),</span><span class="a">+            pytest.param([{&quot;key&quot;: 1}], &quot;data structures&quot;, id=&quot;nested-list-dict&quot;),</span><span class="a">+            pytest.param(((1,),), &quot;data structures&quot;, id=&quot;nested-tuple&quot;),</span><span class="a">+            pytest.param(([1],), &quot;data structures&quot;, id=&quot;nested-tuple-list&quot;),</span><span class="a">+            pytest.param(({1},), &quot;data structures&quot;, id=&quot;nested-tuple-set&quot;),</span><span class="a">+            pytest.param(({&quot;key&quot;: 1},), &quot;data structures&quot;, id=&quot;nested-tuple-dict&quot;),</span><span class="c">             pytest.param({&quot;key&quot;: {&quot;key&quot;: 1}}, &quot;dictionaries&quot;, id=&quot;nested-dict&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: [1]}, &quot;data structures&quot;, id=&quot;nested-dict-list&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: (1,)}, &quot;data structures&quot;, id=&quot;nested-dict-tuple&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: {1}}, &quot;data structures&quot;, id=&quot;nested-dict-set&quot;),</span><span class="c">         ],</span><span class="c">     )</span><span class="c">     def test_expected_value_type_error(self, x, name):</span><span class="h">@@ -933,6 +943,24 @@ class TestApprox:</span><span class="c">         ):</span><span class="c">             approx(x)</span><span class="c"> </span><span class="a">+    @pytest.mark.parametrize(</span><span class="a">+        &quot;actual, expected&quot;,</span><span class="a">+        [</span><span class="a">+            pytest.param([(1.0001,)], [(1,)], id=&quot;list-tuple&quot;),</span><span class="a">+            pytest.param(({1.0001},), ({1},), id=&quot;tuple-set&quot;),</span><span class="a">+            pytest.param(({&quot;key&quot;: 1.0001},), ({&quot;key&quot;: 1},), id=&quot;tuple-dict&quot;),</span><span class="a">+            pytest.param([(1.0,)], [(1.0,)], id=&quot;list-tuple-equal&quot;),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+    def test_mixed_nested_data_structures_raise(self, actual, expected):</span><span class="a">+        &quot;&quot;&quot;Comparing against mixed nested containers raises instead of</span><span class="a">+        silently returning a wrong result (#10194).&quot;&quot;&quot;</span><span class="a">+        with pytest.raises(</span><span class="a">+            TypeError,</span><span class="a">+            match=r&quot;pytest.approx\(\) does not support nested data structures:&quot;,</span><span class="a">+        ):</span><span class="a">+            assert actual == approx(expected, rel=1e-2)</span><span class="a">+</span><span class="c">     @pytest.mark.parametrize(</span><span class="c">         &quot;x&quot;,</span><span class="c">         [</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/14934" rel="noopener" target="_blank">PR #14934</a></span><span class="pm"><span class="a">+49</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">AUTHORS</span><span class="h">index 2805077f4..d1a2d3e79 100644</span><span class="h">@@ -373,6 +373,7 @@ Omar Kohl</span><span class="c"> Omer Hadari</span><span class="c"> Omri Golan</span><span class="c"> Ondřej Súkup</span><span class="a">+Onkesh Bansal</span><span class="c"> Oscar Benjamin</span><span class="c"> Parth Patel</span><span class="c"> Patrick Hayes</span><span class="f">changelog/10210.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..d89cbb02c</span><span class="h">@@ -0,0 +1,5 @@</span><span class="a">+:func:`pytest.approx` now raises a ``TypeError`` for any nested container, not</span><span class="a">+only for one of the same type as its parent. Previously ``approx([{&quot;k&quot;: 1}])``</span><span class="a">+and ``approx({&quot;k&quot;: [1]})`` were accepted and then compared unequal to every</span><span class="a">+value, silently ignoring the tolerance, while ``approx([[1]])`` correctly</span><span class="a">+reported that nesting is unsupported.</span><span class="f">src/_pytest/approx.py</span><span class="h">index d040c249e..780de1467 100644</span><span class="h">@@ -260,7 +260,7 @@ class ApproxMapping(Approx[Mapping[Any, Any]]):</span><span class="c">         __tracebackhide__ = True</span><span class="c"> </span><span class="c">         for key, value in expected.items():</span><span class="r">-            if isinstance(value, type(expected)):</span><span class="a">+            if _is_nested_container(value):</span><span class="c">                 msg = &quot;pytest.approx() does not support nested dictionaries: key={!r} value={!r}\n  full mapping={}&quot;</span><span class="c">                 raise TypeError(msg.format(key, value, pprint.pformat(expected)))</span><span class="c"> </span><span class="h">@@ -358,7 +358,7 @@ class ApproxSequenceLike(Approx[Sequence[Any]]):</span><span class="c">         __tracebackhide__ = True</span><span class="c"> </span><span class="c">         for index, x in enumerate(expected):</span><span class="r">-            if isinstance(x, type(expected)):</span><span class="a">+            if _is_nested_container(x):</span><span class="c">                 msg = &quot;pytest.approx() does not support nested data structures: {!r} at index {}\n  full sequence: {}&quot;</span><span class="c">                 raise TypeError(msg.format(x, index, pprint.pformat(expected)))</span><span class="c"> </span><span class="h">@@ -979,6 +979,17 @@ def _is_sequence_like(expected: object) -&gt; TypeGuard[Sequence[Any]]:</span><span class="c">     )</span><span class="c"> </span><span class="c"> </span><span class="a">+def _is_nested_container(value: object) -&gt; bool:</span><span class="a">+    &quot;&quot;&quot;Whether ``value`` is a container ``approx`` cannot descend into.</span><span class="a">+</span><span class="a">+    ``str``, ``bytes`` and ``bytearray`` are collections as well, but they</span><span class="a">+    compare exactly and are handled as leaves, so they are not nesting.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    return isinstance(value, Collection) and not isinstance(</span><span class="a">+        value, str | bytes | bytearray</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="c"> def _as_numpy_array(obj: object) -&gt; ndarray | None:</span><span class="c">     &quot;&quot;&quot;</span><span class="c">     Return an ndarray if the given object is implicitly convertible to ndarray,</span><span class="f">testing/python/approx.py</span><span class="h">index 8cac6f454..c63529791 100644</span><span class="h">@@ -923,7 +923,14 @@ class TestApprox:</span><span class="c">         &quot;x, name&quot;,</span><span class="c">         [</span><span class="c">             pytest.param([[1]], &quot;data structures&quot;, id=&quot;nested-list&quot;),</span><span class="a">+            pytest.param([(1,)], &quot;data structures&quot;, id=&quot;list-of-tuple&quot;),</span><span class="a">+            pytest.param([{1}], &quot;data structures&quot;, id=&quot;list-of-set&quot;),</span><span class="a">+            pytest.param([{&quot;key&quot;: 1}], &quot;data structures&quot;, id=&quot;list-of-dict&quot;),</span><span class="a">+            pytest.param(({&quot;key&quot;: 1},), &quot;data structures&quot;, id=&quot;tuple-of-dict&quot;),</span><span class="c">             pytest.param({&quot;key&quot;: {&quot;key&quot;: 1}}, &quot;dictionaries&quot;, id=&quot;nested-dict&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: [1]}, &quot;dictionaries&quot;, id=&quot;dict-of-list&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: (1,)}, &quot;dictionaries&quot;, id=&quot;dict-of-tuple&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: {1}}, &quot;dictionaries&quot;, id=&quot;dict-of-set&quot;),</span><span class="c">         ],</span><span class="c">     )</span><span class="c">     def test_expected_value_type_error(self, x, name):</span><span class="h">@@ -933,6 +940,27 @@ class TestApprox:</span><span class="c">         ):</span><span class="c">             approx(x)</span><span class="c"> </span><span class="a">+    @pytest.mark.parametrize(</span><span class="a">+        &quot;expected, actual&quot;,</span><span class="a">+        [</span><span class="a">+            pytest.param([{&quot;key&quot;: 1.0}], [{&quot;key&quot;: 1.0 + 1e-9}], id=&quot;list-of-dict&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: [1.0]}, {&quot;key&quot;: [1.0 + 1e-9]}, id=&quot;dict-of-list&quot;),</span><span class="a">+            pytest.param([(1.0,)], [(1.0 + 1e-9,)], id=&quot;list-of-tuple&quot;),</span><span class="a">+            pytest.param(({1.0},), ({1.0 + 1e-9},), id=&quot;tuple-of-set&quot;),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+    def test_mixed_nested_containers_raise_instead_of_comparing_unequal(</span><span class="a">+        self, expected, actual</span><span class="a">+    ):</span><span class="a">+        &quot;&quot;&quot;A nested container of a different type used to slip past the check.</span><span class="a">+</span><span class="a">+        It was then compared as a leaf, so these all returned ``False``</span><span class="a">+        despite being well inside the default tolerance, silently ignoring</span><span class="a">+        it rather than reporting that nesting is unsupported (#10210).</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        with pytest.raises(TypeError, match=r&quot;pytest.approx\(\) does not support&quot;):</span><span class="a">+            actual == approx(expected)</span><span class="a">+</span><span class="c">     @pytest.mark.parametrize(</span><span class="c">         &quot;x&quot;,</span><span class="c">         [</span><span class="h">@@ -940,6 +968,8 @@ class TestApprox:</span><span class="c">             pytest.param(&quot;string&quot;),</span><span class="c">             pytest.param([&quot;string&quot;], id=&quot;nested-str&quot;),</span><span class="c">             pytest.param({&quot;key&quot;: &quot;string&quot;}, id=&quot;dict-with-string&quot;),</span><span class="a">+            pytest.param([b&quot;bytes&quot;], id=&quot;nested-bytes&quot;),</span><span class="a">+            pytest.param({&quot;key&quot;: b&quot;bytes&quot;}, id=&quot;dict-with-bytes&quot;),</span><span class="c">         ],</span><span class="c">     )</span><span class="c">     def test_nonnumeric_okay_if_equal(self, x):</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/9924/">Previous · #9924</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/10745/">Next · #10745</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

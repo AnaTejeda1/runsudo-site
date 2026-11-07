@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#8321 Exceptions without a traceback print multiple times if chained — pytest-dev/pytest backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #8321 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/8321/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#8321</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/8321" rel="noopener" target="_blank">#8321</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/14781" rel="noopener" target="_blank">PR #14781</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title">Exceptions without a traceback print multiple times if chained</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches stop the duplication for the issue&#39;s exact example (independent tests for the plain chain pass on both). Patch B does so by passing chain=False to format_exception in the no-traceback fallback only. That leaves the same root cause in the exception-group branch, which also calls format_exception with chaining enabled and even formats the outer excinfo.value instead of the current chain element `e`, so a traceback-less exception group in a chain still gets its chain printed twice; the independent test test_exception_group_without_traceback_in_chain fails on B and passes on A. B&#39;s chain=False would also drop the __cause__/__context__ of exception-group members if a group ever hit the fallback. Patch A addresses the root cause in both call sites with a helper that nulls only the top-level cause/context on a TracebackException, preserving member chains, and fixes the excinfo/excinfo_ mix-up. Its tests cover the issue example, group chain non-duplication, and member chains still shown; the adjustment to the existing exceptiongroup test expectation (matching the E-prefixed SyntaxError line) follows from no longer natively rendering the chain and is consistent. B&#39;s changelog and AUTHORS entries are good convention, but they do not outweigh an incomplete fix. A wins on correctness and test coverage.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 4s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">290 passed · 13 skipped · 303 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">153<small>vs 73 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/8321" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>Minimal example:</p>
+<pre><code class="lang-py">def test_errors():
+    ex1 = ValueError(&quot;abcd&quot;)
+    ex2 = IndexError(&quot;efgh&quot;)
+    ex3 = KeyError(&quot;ijkl&quot;)
+    ex4 = RuntimeError(&quot;mnop&quot;)
+    ex1.__cause__ = ex2
+    ex2.__context__ = ex3
+    ex3.__cause__ = ex4
+    raise ex1</code></pre>
+<p>Which has the following output:<br>&lt;details&gt;<br>&lt;summary&gt;Expand&lt;/summary&gt;</p>
+<pre><code>RuntimeError: mnop
+
+The above exception was the direct cause of the following exception:
+RuntimeError: mnop
+
+The above exception was the direct cause of the following exception:
+
+KeyError: &#39;ijkl&#39;
+
+During handling of the above exception, another exception occurred:
+RuntimeError: mnop
+
+The above exception was the direct cause of the following exception:
+
+KeyError: &#39;ijkl&#39;
+
+During handling of the above exception, another exception occurred:
+
+IndexError: efgh
+
+The above exception was the direct cause of the following exception:
+
+    def test_errors():
+        ex1 = ValueError(&quot;abcd&quot;)
+        ex2 = IndexError(&quot;efgh&quot;)
+        ex3 = KeyError(&quot;ijkl&quot;)
+        ex4 = RuntimeError(&quot;mnop&quot;)
+        ex1.__cause__ = ex2
+        ex2.__context__ = ex3
+        ex3.__cause__ = ex4
+&gt;       raise ex1
+E       ValueError: abcd
+
+test.py:9: ValueError</code></pre>
+<p>&lt;/details&gt;</p>
+<p>What&#39;s happening is a little clearer when running with colourful output, the first, third and sixth &quot;the above exception&quot; lines are highlighted, but the rest are plain. Seems at each step of the chain, the full traceback for that exception is output, which includes that of any that happened higher in the chain. This only happens if <code>__traceback__</code> is <code>None</code>, in practice I found this by messing with it on caught exceptions.</p>
+<p>&lt;details&gt;<br>&lt;summary&gt;System details&lt;/summary&gt;</p>
+<p>Windows 10</p>
+<pre><code>&gt; python --version
+Python 3.9.0
+&gt; pip list
+Package      Version
+------------ -------
+atomicwrites 1.4.0
+attrs        20.3.0
+colorama     0.4.4
+iniconfig    1.1.1
+packaging    20.9
+pip          21.0.1
+pluggy       0.13.1
+py           1.10.0
+pyparsing    2.4.7
+pytest       6.2.2
+setuptools   52.0.0
+toml         0.10.2
+wheel        0.36.2</code></pre>
+<p>&lt;/details&gt;</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+146</span> <span class="r">−7</span></span></div><pre class="diff"><span class="f">src/_pytest/_code/code.py</span><span class="h">index 3c453b15d..093ba8ceb 100644</span><span class="h">@@ -17,6 +17,7 @@ from traceback import extract_tb</span><span class="c"> from traceback import format_exception</span><span class="c"> from traceback import format_exception_only</span><span class="c"> from traceback import FrameSummary</span><span class="a">+from traceback import TracebackException</span><span class="c"> from types import CodeType</span><span class="c"> from types import FrameType</span><span class="c"> from types import TracebackType</span><span class="h">@@ -871,6 +872,21 @@ class ExceptionInfo(Generic[E]):</span><span class="c"> TracebackFilter: TypeAlias = bool | Callable[[ExceptionInfo[BaseException]], Traceback]</span><span class="c"> </span><span class="c"> </span><span class="a">+def _format_exception_unchained(</span><span class="a">+    exc: BaseException, tb: TracebackType | None</span><span class="a">+) -&gt; list[str]:</span><span class="a">+    &quot;&quot;&quot;Format ``exc`` natively, without its own ``__cause__``/``__context__``.</span><span class="a">+</span><span class="a">+    The chain is walked (and rendered) by ``repr_excinfo`` itself, so it must</span><span class="a">+    not be repeated here. ``chain=False`` can&#39;t be used for that, because it</span><span class="a">+    would also drop the chains of the sub-exceptions of exception groups.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    te = TracebackException(type(exc), exc, tb, compact=True)</span><span class="a">+    te.__cause__ = None</span><span class="a">+    te.__context__ = None</span><span class="a">+    return list(te.format())</span><span class="a">+</span><span class="a">+</span><span class="c"> @dataclasses.dataclass</span><span class="c"> class ExceptionInfoFormatter:</span><span class="c">     &quot;&quot;&quot;Helper object to format ExceptionInfo&#39;s and individual exception parts</span><span class="h">@@ -1205,17 +1221,15 @@ class ExceptionInfoFormatter:</span><span class="c">                 reprtraceback: ReprTraceback | ReprTracebackNative</span><span class="c">                 if isinstance(e, BaseExceptionGroup):</span><span class="c">                     # don&#39;t filter any sub-exceptions since they shouldn&#39;t have any internal frames</span><span class="r">-                    traceback = filter_excinfo_traceback(self.tbfilter, excinfo)</span><span class="a">+                    traceback = filter_excinfo_traceback(self.tbfilter, excinfo_)</span><span class="c">                     extraline = (</span><span class="c">                         &quot;All traceback entries are hidden. Pass `--full-trace` to see hidden and internal frames.&quot;</span><span class="c">                         if not traceback</span><span class="c">                         else None</span><span class="c">                     )</span><span class="c">                     reprtraceback = ReprTracebackNative(</span><span class="r">-                        format_exception(</span><span class="r">-                            type(excinfo.value),</span><span class="r">-                            excinfo.value,</span><span class="r">-                            traceback[0]._rawentry if traceback else None,</span><span class="a">+                        _format_exception_unchained(</span><span class="a">+                            e, traceback[0]._rawentry if traceback else None</span><span class="c">                         ),</span><span class="c">                         extraline=extraline,</span><span class="c">                     )</span><span class="h">@@ -1226,7 +1240,9 @@ class ExceptionInfoFormatter:</span><span class="c">             else:</span><span class="c">                 # Fallback to native repr if the exception doesn&#39;t have a traceback:</span><span class="c">                 # ExceptionInfo objects require a full traceback to work.</span><span class="r">-                reprtraceback = ReprTracebackNative(format_exception(type(e), e, None))</span><span class="a">+                reprtraceback = ReprTracebackNative(</span><span class="a">+                    _format_exception_unchained(e, None)</span><span class="a">+                )</span><span class="c">                 reprcrash = None</span><span class="c">             repr_chain.append((reprtraceback, reprcrash, description))</span><span class="c"> </span><span class="f">testing/code/test_excinfo.py</span><span class="h">index 883a7c5f9..cb3479135 100644</span><span class="h">@@ -1592,6 +1592,48 @@ raise ValueError()</span><span class="c">             ]</span><span class="c">         )</span><span class="c"> </span><span class="a">+    def test_exc_chain_repr_without_traceback_not_duplicated(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;Exceptions without a traceback in a chain are shown exactly once,</span><span class="a">+        not once per later exception in the chain.&quot;&quot;&quot;</span><span class="a">+        ex1 = ValueError(&quot;abcd&quot;)</span><span class="a">+        ex2 = IndexError(&quot;efgh&quot;)</span><span class="a">+        ex3 = KeyError(&quot;ijkl&quot;)</span><span class="a">+        ex4 = RuntimeError(&quot;mnop&quot;)</span><span class="a">+        ex1.__cause__ = ex2</span><span class="a">+        ex2.__context__ = ex3</span><span class="a">+        ex3.__cause__ = ex4</span><span class="a">+</span><span class="a">+        with pytest.raises(ValueError) as excinfo:</span><span class="a">+            raise ex1</span><span class="a">+</span><span class="a">+        r = excinfo.getrepr()</span><span class="a">+        file = io.StringIO()</span><span class="a">+        tw = TerminalWriter(file=file)</span><span class="a">+        tw.hasmarkup = False</span><span class="a">+        r.toterminal(tw)</span><span class="a">+        output = file.getvalue()</span><span class="a">+</span><span class="a">+        cause = &quot;The above exception was the direct cause of the following exception:&quot;</span><span class="a">+        context = &quot;During handling of the above exception, another exception occurred:&quot;</span><span class="a">+        assert output.count(&quot;RuntimeError: mnop&quot;) == 1</span><span class="a">+        assert output.count(&quot;KeyError: &#39;ijkl&#39;&quot;) == 1</span><span class="a">+        assert output.count(&quot;IndexError: efgh&quot;) == 1</span><span class="a">+        assert output.count(cause) == 2</span><span class="a">+        assert output.count(context) == 1</span><span class="a">+        matcher = LineMatcher(output.splitlines())</span><span class="a">+        matcher.fnmatch_lines(</span><span class="a">+            [</span><span class="a">+                &quot;RuntimeError: mnop&quot;,</span><span class="a">+                cause,</span><span class="a">+                &quot;KeyError: &#39;ijkl&#39;&quot;,</span><span class="a">+                context,</span><span class="a">+                &quot;IndexError: efgh&quot;,</span><span class="a">+                cause,</span><span class="a">+                &quot;*raise ex1&quot;,</span><span class="a">+                &quot;E*ValueError: abcd&quot;,</span><span class="a">+            ]</span><span class="a">+        )</span><span class="a">+</span><span class="c">     def test_exc_chain_repr_cycle(self, importasmod, tw_mock):</span><span class="c">         __tracebackhide__ = True</span><span class="c">         mod = importasmod(</span><span class="h">@@ -1829,7 +1871,7 @@ def _exceptiongroup_common(</span><span class="c">     result = pytester.runpytest()</span><span class="c">     match_lines = []</span><span class="c">     if inner_chain in (&quot;another&quot;, &quot;from&quot;):</span><span class="r">-        match_lines.append(r&quot;SyntaxError: &lt;no detail available&gt;&quot;)</span><span class="a">+        match_lines.append(r&quot;E\s+SyntaxError: &lt;no detail available&gt;&quot;)</span><span class="c"> </span><span class="c">     match_lines += [</span><span class="c">         r&quot;  + Exception Group Traceback (most recent call last):&quot;,</span><span class="h">@@ -1867,6 +1909,87 @@ def test_exceptiongroup(pytester: Pytester, outer_chain, inner_chain) -&gt; None:</span><span class="c">     _exceptiongroup_common(pytester, outer_chain, inner_chain, native=False)</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_exceptiongroup_chain_not_duplicated(pytester: Pytester) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Each exception in a chain containing an exception group is shown once.&quot;&quot;&quot;</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import sys</span><span class="a">+</span><span class="a">+        if sys.version_info &lt; (3, 11):</span><span class="a">+            from exceptiongroup import ExceptionGroup</span><span class="a">+</span><span class="a">+        def test() -&gt; None:</span><span class="a">+            try:</span><span class="a">+                try:</span><span class="a">+                    raise KeyError(&quot;first&quot;)</span><span class="a">+                except KeyError as e:</span><span class="a">+                    raise ExceptionGroup(&quot;group&quot;, [ValueError(&quot;member&quot;)]) from e</span><span class="a">+            except ExceptionGroup as e:</span><span class="a">+                raise IndexError(&quot;last&quot;) from e</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest()</span><span class="a">+    assert result.ret == 1</span><span class="a">+    output = result.stdout.str()</span><span class="a">+    assert output.count(&quot;KeyError: &#39;first&#39;&quot;) == 1</span><span class="a">+    assert output.count(&quot;Exception Group Traceback&quot;) == 1</span><span class="a">+    assert output.count(&quot;ValueError: member&quot;) == 1</span><span class="a">+    assert (</span><span class="a">+        output.count(</span><span class="a">+            &quot;The above exception was the direct cause of the following exception:&quot;</span><span class="a">+        )</span><span class="a">+        == 2</span><span class="a">+    )</span><span class="a">+    result.stdout.re_match_lines(</span><span class="a">+        [</span><span class="a">+            r&quot;E\s+KeyError: &#39;first&#39;&quot;,</span><span class="a">+            r&quot;The above exception was the direct cause of the following exception:&quot;,</span><span class="a">+            r&quot;  \+ Exception Group Traceback \(most recent call last\):&quot;,</span><span class="a">+            r&quot;.*ExceptionGroup: group \(1 sub-exception\)&quot;,</span><span class="a">+            r&quot;    \| ValueError: member&quot;,</span><span class="a">+            r&quot;The above exception was the direct cause of the following exception:&quot;,</span><span class="a">+            r&quot;E\s+IndexError: last&quot;,</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_exceptiongroup_member_chain_shown(pytester: Pytester) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;The chain of a sub-exception is still shown when the group is chained.&quot;&quot;&quot;</span><span class="a">+    pytester.makepyfile(</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        import sys</span><span class="a">+</span><span class="a">+        if sys.version_info &lt; (3, 11):</span><span class="a">+            from exceptiongroup import ExceptionGroup</span><span class="a">+</span><span class="a">+        def test() -&gt; None:</span><span class="a">+            member = ValueError(&quot;member&quot;)</span><span class="a">+            member.__cause__ = KeyError(&quot;inner-cause&quot;)</span><span class="a">+            try:</span><span class="a">+                raise KeyError(&quot;outer-cause&quot;)</span><span class="a">+            except KeyError as e:</span><span class="a">+                raise ExceptionGroup(&quot;group&quot;, [member]) from e</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+    )</span><span class="a">+    result = pytester.runpytest()</span><span class="a">+    assert result.ret == 1</span><span class="a">+    output = result.stdout.str()</span><span class="a">+    assert output.count(&quot;KeyError: &#39;outer-cause&#39;&quot;) == 1</span><span class="a">+    assert output.count(&quot;KeyError: &#39;inner-cause&#39;&quot;) == 1</span><span class="a">+    assert output.count(&quot;ValueError: member&quot;) == 1</span><span class="a">+    result.stdout.re_match_lines(</span><span class="a">+        [</span><span class="a">+            r&quot;E\s+KeyError: &#39;outer-cause&#39;&quot;,</span><span class="a">+            r&quot;The above exception was the direct cause of the following exception:&quot;,</span><span class="a">+            r&quot;  \+ Exception Group Traceback \(most recent call last\):&quot;,</span><span class="a">+            r&quot;.*ExceptionGroup: group \(1 sub-exception\)&quot;,</span><span class="a">+            r&quot;    \| KeyError: &#39;inner-cause&#39;&quot;,</span><span class="a">+            r&quot;    \| The above exception was the direct cause of the following exception:&quot;,</span><span class="a">+            r&quot;    \| ValueError: member&quot;,</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_exceptiongroup_short_summary_info(pytester: Pytester):</span><span class="c">     pytester.makepyfile(</span><span class="c">         &quot;&quot;&quot;</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/14781" rel="noopener" target="_blank">PR #14781</a></span><span class="pm"><span class="a">+72</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">AUTHORS</span><span class="h">index 2154e3bab..d43b41324 100644</span><span class="h">@@ -440,6 +440,7 @@ Sankt Petersbug</span><span class="c"> Saravanan Padmanaban</span><span class="c"> Sean Malloy</span><span class="c"> Segev Finer</span><span class="a">+SemTiOne</span><span class="c"> Serhii Mozghovyi</span><span class="c"> Seth Junot</span><span class="c"> Shantanu Jain</span><span class="f">changelog/8321.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..7a91fa6aa</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed exception chains being duplicated in the traceback output when an exception in the chain (``__cause__``/``__context__``) has no traceback of its own, and that exception is itself linked to further exceptions.</span><span class="f">src/_pytest/_code/code.py</span><span class="h">index 3c453b15d..e37a1324c 100644</span><span class="h">@@ -1226,7 +1226,9 @@ class ExceptionInfoFormatter:</span><span class="c">             else:</span><span class="c">                 # Fallback to native repr if the exception doesn&#39;t have a traceback:</span><span class="c">                 # ExceptionInfo objects require a full traceback to work.</span><span class="r">-                reprtraceback = ReprTracebackNative(format_exception(type(e), e, None))</span><span class="a">+                reprtraceback = ReprTracebackNative(</span><span class="a">+                    format_exception(type(e), e, None, chain=False)</span><span class="a">+                )</span><span class="c">                 reprcrash = None</span><span class="c">             repr_chain.append((reprtraceback, reprcrash, description))</span><span class="c"> </span><span class="f">testing/code/test_excinfo.py</span><span class="h">index 883a7c5f9..d3872068a 100644</span><span class="h">@@ -1592,6 +1592,73 @@ raise ValueError()</span><span class="c">             ]</span><span class="c">         )</span><span class="c"> </span><span class="a">+    def test_exc_chain_repr_without_traceback_multiple_links(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        Exceptions without a traceback that are themselves part of a longer</span><span class="a">+        chain must not have their remaining chain printed twice: once by</span><span class="a">+        Python&#39;s own ``traceback.format_exception`` (used as a fallback when</span><span class="a">+        an exception has no ``__traceback__``) and once more by pytest&#39;s own</span><span class="a">+        chain-walking loop (#8321).</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        exc1 = ValueError(&quot;abcd&quot;)</span><span class="a">+        exc2 = IndexError(&quot;efgh&quot;)</span><span class="a">+        exc3 = KeyError(&quot;ijkl&quot;)</span><span class="a">+        exc4 = RuntimeError(&quot;mnop&quot;)</span><span class="a">+        exc1.__cause__ = exc2</span><span class="a">+        exc2.__context__ = exc3</span><span class="a">+        exc3.__cause__ = exc4</span><span class="a">+</span><span class="a">+        try:</span><span class="a">+            raise exc1</span><span class="a">+        except ValueError:</span><span class="a">+            excinfo = ExceptionInfo.from_current()</span><span class="a">+</span><span class="a">+        r = excinfo.getrepr()</span><span class="a">+        file = io.StringIO()</span><span class="a">+        tw = TerminalWriter(file=file)</span><span class="a">+        tw.hasmarkup = False</span><span class="a">+        r.toterminal(tw)</span><span class="a">+</span><span class="a">+        output = file.getvalue()</span><span class="a">+        for message in (</span><span class="a">+            &quot;ValueError: abcd&quot;,</span><span class="a">+            &quot;IndexError: efgh&quot;,</span><span class="a">+            &quot;KeyError: &#39;ijkl&#39;&quot;,</span><span class="a">+            &quot;RuntimeError: mnop&quot;,</span><span class="a">+        ):</span><span class="a">+            assert output.count(message) == 1, (</span><span class="a">+                f&quot;{message!r} should appear exactly once in the output, &quot;</span><span class="a">+                f&quot;got {output.count(message)} occurrences:\n{output}&quot;</span><span class="a">+            )</span><span class="a">+        assert output.count(&quot;The above exception was the direct cause&quot;) == 2</span><span class="a">+        assert output.count(&quot;During handling of the above exception&quot;) == 1</span><span class="a">+</span><span class="a">+    def test_exc_chain_repr_mixed_traceback(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        An exception without a traceback whose chain member has a traceback</span><span class="a">+        must have that member printed once, in pytest&#39;s own style.</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        exc1 = ValueError(&quot;outer without traceback&quot;)</span><span class="a">+        try:</span><span class="a">+            raise RuntimeError(&quot;inner with traceback&quot;)</span><span class="a">+        except RuntimeError as exc:</span><span class="a">+            exc1.__cause__ = exc</span><span class="a">+        try:</span><span class="a">+            raise exc1</span><span class="a">+        except ValueError:</span><span class="a">+            excinfo = ExceptionInfo.from_current()</span><span class="a">+</span><span class="a">+        r = excinfo.getrepr()</span><span class="a">+        file = io.StringIO()</span><span class="a">+        tw = TerminalWriter(file=file)</span><span class="a">+        tw.hasmarkup = False</span><span class="a">+        r.toterminal(tw)</span><span class="a">+</span><span class="a">+        output = file.getvalue()</span><span class="a">+        assert output.count(&quot;ValueError: outer without traceback&quot;) == 1</span><span class="a">+        assert output.count(&quot;RuntimeError: inner with traceback&quot;) == 1</span><span class="a">+        assert output.count(&quot;The above exception was the direct cause&quot;) == 1</span><span class="a">+</span><span class="c">     def test_exc_chain_repr_cycle(self, importasmod, tw_mock):</span><span class="c">         __tracebackhide__ = True</span><span class="c">         mod = importasmod(</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/6997/">Previous · #6997</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/9236/">Next · #9236</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

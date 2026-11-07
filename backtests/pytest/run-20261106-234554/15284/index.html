@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#15284 `pytest.approx`: 9.2.0 broke compatibility with JAX arrays — pytest-dev/pytest backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #15284 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/15284/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#15284</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/15284" rel="noopener" target="_blank">#15284</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/15285" rel="noopener" target="_blank">PR #15285</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title"><code>pytest.approx</code>: 9.2.0 broke compatibility with JAX arrays</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the reported NotImplementedError, and the independent tests pass identically for both. The difference is in root cause vs. symptom. Patch A wraps the `.flat` lookup in `try/except NotImplementedError`, which is keyed to JAX&#39;s specific failure mode: any other array-like whose `.flat` raises a different exception (or returns something non-iterable) would break again, and the fix leaves `_contains_decimal` inspecting a foreign object&#39;s `.flat` even though `approx()` itself never compares the object that way. Patch B removes that reliance entirely by routing array-likes through `_as_numpy_array`, the same dispatch `approx()` uses for comparison, so the Decimal check now inspects exactly the ndarray that will be compared. That also makes the warning actually fire for array-likes of Decimals, which B covers with a dedicated test, and it drops the confusing `getattr(expected, &#39;flat&#39;, expected)` trick in favour of plain iteration for ordinary sequences. B&#39;s regression test covers 0-d and 1-d plus both `rel` and `abs`; A&#39;s covers 0-d/1-d/2-d and in/out of tolerance, so test quality is comparable. The main cost of B is one extra `__array__` conversion at approx construction time (a device-to-host copy for JAX), which is a performance tradeoff rather than a correctness problem; A&#39;s test explicitly asserts a single conversion, showing it avoids that. On balance B&#39;s structural fix is more robust and consistent with the surrounding code, while A is a narrower special case, so B wins on correctness and craft despite the extra conversion.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">3m 21s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">761 passed · 4 skipped · 765 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">50<small>vs 42 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/15284" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>&lt;!--<br>Thanks for submitting an issue!</p>
+<p>Quick check-list while reporting bugs:<br>--&gt;</p>
+<ul><li><input type="checkbox" disabled checked> a detailed description of the bug or problem you are having</li><li><input type="checkbox" disabled checked> output of <code>pip list</code> from the virtual environment you are using</li><li><input type="checkbox" disabled checked> pytest and operating system versions</li><li><input type="checkbox" disabled checked> minimal example if possible</li></ul>
+<p><strong>Description</strong></p>
+<p>#15006 broke compatibility with <a href="https://github.com/jax-ml/jax" rel="noopener nofollow" target="_blank">JAX</a> arrays when used with <code>pytest.approx</code>.</p>
+<p><strong>Minimal example</strong></p>
+<pre><code class="lang-python">import jax.numpy as jnp
+import pytest
+
+def test_jax_approx():
+    assert jnp.array(42) == pytest.approx(jnp.array(42), rel=1e-3)</code></pre>
+<p>With pytest 9.1.1: OK</p>
+<p>With pytest 9.2.0:</p>
+<pre><code>========================================================== FAILURES ===========================================================
+_______________________________________________________ test_jax_approx _______________________________________________________
+
+    def test_jax_approx():
+&gt;       assert jnp.array(42) == pytest.approx(jnp.array(42), rel=1e-3)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test.py:5: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv/lib/python3.14/site-packages/_pytest/approx.py:1062: in _warn_on_inexact_decimal_tolerance
+    if not inexact or not _contains_decimal(expected):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/_pytest/approx.py:1036: in _contains_decimal
+    values = getattr(expected, &quot;flat&quot;, expected)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = Array(42, dtype=int32, weak_type=True)
+
+    def _notimplemented_flat(self):
+      &quot;&quot;&quot;Not implemented: Use :meth:`~jax.Array.flatten` instead.&quot;&quot;&quot;
+&gt;     raise NotImplementedError(&quot;JAX Arrays do not implement the arr.flat property: &quot;
+                                &quot;consider arr.flatten() instead.&quot;)
+E     NotImplementedError: JAX Arrays do not implement the arr.flat property: consider arr.flatten() instead.
+
+.venv/lib/python3.14/site-packages/jax/_src/numpy/array_methods.py:650: NotImplementedError
+=================================================== short test summary info ===================================================
+FAILED test.py::test_jax_approx - NotImplementedError: JAX Arrays do not implement the arr.flat property: consider arr.flatten() instead.
+====================================================== 1 failed in 0.28s ======================================================</code></pre>
+<p>The cause is here:</p>
+<p><a href="https://github.com/pytest-dev/pytest/blob/a7b2446ee41a7298d3a0bc22c52f3b8bacae1566/src/_pytest/approx.py#L1033-L1037" rel="noopener nofollow" target="_blank">https://github.com/pytest-dev/pytest/blob/a7b2446ee41a7298d3a0bc22c52f3b8bacae1566/src/_pytest/approx.py#L1033-L1037</a></p>
+<p>Line 1036 tries to access the <code>flat</code> attribute/property of the instance of <code>jax.Array</code> which on this class immediately raises a <code>NotImplementedError</code> (and has always done so AFAICT).</p>
+<p><strong><code>uv pip list</code></strong></p>
+<pre><code>Package    Version
+---------- --------
+iniconfig  2.3.1
+jax        0.12.0.1
+jaxlib     0.12.0.1
+ml-dtypes  0.6.0
+numpy      2.5.4
+opt-einsum 3.4.0
+packaging  26.3
+pluggy     1.7.0
+pygments   2.21.0
+pytest     9.2.0
+scipy      1.18.1</code></pre>
+<p><strong>pytest 9.2.0 on Ubuntu 26.04.1</strong></p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+46</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">changelog/15284.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..b4668d7bd</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed a regression in pytest 9.2.0 where :func:`pytest.approx` raised ``NotImplementedError`` when given a float ``rel`` or ``abs`` tolerance and an array-like whose ``.flat`` is not implemented, such as a JAX array.</span><span class="f">src/_pytest/approx.py</span><span class="h">index 70a881e33..751e04f0b 100644</span><span class="h">@@ -1030,11 +1030,14 @@ def _contains_decimal(expected: object) -&gt; bool:</span><span class="c">         return True</span><span class="c">     if isinstance(expected, Mapping):</span><span class="c">         return any(isinstance(value, Decimal) for value in expected.values())</span><span class="a">+    if (np_array := _as_numpy_array(expected)) is not None:</span><span class="a">+        # Mirror approx(): array-likes are compared via their ndarray form.</span><span class="a">+        # Their own ``.flat`` cannot be relied upon (JAX arrays raise</span><span class="a">+        # NotImplementedError); the ndarray&#39;s ``.flat`` also makes a 0-d</span><span class="a">+        # array iterable, which it is not otherwise.</span><span class="a">+        return any(isinstance(value, Decimal) for value in np_array.flat)</span><span class="c">     if _is_sequence_like(expected):</span><span class="r">-        # ``.flat`` also makes a 0-d numpy array iterable, which it is not</span><span class="r">-        # otherwise, despite being sized and subscriptable.</span><span class="r">-        values = getattr(expected, &quot;flat&quot;, expected)</span><span class="r">-        return any(isinstance(value, Decimal) for value in values)</span><span class="a">+        return any(isinstance(value, Decimal) for value in expected)</span><span class="c">     return False</span><span class="c"> </span><span class="c"> </span><span class="f">testing/python/approx.py</span><span class="h">index e0bfc37f8..0cd1f4bda 100644</span><span class="h">@@ -928,6 +928,44 @@ class TestApprox:</span><span class="c">         assert approx(DeviceScalar(expected)) == actual</span><span class="c">         assert approx(DeviceScalar(expected)) == DeviceScalar(actual)</span><span class="c"> </span><span class="a">+    @pytest.mark.parametrize(&quot;value&quot;, [42, [1.0, 2.0, 3.0]], ids=[&quot;0d&quot;, &quot;1d&quot;])</span><span class="a">+    def test_array_like_without_flat_with_rel(self, value) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;Array-likes whose ``.flat`` raises, like JAX arrays (#15284).&quot;&quot;&quot;</span><span class="a">+        np = pytest.importorskip(&quot;numpy&quot;)</span><span class="a">+</span><span class="a">+        class JaxLikeArray:</span><span class="a">+            def __init__(self, vals):</span><span class="a">+                self.vals = np.array(vals)</span><span class="a">+</span><span class="a">+            def __array__(self, dtype=None, copy=None):</span><span class="a">+                return self.vals</span><span class="a">+</span><span class="a">+            def __len__(self):</span><span class="a">+                return len(self.vals)</span><span class="a">+</span><span class="a">+            def __getitem__(self, item):</span><span class="a">+                return self.vals[item]</span><span class="a">+</span><span class="a">+            @property</span><span class="a">+            def flat(self):</span><span class="a">+                raise NotImplementedError(&quot;arrays do not implement arr.flat&quot;)</span><span class="a">+</span><span class="a">+        assert JaxLikeArray(value) == approx(JaxLikeArray(value), rel=1e-3)</span><span class="a">+        assert JaxLikeArray(value) == approx(JaxLikeArray(value), abs=0.01)</span><span class="a">+</span><span class="a">+    def test_array_like_of_decimals_warns_on_inexact_tolerance(self) -&gt; None:</span><span class="a">+        np = pytest.importorskip(&quot;numpy&quot;)</span><span class="a">+</span><span class="a">+        class DecimalArray:</span><span class="a">+            def __array__(self, dtype=None, copy=None):</span><span class="a">+                return np.array([Decimal(&quot;2.60&quot;)], dtype=object)</span><span class="a">+</span><span class="a">+        with pytest.warns(</span><span class="a">+            pytest.PytestApproxDecimalToleranceWarning,</span><span class="a">+            match=r&quot;rel=0\.01 cannot be represented exactly&quot;,</span><span class="a">+        ):</span><span class="a">+            approx(DecimalArray(), rel=0.01)</span><span class="a">+</span><span class="c">     def test_doctests(self, mocked_doctest_runner) -&gt; None:</span><span class="c">         import doctest</span><span class="c"> </span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/15285" rel="noopener" target="_blank">PR #15285</a></span><span class="pm"><span class="a">+41</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">AUTHORS</span><span class="h">index 9e4327c77..136ffd6c5 100644</span><span class="h">@@ -187,6 +187,7 @@ Floris Bruynooghe</span><span class="c"> Frank Hoffmann</span><span class="c"> Fraser Stark</span><span class="c"> Freya Bruhin</span><span class="a">+Gabriel Gerlero</span><span class="c"> Gabriel Landau</span><span class="c"> Gabriel Reis</span><span class="c"> Gang Eun Lee</span><span class="f">changelog/15284.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..51e828405</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed a regression in :func:`pytest.approx` with JAX arrays when an inexact float tolerance is supplied.</span><span class="f">src/_pytest/approx.py</span><span class="h">index 70a881e33..10c88d423 100644</span><span class="h">@@ -1033,7 +1033,10 @@ def _contains_decimal(expected: object) -&gt; bool:</span><span class="c">     if _is_sequence_like(expected):</span><span class="c">         # ``.flat`` also makes a 0-d numpy array iterable, which it is not</span><span class="c">         # otherwise, despite being sized and subscriptable.</span><span class="r">-        values = getattr(expected, &quot;flat&quot;, expected)</span><span class="a">+        try:</span><span class="a">+            values = getattr(expected, &quot;flat&quot;, expected)</span><span class="a">+        except NotImplementedError:  # ``.flat`` raises like this on a jax.Array</span><span class="a">+            return False  # But JAX arrays cannot contain `Decimal` anyway</span><span class="c">         return any(isinstance(value, Decimal) for value in values)</span><span class="c">     return False</span><span class="c"> </span><span class="f">testing/python/approx.py</span><span class="h">index e0bfc37f8..35adcfea1 100644</span><span class="h">@@ -898,6 +898,41 @@ class TestApprox:</span><span class="c">         # see issue #12114 for test case</span><span class="c">         assert vec1 != approx(vec2)</span><span class="c"> </span><span class="a">+    @pytest.mark.parametrize(&quot;values&quot;, (42, [42, 43], [[42, 43], [44, 45]]))</span><span class="a">+    def test_custom_array_unimplemented_flat(self, values) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;Test handling of an array which raises NotImplementedError from</span><span class="a">+        `flat`, as is done by JAX (#15284).&quot;&quot;&quot;</span><span class="a">+        np = pytest.importorskip(&quot;numpy&quot;)</span><span class="a">+</span><span class="a">+        class CustomArray:</span><span class="a">+            def __init__(self, values, /):</span><span class="a">+                self.values = values</span><span class="a">+                self.array_conversions = 0</span><span class="a">+</span><span class="a">+            def __array__(self, dtype=None, copy=None):</span><span class="a">+                self.array_conversions += 1</span><span class="a">+                return np.array(self.values, dtype=dtype, copy=copy)</span><span class="a">+</span><span class="a">+            def __getitem__(self, _):</span><span class="a">+                raise AssertionError(&quot;Should not be called&quot;)  # pragma: no cover</span><span class="a">+</span><span class="a">+            def __len__(self):</span><span class="a">+                raise AssertionError(&quot;Should not be called&quot;)  # pragma: no cover</span><span class="a">+</span><span class="a">+            @property</span><span class="a">+            def flat(self):</span><span class="a">+                raise NotImplementedError(&quot;this class does not provide .flat&quot;)</span><span class="a">+</span><span class="a">+        actual = np.array(values)</span><span class="a">+        expected = CustomArray(values)</span><span class="a">+</span><span class="a">+        assert actual == approx(expected, rel=1e-3)</span><span class="a">+        assert expected.array_conversions == 1</span><span class="a">+        assert actual + 1e-4 == approx(expected, rel=1e-3)</span><span class="a">+        assert expected.array_conversions == 2</span><span class="a">+        assert actual + 1 != approx(expected, rel=1e-3)</span><span class="a">+        assert expected.array_conversions == 3</span><span class="a">+</span><span class="c">     def test_numpy_array_protocol(self):</span><span class="c">         &quot;&quot;&quot;</span><span class="c">         array-like objects such as tensorflow&#39;s DeviceArray are handled like ndarray.</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/15172/">Previous · #15172</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/15290/">Next · #15290</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

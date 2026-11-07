@@ -607,8 +607,10 @@
     {
       "slug": "pytest",
       "name": "pytest-dev/pytest",
-      "description": "",
-      "languages": [],
+      "description": "Testing framework for Python: plain asserts, fixtures and a large plugin ecosystem.",
+      "languages": [
+        "Python"
+      ],
       "status": "active",
       "runs": [
         {
@@ -627,6 +629,23 @@
           "footnote": "",
           "judge": "panel",
           "unlisted": true
+        },
+        {
+          "date": "2026-11-06",
+          "id": "run-20261106-234554",
+          "source_runs": [
+            "run-20261106-214456",
+            "run-20261106-234554"
+          ],
+          "tickets": 30,
+          "better": 25,
+          "par": 0,
+          "worse": 4,
+          "tie": 0,
+          "error": 1,
+          "notes": "First pytest run; one sample split across two harness runs after a lane setup failure",
+          "footnote": "",
+          "judge": "panel"
         }
       ]
     }

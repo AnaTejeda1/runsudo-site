@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#14909 MonkeyPatch records stale undo entries when delattr/setitem/delitem fails — pytest-dev/pytest backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #14909 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/14909/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#14909</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/14909" rel="noopener" target="_blank">#14909</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/14910" rel="noopener" target="_blank">PR #14910</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title">MonkeyPatch records stale undo entries when delattr/setitem/delitem fails</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The source changes in the two patches are byte-identical (same blob hashes d6db72455..9ae9e2ba9): both capture the old value, perform the mutation, and append the undo entry only on success, for delattr, setitem and delitem. Independent tests confirm both fix every scenario, so the decision rests on tests, scope and craft. Patch A adds three standalone MonkeyPatch unit tests that assert the target is unchanged both before and after undo(), plus a pytester-based test that reproduces the issue&#39;s actual reported symptom: the monkeypatch fixture teardown no longer errors after a failed delattr/setitem/delitem. That end-to-end test is the most faithful regression check for the issue as described. Patch B&#39;s three failure tests are equivalent in strength to A&#39;s unit tests (they would fail on base because the explicit undo() raises), but B adds a fourth test that merely re-exercises successful setitem/delitem/undo, which existing test_setitem/test_delitem already cover; its docstring explicitly justifies it as a codecov patch-coverage workaround, which is noise unrelated to the bug. B&#39;s placement at module level next to test_delitem is slightly more natural than A&#39;s placement inside TestSetattrWithImportPath, though A&#39;s location sits next to the analogous setattr-failure test from the prior fix, so it is defensible. Changelogs are both adequate. Overall A&#39;s test suite is more targeted at the reported teardown behavior and contains no filler, giving it a modest edge.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 46s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,154 passed · 31 skipped · 2,185 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">84<small>vs 61 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/14909" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>While looking at #14161 and its fix in #14209, I noticed that the same undo-ordering problem still exists in <code>MonkeyPatch.delattr</code>, <code>MonkeyPatch.setitem</code>, and <code>MonkeyPatch.delitem</code>.</p>
+<p>These methods register an undo entry before attempting the mutation. If the mutation raises, the target remains unchanged, but <code>undo()</code> later tries to restore a change that never happened.</p>
+<p>Minimal reproduction:</p>
+<pre><code class="lang-python">from types import MappingProxyType
+
+import pytest
+
+
+def test_failed_delattr(monkeypatch):
+    class A:
+        __slots__ = ()
+        x = 1
+
+    a = A()
+    with pytest.raises(AttributeError):
+        monkeypatch.delattr(a, &quot;x&quot;)
+    assert a.x == 1
+
+
+def test_failed_setitem(monkeypatch):
+    mapping = MappingProxyType({&quot;x&quot;: 1})
+    with pytest.raises(TypeError):
+        monkeypatch.setitem(mapping, &quot;x&quot;, 2)
+    assert mapping[&quot;x&quot;] == 1
+
+
+def test_failed_delitem(monkeypatch):
+    mapping = MappingProxyType({&quot;x&quot;: 1})
+    with pytest.raises(TypeError):
+        monkeypatch.delitem(mapping, &quot;x&quot;)
+    assert mapping[&quot;x&quot;] == 1</code></pre>
+<p>On current <code>main</code>, the original exceptions are caught and all three targets remain unchanged. However, fixture teardown calls <code>undo()</code> and produces another error for each test because the failed operations left stale undo entries.</p>
+<p>I think the fix would be to follow the ordering already used by <code>MonkeyPatch.setattr</code> after #14209:</p>
+<ul><li>Save the original value.</li><li>Attempt the mutation.</li><li>Register the undo entry only after the mutation succeeds.</li></ul>
+<p>Successful operations would keep their existing behavior.</p>
+<p>I reproduced this locally and have a small fix with regression tests ready. If maintainers agree that this is a bug and that the proposed approach is appropriate, I would be happy to submit a PR. Could this issue be assigned to me?</p>
+<p>Environment:</p>
+<ul><li>pytest <code>9.2.0.dev204+gc0ab40c93</code></li><li>Python 3.12.13</li><li>Red Hat Enterprise Linux 9.8</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+81</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">changelog/14909.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..84494b1a3</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+:meth:`MonkeyPatch.delattr &lt;pytest.MonkeyPatch.delattr&gt;`, :meth:`MonkeyPatch.setitem &lt;pytest.MonkeyPatch.setitem&gt;` and :meth:`MonkeyPatch.delitem &lt;pytest.MonkeyPatch.delitem&gt;` no longer record an undo entry when the underlying operation fails, which previously caused errors during ``monkeypatch`` fixture teardown.</span><span class="f">src/_pytest/monkeypatch.py</span><span class="h">index d6db72455..9ae9e2ba9 100644</span><span class="h">@@ -282,14 +282,15 @@ class MonkeyPatch:</span><span class="c">             # Avoid class descriptors like staticmethod/classmethod.</span><span class="c">             if inspect.isclass(target):</span><span class="c">                 oldval = target.__dict__.get(name, NOTSET)</span><span class="r">-            self._setattr.append((target, name, oldval))</span><span class="c">             delattr(target, name)</span><span class="a">+            self._setattr.append((target, name, oldval))</span><span class="c"> </span><span class="c">     def setitem(self, dic: Mapping[K, V], name: K, value: V) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Set dictionary entry ``name`` to value.&quot;&quot;&quot;</span><span class="r">-        self._setitem.append((dic, name, dic.get(name, NOTSET)))</span><span class="a">+        oldval = dic.get(name, NOTSET)</span><span class="c">         # Not all Mapping types support indexing, but MutableMapping doesn&#39;t support TypedDict</span><span class="c">         dic[name] = value  # type: ignore[index]</span><span class="a">+        self._setitem.append((dic, name, oldval))</span><span class="c"> </span><span class="c">     def delitem(self, dic: Mapping[K, V], name: K, raising: bool = True) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Delete ``name`` from dict.</span><span class="h">@@ -301,9 +302,10 @@ class MonkeyPatch:</span><span class="c">             if raising:</span><span class="c">                 raise KeyError(name)</span><span class="c">         else:</span><span class="r">-            self._setitem.append((dic, name, dic.get(name, NOTSET)))</span><span class="a">+            oldval = dic.get(name, NOTSET)</span><span class="c">             # Not all Mapping types support indexing, but MutableMapping doesn&#39;t support TypedDict</span><span class="c">             del dic[name]  # type: ignore[attr-defined]</span><span class="a">+            self._setitem.append((dic, name, oldval))</span><span class="c"> </span><span class="c">     def setenv(self, name: str, value: str, prepend: str | None = None) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Set environment variable ``name`` to ``value``.</span><span class="f">testing/test_monkeypatch.py</span><span class="h">index 04b16a1e8..5a487cd94 100644</span><span class="h">@@ -7,6 +7,7 @@ from pathlib import Path</span><span class="c"> import re</span><span class="c"> import sys</span><span class="c"> import textwrap</span><span class="a">+from types import MappingProxyType</span><span class="c"> import warnings</span><span class="c"> </span><span class="c"> from _pytest.monkeypatch import MonkeyPatch</span><span class="h">@@ -106,6 +107,80 @@ class TestSetattrWithImportPath:</span><span class="c">         # undo() must not raise — no entry should be on the undo stack.</span><span class="c">         monkeypatch.undo()</span><span class="c"> </span><span class="a">+    def test_delattr_failure_does_not_corrupt_undo(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;A failed delattr() must not leave a stale undo entry.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+        class A:</span><span class="a">+            __slots__ = ()</span><span class="a">+            x = 1</span><span class="a">+</span><span class="a">+        a = A()</span><span class="a">+        mp = MonkeyPatch()</span><span class="a">+        with pytest.raises(AttributeError):</span><span class="a">+            mp.delattr(a, &quot;x&quot;)</span><span class="a">+        assert a.x == 1</span><span class="a">+        # undo() must not try to restore an attribute that was never deleted.</span><span class="a">+        mp.undo()</span><span class="a">+        assert a.x == 1</span><span class="a">+</span><span class="a">+    def test_setitem_failure_does_not_corrupt_undo(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;A failed setitem() must not leave a stale undo entry.&quot;&quot;&quot;</span><span class="a">+        mapping = MappingProxyType({&quot;x&quot;: 1})</span><span class="a">+        mp = MonkeyPatch()</span><span class="a">+        with pytest.raises(TypeError):</span><span class="a">+            mp.setitem(mapping, &quot;x&quot;, 2)</span><span class="a">+        assert mapping[&quot;x&quot;] == 1</span><span class="a">+        mp.undo()</span><span class="a">+        assert mapping[&quot;x&quot;] == 1</span><span class="a">+</span><span class="a">+    def test_delitem_failure_does_not_corrupt_undo(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;A failed delitem() must not leave a stale undo entry.&quot;&quot;&quot;</span><span class="a">+        mapping = MappingProxyType({&quot;x&quot;: 1})</span><span class="a">+        mp = MonkeyPatch()</span><span class="a">+        with pytest.raises(TypeError):</span><span class="a">+            mp.delitem(mapping, &quot;x&quot;)</span><span class="a">+        assert mapping[&quot;x&quot;] == 1</span><span class="a">+        mp.undo()</span><span class="a">+        assert mapping[&quot;x&quot;] == 1</span><span class="a">+</span><span class="a">+    def test_failed_patches_do_not_break_teardown(self, pytester: Pytester) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;Failed delattr/setitem/delitem do not cause errors in the</span><span class="a">+        monkeypatch fixture teardown.&quot;&quot;&quot;</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+            from types import MappingProxyType</span><span class="a">+</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+</span><span class="a">+            def test_failed_delattr(monkeypatch):</span><span class="a">+                class A:</span><span class="a">+                    __slots__ = ()</span><span class="a">+                    x = 1</span><span class="a">+</span><span class="a">+                a = A()</span><span class="a">+                with pytest.raises(AttributeError):</span><span class="a">+                    monkeypatch.delattr(a, &quot;x&quot;)</span><span class="a">+                assert a.x == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+            def test_failed_setitem(monkeypatch):</span><span class="a">+                mapping = MappingProxyType({&quot;x&quot;: 1})</span><span class="a">+                with pytest.raises(TypeError):</span><span class="a">+                    monkeypatch.setitem(mapping, &quot;x&quot;, 2)</span><span class="a">+                assert mapping[&quot;x&quot;] == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+            def test_failed_delitem(monkeypatch):</span><span class="a">+                mapping = MappingProxyType({&quot;x&quot;: 1})</span><span class="a">+                with pytest.raises(TypeError):</span><span class="a">+                    monkeypatch.delitem(mapping, &quot;x&quot;)</span><span class="a">+                assert mapping[&quot;x&quot;] == 1</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        result = pytester.runpytest()</span><span class="a">+        result.assert_outcomes(passed=3)</span><span class="a">+</span><span class="c">     def test_delattr(self, monkeypatch: MonkeyPatch) -&gt; None:</span><span class="c">         with monkeypatch.context() as mp:</span><span class="c">             mp.delattr(&quot;os.path.abspath&quot;)</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/14910" rel="noopener" target="_blank">PR #14910</a></span><span class="pm"><span class="a">+58</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">changelog/14909.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..32dced313</span><span class="h">@@ -0,0 +1 @@</span><span class="a">+Fixed :meth:`MonkeyPatch.delattr &lt;pytest.MonkeyPatch.delattr&gt;`, :meth:`MonkeyPatch.setitem &lt;pytest.MonkeyPatch.setitem&gt;` and :meth:`MonkeyPatch.delitem &lt;pytest.MonkeyPatch.delitem&gt;` recording a stale undo entry when the underlying mutation failed, which could cause spurious errors during teardown. The undo entry is now recorded only after the mutation succeeds, matching the behavior of :meth:`MonkeyPatch.setattr &lt;pytest.MonkeyPatch.setattr&gt;`.</span><span class="f">src/_pytest/monkeypatch.py</span><span class="h">index d6db72455..9ae9e2ba9 100644</span><span class="h">@@ -282,14 +282,15 @@ class MonkeyPatch:</span><span class="c">             # Avoid class descriptors like staticmethod/classmethod.</span><span class="c">             if inspect.isclass(target):</span><span class="c">                 oldval = target.__dict__.get(name, NOTSET)</span><span class="r">-            self._setattr.append((target, name, oldval))</span><span class="c">             delattr(target, name)</span><span class="a">+            self._setattr.append((target, name, oldval))</span><span class="c"> </span><span class="c">     def setitem(self, dic: Mapping[K, V], name: K, value: V) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Set dictionary entry ``name`` to value.&quot;&quot;&quot;</span><span class="r">-        self._setitem.append((dic, name, dic.get(name, NOTSET)))</span><span class="a">+        oldval = dic.get(name, NOTSET)</span><span class="c">         # Not all Mapping types support indexing, but MutableMapping doesn&#39;t support TypedDict</span><span class="c">         dic[name] = value  # type: ignore[index]</span><span class="a">+        self._setitem.append((dic, name, oldval))</span><span class="c"> </span><span class="c">     def delitem(self, dic: Mapping[K, V], name: K, raising: bool = True) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Delete ``name`` from dict.</span><span class="h">@@ -301,9 +302,10 @@ class MonkeyPatch:</span><span class="c">             if raising:</span><span class="c">                 raise KeyError(name)</span><span class="c">         else:</span><span class="r">-            self._setitem.append((dic, name, dic.get(name, NOTSET)))</span><span class="a">+            oldval = dic.get(name, NOTSET)</span><span class="c">             # Not all Mapping types support indexing, but MutableMapping doesn&#39;t support TypedDict</span><span class="c">             del dic[name]  # type: ignore[attr-defined]</span><span class="a">+            self._setitem.append((dic, name, oldval))</span><span class="c"> </span><span class="c">     def setenv(self, name: str, value: str, prepend: str | None = None) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Set environment variable ``name`` to ``value``.</span><span class="f">testing/test_monkeypatch.py</span><span class="h">index 04b16a1e8..63e145c66 100644</span><span class="h">@@ -7,6 +7,7 @@ from pathlib import Path</span><span class="c"> import re</span><span class="c"> import sys</span><span class="c"> import textwrap</span><span class="a">+from types import MappingProxyType</span><span class="c"> import warnings</span><span class="c"> </span><span class="c"> from _pytest.monkeypatch import MonkeyPatch</span><span class="h">@@ -196,6 +197,57 @@ def test_delitem() -&gt; None:</span><span class="c">     assert d == {&quot;hello&quot;: &quot;world&quot;, &quot;x&quot;: 1}</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_failed_delattr(monkeypatch: MonkeyPatch) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;If delattr() raises, no stale undo entry should be recorded (#14909).&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    class A:</span><span class="a">+        __slots__ = ()</span><span class="a">+        x = 1</span><span class="a">+</span><span class="a">+    a = A()</span><span class="a">+    with pytest.raises(AttributeError):</span><span class="a">+        monkeypatch.delattr(a, &quot;x&quot;)</span><span class="a">+    assert a.x == 1</span><span class="a">+    # undo() must not raise — no entry should be on the undo stack.</span><span class="a">+    monkeypatch.undo()</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_failed_setitem(monkeypatch: MonkeyPatch) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;If setitem() raises, no stale undo entry should be recorded (#14909).&quot;&quot;&quot;</span><span class="a">+    mapping = MappingProxyType({&quot;x&quot;: 1})</span><span class="a">+    with pytest.raises(TypeError):</span><span class="a">+        monkeypatch.setitem(mapping, &quot;x&quot;, 2)</span><span class="a">+    assert mapping[&quot;x&quot;] == 1</span><span class="a">+    # undo() must not raise — no entry should be on the undo stack.</span><span class="a">+    monkeypatch.undo()</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_failed_delitem(monkeypatch: MonkeyPatch) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;If delitem() raises, no stale undo entry should be recorded (#14909).&quot;&quot;&quot;</span><span class="a">+    mapping = MappingProxyType({&quot;x&quot;: 1})</span><span class="a">+    with pytest.raises(TypeError):</span><span class="a">+        monkeypatch.delitem(mapping, &quot;x&quot;)</span><span class="a">+    assert mapping[&quot;x&quot;] == 1</span><span class="a">+    # undo() must not raise — no entry should be on the undo stack.</span><span class="a">+    monkeypatch.undo()</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_setitem_delitem_oldval_captured_before_mutation(</span><span class="a">+    monkeypatch: MonkeyPatch,</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;For setitem/delitem the old value must be captured *before* the</span><span class="a">+    mutation so undo() restores the correct value (#14909). This case</span><span class="a">+    exercises both the capture-before line and the append-after line in</span><span class="a">+    the success path (no exception), so codecov patch coverage for the</span><span class="a">+    new lines stays 100% even when the surrounding pytest suite changes.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    inner: dict[str, int] = {&quot;x&quot;: 1, &quot;y&quot;: 2}</span><span class="a">+    monkeypatch.setitem(inner, &quot;x&quot;, 99)</span><span class="a">+    monkeypatch.delitem(inner, &quot;y&quot;)</span><span class="a">+    monkeypatch.undo()</span><span class="a">+    assert inner == {&quot;x&quot;: 1, &quot;y&quot;: 2}</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_setenv() -&gt; None:</span><span class="c">     monkeypatch = MonkeyPatch()</span><span class="c">     with pytest.warns(pytest.PytestWarning):</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/14864/">Previous · #14864</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/14912/">Next · #14912</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

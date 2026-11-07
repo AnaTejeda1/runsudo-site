@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#6997 xfail reports incorrect number of testcases if there is exception in fixture teardown — pytest-dev/pytest backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #6997 in pytest-dev/pytest, run 6 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/pytest/run-20261106-234554/6997/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pytest/">pytest</a><span aria-hidden="true">/</span><a href="/backtests/pytest/run-20261106-234554/">run-20261106-234554</a><span aria-hidden="true">/</span><span aria-current="page">#6997</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pytest-dev/pytest/issues/6997" rel="noopener" target="_blank">#6997</a></span>
+  <span>Merged fix <a href="https://github.com/pytest-dev/pytest/pull/14875" rel="noopener" target="_blank">PR #14875</a></span>
+  <span>Run 6 Nov 2026 · <span class="runid">run-20261106-234554</span></span>
+  <span>pytest-dev/pytest</span>
+</div>
+<h1 class="ticket-title">xfail reports incorrect number of testcases if there is exception in fixture teardown</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The issue is that one collected item produces two xfailed outcomes because the xfail mark converts the teardown failure into a second xfail report. Patch B addresses the root cause in skipping.py by excluding the teardown phase from xfail conversion, so the teardown exception becomes a regular error (1 xfailed, 1 error), matching the behaviour the issue cites for the non-xfail case. The independent tests all go from FAIL-ASSERT on base to PASS on B. Patch A only changes the terminal summary line to say &#39;at teardown of&#39;, leaving the count at 2 xfailed and the short summary still listing the test twice; every independent test still fails on A, so it masks the symptom&#39;s wording without fixing it. B&#39;s tests are substantive: they assert counts, summary lines, exit code, strict-xfail interaction, and junitxml output, and would fail before the change. B also updates an existing test whose expectation encoded the old double-counting; that behaviour change is deliberate and documented in a code comment. A&#39;s tests merely lock in the cosmetic phase label. B is the clearly better fix on correctness, tests, and scope.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">3m 36s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">377 passed · 1 skipped · 378 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">84<small>vs 60 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pytest-dev/pytest/issues/6997" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><p>I have a simple testcase which is expected to fail (<code>xfail</code>)</p>
+<pre><code>@pytest.fixture
+def my_fix():
+    yield
+    raise Exception()
+
+class TestMyFix:
+    @pytest.mark.xfail(reason=&quot;Some reason&quot;)
+    def test_1(self, my_fix):
+        raise Exception()</code></pre>
+<p>which is deliberately raising Exception and the fixture is raising it too</p>
+<p>The test execution summary reports 2 testcases even when it collects 1 item</p>
+<pre><code># pytest -ras test_fixture.py
+...
+collected 1 item
+
+test_fixture.py xx                                                                                                      [100%]
+
+XFAIL test_fixture.py::TestMyFix::test_1
+  Some reason
+XFAIL test_fixture.py::TestMyFix::test_1
+  Some reason
+
+============ 2 xfailed in 0.10 seconds ==========</code></pre>
+<p>Without <code>xfail</code> it correctly report 1 error in <code>teardown</code><br><code>=============== 1 failed, 1 error in 0.10 seconds ===================</code></p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+82</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">src/_pytest/skipping.py</span><span class="h">index aa97e3b7d..b1477d099 100644</span><span class="h">@@ -285,7 +285,10 @@ def pytest_runtest_makereport(</span><span class="c">         assert call.excinfo.value.msg is not None</span><span class="c">         rep.wasxfail = call.excinfo.value.msg</span><span class="c">         rep.outcome = &quot;skipped&quot;</span><span class="r">-    elif not rep.skipped and xfailed:</span><span class="a">+    elif not rep.skipped and xfailed and call.when != &quot;teardown&quot;:</span><span class="a">+        # The xfail mark covers setup and call only: an error during teardown</span><span class="a">+        # is reported as a regular error, otherwise the test would be counted</span><span class="a">+        # twice (once for call and once for teardown).</span><span class="c">         if call.excinfo:</span><span class="c">             raises = xfailed.raises</span><span class="c">             if raises is None or (</span><span class="f">testing/test_skipping.py</span><span class="h">index 9335f6db5..69284c3dd 100644</span><span class="h">@@ -791,7 +791,84 @@ class TestXFailwithSetupTeardown:</span><span class="c">         &quot;&quot;&quot;</span><span class="c">         )</span><span class="c">         result = pytester.runpytest()</span><span class="r">-        result.stdout.fnmatch_lines([&quot;*1 xfail*&quot;])</span><span class="a">+        # The test itself passes (xpass); the teardown failure is an error,</span><span class="a">+        # not a second xfail.</span><span class="a">+        result.assert_outcomes(xpassed=1, errors=1)</span><span class="a">+</span><span class="a">+    def test_failing_teardown_and_call(self, pytester: Pytester) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;A failing teardown of an xfailed test is an error, not a second xfail.&quot;&quot;&quot;</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+            @pytest.fixture</span><span class="a">+            def my_fix():</span><span class="a">+                yield</span><span class="a">+                raise Exception()</span><span class="a">+</span><span class="a">+            class TestMyFix:</span><span class="a">+                @pytest.mark.xfail(reason=&quot;Some reason&quot;)</span><span class="a">+                def test_1(self, my_fix):</span><span class="a">+                    raise Exception()</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        result = pytester.runpytest(&quot;-rxE&quot;)</span><span class="a">+        result.assert_outcomes(xfailed=1, errors=1)</span><span class="a">+        result.stdout.fnmatch_lines(</span><span class="a">+            [</span><span class="a">+                &quot;collected 1 item&quot;,</span><span class="a">+                &quot;*ERROR at teardown of TestMyFix.test_1*&quot;,</span><span class="a">+                &quot;XFAIL *::TestMyFix::test_1 - Some reason&quot;,</span><span class="a">+                &quot;ERROR *::TestMyFix::test_1 - Exception&quot;,</span><span class="a">+                &quot;*= 1 xfailed, 1 error in *&quot;,</span><span class="a">+            ]</span><span class="a">+        )</span><span class="a">+        result.stdout.no_fnmatch_line(&quot;*2 xfailed*&quot;)</span><span class="a">+        assert result.ret == 1</span><span class="a">+</span><span class="a">+    def test_failing_teardown_strict_xpass(self, pytester: Pytester) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;A failing teardown is not converted by a strict xfail mark either.&quot;&quot;&quot;</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+            @pytest.fixture</span><span class="a">+            def my_fix():</span><span class="a">+                yield</span><span class="a">+                raise Exception()</span><span class="a">+</span><span class="a">+            @pytest.mark.xfail(strict=True)</span><span class="a">+            def test_func(my_fix):</span><span class="a">+                pass</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        result = pytester.runpytest()</span><span class="a">+        # The call is a strict xpass (failed); the teardown failure is an error.</span><span class="a">+        result.assert_outcomes(failed=1, errors=1)</span><span class="a">+        result.stdout.no_fnmatch_line(&quot;*xfailed*&quot;)</span><span class="a">+</span><span class="a">+    def test_failing_teardown_junitxml(self, pytester: Pytester) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;The junitxml report records the teardown failure as an error.&quot;&quot;&quot;</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+            @pytest.fixture</span><span class="a">+            def my_fix():</span><span class="a">+                yield</span><span class="a">+                raise Exception()</span><span class="a">+</span><span class="a">+            @pytest.mark.xfail</span><span class="a">+            def test_func(my_fix):</span><span class="a">+                raise Exception()</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+        result = pytester.runpytest(&quot;--junitxml=junit.xml&quot;)</span><span class="a">+        result.assert_outcomes(xfailed=1, errors=1)</span><span class="a">+        xml = pytester.path.joinpath(&quot;junit.xml&quot;).read_text(encoding=&quot;utf-8&quot;)</span><span class="a">+        assert &#39;errors=&quot;1&quot;&#39; in xml</span><span class="a">+        assert &#39;skipped=&quot;1&quot;&#39; in xml</span><span class="a">+        assert &#39;tests=&quot;1&quot;&#39; in xml</span><span class="c"> </span><span class="c"> </span><span class="c"> class TestSkip:</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pytest-dev/pytest/pull/14875" rel="noopener" target="_blank">PR #14875</a></span><span class="pm"><span class="a">+59</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">AUTHORS</span><span class="h">index 47e310c23..2805077f4 100644</span><span class="h">@@ -422,6 +422,7 @@ Roland Puntaier</span><span class="c"> Romain Dorgueil</span><span class="c"> Roman Bolshakov</span><span class="c"> Ronny Pfannschmidt</span><span class="a">+Roqia Salah</span><span class="c"> Ross Lawley</span><span class="c"> Ruaridh Williamson</span><span class="c"> Russel Winder</span><span class="f">changelog/6997.bugfix.rst</span><span class="h">new file mode 100644</span><span class="h">index 000000000..2364d541f</span><span class="h">@@ -0,0 +1,2 @@</span><span class="a">+XFAIL reports from teardown phases now include the phase in the short test</span><span class="a">+summary.</span><span class="f">src/_pytest/terminal.py</span><span class="h">index 852153b92..e9aa36e94 100644</span><span class="h">@@ -1328,7 +1328,12 @@ class TerminalReporter:</span><span class="c">                 )</span><span class="c">                 markup_word = self._tw.markup(verbose_word, **verbose_markup)</span><span class="c">                 nodeid = _get_node_id_with_markup(self._tw, self.config, rep)</span><span class="r">-                line = f&quot;{markup_word} {nodeid}&quot;</span><span class="a">+</span><span class="a">+                if rep.when == &quot;call&quot;:</span><span class="a">+                    line = f&quot;{markup_word} {nodeid}&quot;</span><span class="a">+                else:</span><span class="a">+                    line = f&quot;{markup_word} at {rep.when} of {nodeid}&quot;</span><span class="a">+</span><span class="c">                 reason = rep.wasxfail</span><span class="c">                 if reason:</span><span class="c">                     line += &quot; - &quot; + str(reason)</span><span class="f">testing/test_skipping.py</span><span class="h">index 9335f6db5..fbe196915 100644</span><span class="h">@@ -793,6 +793,56 @@ class TestXFailwithSetupTeardown:</span><span class="c">         result = pytester.runpytest()</span><span class="c">         result.stdout.fnmatch_lines([&quot;*1 xfail*&quot;])</span><span class="c"> </span><span class="a">+    def test_xfail_call_and_teardown_reports_show_phase(</span><span class="a">+        self, pytester: Pytester</span><span class="a">+    ) -&gt; None:</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            test_case=&quot;&quot;&quot;</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+            @pytest.fixture</span><span class="a">+            def my_fix():</span><span class="a">+                yield</span><span class="a">+                raise Exception(&quot;teardown&quot;)</span><span class="a">+</span><span class="a">+            @pytest.mark.xfail(reason=&quot;Some reason&quot;)</span><span class="a">+            def test_func(my_fix):</span><span class="a">+                raise Exception(&quot;call&quot;)</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+</span><span class="a">+        result = pytester.runpytest(&quot;-rx&quot;)</span><span class="a">+</span><span class="a">+        result.stdout.fnmatch_lines(</span><span class="a">+            [</span><span class="a">+                &quot;*XFAIL*test_case.py::test_func*&quot;,</span><span class="a">+                &quot;*XFAIL at teardown of*test_case.py::test_func*&quot;,</span><span class="a">+            ]</span><span class="a">+        )</span><span class="a">+</span><span class="a">+    def test_xfail_setup_report_shows_phase(self, pytester: Pytester) -&gt; None:</span><span class="a">+        pytester.makepyfile(</span><span class="a">+            test_case=&quot;&quot;&quot;</span><span class="a">+            import pytest</span><span class="a">+</span><span class="a">+            @pytest.fixture</span><span class="a">+            def my_fix():</span><span class="a">+                raise Exception(&quot;setup&quot;)</span><span class="a">+</span><span class="a">+            @pytest.mark.xfail(reason=&quot;Some reason&quot;)</span><span class="a">+            def test_func(my_fix):</span><span class="a">+                pass</span><span class="a">+            &quot;&quot;&quot;</span><span class="a">+        )</span><span class="a">+</span><span class="a">+        result = pytester.runpytest(&quot;-rx&quot;)</span><span class="a">+</span><span class="a">+        result.stdout.fnmatch_lines(</span><span class="a">+            [</span><span class="a">+                &quot;*XFAIL at setup of*test_case.py::test_func*&quot;,</span><span class="a">+            ]</span><span class="a">+        )</span><span class="a">+</span><span class="c"> </span><span class="c"> class TestSkip:</span><span class="c">     def test_skip_class(self, pytester: Pytester) -&gt; None:</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pytest/run-20261106-234554/6750/">Previous · #6750</a>
+  <a class="mid" href="/backtests/pytest/run-20261106-234554/">All tickets in this run</a>
+  <a href="/backtests/pytest/run-20261106-234554/8321/">Next · #8321</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
