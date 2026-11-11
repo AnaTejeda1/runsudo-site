@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#27363 [Bug]: aembedding missing num_retries kwarg causes zero retries and no failover for embedding model groups — BerriAI/litellm backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #27363 in BerriAI/litellm, run 19 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/litellm/run-20261019-033420/27363/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/litellm/">litellm</a><span aria-hidden="true">/</span><a href="/backtests/litellm/run-20261019-033420/">run-20261019-033420</a><span aria-hidden="true">/</span><span aria-current="page">#27363</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/BerriAI/litellm/issues/27363" rel="noopener" target="_blank">#27363</a></span>
+  <span>Merged fix <a href="https://github.com/BerriAI/litellm/commit/7c83761ac570eaf5dee568db0c5754d01bc133b1" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 19 Oct 2026 · <span class="runid">run-20261019-033420</span></span>
+  <span>BerriAI/litellm</span>
+</div>
+<h1 class="ticket-title">[Bug]: aembedding missing num_retries kwarg causes zero retries and no failover for embedding model groups</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Patch A adds only the single line the issue proposes. But the independent tests show the plain failover scenario already passes on base, meaning `_update_kwargs_before_fallbacks` already sets `num_retries` and the one-liner is effectively a no-op for the reported behaviour. The scenarios that actually fail on base are the ones where `num_retries` arrives as an explicit `None` (the proxy path forwarding key/team router_settings), producing `TypeError: &#39;&gt;&#39; not supported between &#39;NoneType&#39; and &#39;int&#39;` deep in the retry loop. Patch A leaves both of those failing, so it does not fix the proxy failover the issue reports. Patch B adds the same line to both `embedding` and `aembedding`, and additionally hardens `async_function_with_retries` so an explicit `num_retries=None` falls back to `self.num_retries`. That resolves the real root cause: all four independent tests pass on B, including the proxy key/team settings scenario. B also ships a regression test file covering aembedding, sync embedding, explicit None, explicit zero (ensuring the None guard does not swallow a deliberate 0), and acompletion with None. The extra `async_function_with_retries` change is small, targeted, and directly tied to the failure mode, so it is not scope creep. B is the clearly better fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">25m 52s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">546 passed · 26 skipped · 572 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">149<small>vs 1 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/BerriAI/litellm/issues/27363" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Check for existing issues</h3>
+<ul><li><input type="checkbox" disabled checked> I have searched the existing issues and checked that my issue is not a duplicate.</li></ul>
+<h3>What happened?</h3>
+<h3>Bug Description</h3>
+<p>When using the LiteLLM proxy router with multiple deployments of the same embedding <code>model_name</code> across different hosts, failover never occurs when a host is unreachable. The router attempts the selected deployment once, fails, and returns an error — no retries, no failover to other deployments in the model group.</p>
+<h3>Root Cause</h3>
+<p>In <code>litellm/router.py</code>, the <code>aembedding()</code> method does not set <code>num_retries</code> in kwargs before calling <code>async_function_with_fallbacks()</code>. Compare <code>aembedding</code> to every other router method (<code>acompletion</code>, <code>acreate_file</code>, <code>atext_completion</code>, etc.) which all include this line:</p>
+<pre><code class="lang-python">kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</code></pre>
+<p><strong><code>aembedding</code> (missing the line — bug):</strong></p>
+<pre><code class="lang-python">async def aembedding(self, model, input, is_async=True, **kwargs):
+    try:
+        kwargs[&quot;model&quot;] = model
+        kwargs[&quot;input&quot;] = input
+        kwargs[&quot;original_function&quot;] = self._aembedding          # ✓
+        # kwargs[&quot;num_retries&quot;] = ...                           # ✗ MISSING
+        self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)
+        response = await self.async_function_with_fallbacks(**kwargs)</code></pre>
+<p><strong><code>acreate_file</code> (correct pattern — for comparison):</strong></p>
+<pre><code class="lang-python">async def acreate_file(self, model, **kwargs):
+    try:
+        kwargs[&quot;model&quot;] = model
+        kwargs[&quot;original_function&quot;] = self._acreate_file
+        kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)  # ✓ present
+        self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)
+        response = await self.async_function_with_fallbacks(**kwargs)</code></pre>
+<p>Note: <code>_update_kwargs_before_fallbacks</code> also sets <code>num_retries</code> (line 2234), but it uses <code>kwargs.get(&quot;num_retries&quot;, self.num_retries)</code> — so if <code>num_retries</code> is already in kwargs it won&#39;t be overwritten. The problem is that <code>async_function_with_retries</code> pops <code>num_retries</code> from kwargs (line 5564), so on the retry path the key is gone and <code>_update_kwargs_before_fallbacks</code> may not re-set it correctly. The result is <code>num_retries</code> evaluates to <code>0</code> inside the retry loop, causing immediate failure with no retries attempted.</p>
+<h3>Fix</h3>
+<p>Add the missing line to <code>aembedding()</code> in <code>router.py</code>:</p>
+<pre><code class="lang-python">async def aembedding(self, model, input, is_async=True, **kwargs):
+    try:
+        kwargs[&quot;model&quot;] = model
+        kwargs[&quot;input&quot;] = input
+        kwargs[&quot;original_function&quot;] = self._aembedding
+        kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)  # ADD THIS
+        self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)
+        response = await self.async_function_with_fallbacks(**kwargs)</code></pre>
+<h3>Steps to Reproduce</h3>
+<ol><li>Configure LiteLLM proxy with multiple deployments of the same embedding <code>model_name</code>:</li></ol>
+<pre><code class="lang-yaml">model_list:
+  - model_name: mxbai-embed-large
+    litellm_params:
+      model: ollama/mxbai-embed-large:latest
+      api_base: http://host1:11434
+
+  - model_name: mxbai-embed-large
+    litellm_params:
+      model: ollama/mxbai-embed-large:latest
+      api_base: http://host2:11434
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 3
+  allowed_fails: 0
+  cooldown_time: 60</code></pre>
+<ol><li>Take <code>host1</code> offline</li><li>Send an embedding request for <code>mxbai-embed-large</code></li><li>Observe the request fails immediately with no retries — <code>host2</code> is never tried</li><li>Repeat the same test with a chat completion model group — failover works correctly, confirming the bug is specific to <code>aembedding</code></li></ol>
+<h2>Additional Context</h2>
+<p>This bug was discovered while investigating embedding failover in a multi-host Ollama setup. Chat completion failover was working correctly (after separately fixing the <code>APIConnectionError</code> cooldown bug — see related issue #27362 ). Embedding failover was still broken despite identical config, and code inspection revealed this missing line as the cause.</p>
+<p>All other async router methods set <code>num_retries</code> in kwargs before calling <code>async_function_with_fallbacks</code>. The <code>aembedding</code> method appears to have been overlooked when this pattern was established or when retries were added to other methods.</p>
+<h3>Relevant log output</h3>
+<pre><code class="lang-shell"></code></pre>
+<h3>What part of LiteLLM is this about?</h3>
+<p>Proxy</p>
+<h3>What LiteLLM version are you on ?</h3>
+<p>v1.82.6 (also confirmed present in v1.82.1)</p>
+<h3>Twitter / LinkedIn details</h3>
+<p>_No response_</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+148</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">litellm/router.py</span><span class="h">index 7512ee387d..38ab56588a 100644</span><span class="h">@@ -4310,6 +4310,7 @@ class Router:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;input&quot;] = input</span><span class="c">             kwargs[&quot;original_function&quot;] = self._embedding</span><span class="a">+            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="c">             self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)</span><span class="c">             response = self.function_with_fallbacks(**kwargs)</span><span class="c">             return response</span><span class="h">@@ -4383,6 +4384,7 @@ class Router:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;input&quot;] = input</span><span class="c">             kwargs[&quot;original_function&quot;] = self._aembedding</span><span class="a">+            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="c">             self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)</span><span class="c">             response = await self.async_function_with_fallbacks(**kwargs)</span><span class="c">             return response</span><span class="h">@@ -6007,7 +6009,10 @@ class Router:</span><span class="c">             &quot;model_group_retry_policy&quot;, self.model_group_retry_policy</span><span class="c">         )</span><span class="c">         model_group: Optional[str] = kwargs.get(&quot;model&quot;)</span><span class="r">-        num_retries = kwargs.pop(&quot;num_retries&quot;)</span><span class="a">+        num_retries = kwargs.pop(&quot;num_retries&quot;, None)</span><span class="a">+        # an explicit `num_retries=None` (e.g. from key/team router_settings) means &quot;not set&quot;</span><span class="a">+        if num_retries is None:</span><span class="a">+            num_retries = self.num_retries</span><span class="c"> </span><span class="c">         ## ADD MODEL GROUP SIZE TO METADATA - used for model_group_rate_limit_error tracking</span><span class="c">         _metadata: dict = kwargs.get(&quot;litellm_metadata&quot;, kwargs.get(&quot;metadata&quot;)) or {}</span><span class="f">tests/test_litellm/test_router_embedding_retries.py</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..4c7dccb353</span><span class="h">@@ -0,0 +1,142 @@</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+Regression tests: Router embedding calls must retry and fail over to other</span><span class="a">+deployments in the same model group when one deployment is unreachable.</span><span class="a">+</span><span class="a">+The first deployment pick is forced onto an unreachable host and retries onto the</span><span class="a">+healthy one; the request must succeed via the healthy deployment.</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+import pytest</span><span class="a">+</span><span class="a">+import litellm</span><span class="a">+from litellm import Router</span><span class="a">+</span><span class="a">+MODEL_GROUP = &quot;mxbai-embed-large&quot;</span><span class="a">+</span><span class="a">+</span><span class="a">+def _make_router(**router_kwargs) -&gt; Router:</span><span class="a">+    return Router(</span><span class="a">+        model_list=[</span><span class="a">+            {</span><span class="a">+                &quot;model_name&quot;: MODEL_GROUP,</span><span class="a">+                &quot;litellm_params&quot;: {</span><span class="a">+                    &quot;model&quot;: &quot;ollama/mxbai-embed-large:latest&quot;,</span><span class="a">+                    &quot;api_base&quot;: &quot;http://127.0.0.1:1&quot;,  # unreachable host</span><span class="a">+                },</span><span class="a">+                &quot;model_info&quot;: {&quot;id&quot;: &quot;down-host&quot;},</span><span class="a">+            },</span><span class="a">+            {</span><span class="a">+                &quot;model_name&quot;: MODEL_GROUP,</span><span class="a">+                &quot;litellm_params&quot;: {</span><span class="a">+                    &quot;model&quot;: &quot;ollama/mxbai-embed-large:latest&quot;,</span><span class="a">+                    &quot;api_base&quot;: &quot;http://127.0.0.1:2&quot;,</span><span class="a">+                    &quot;mock_response&quot;: [0.1, 0.2, 0.3],</span><span class="a">+                },</span><span class="a">+                &quot;model_info&quot;: {&quot;id&quot;: &quot;up-host&quot;},</span><span class="a">+            },</span><span class="a">+            {</span><span class="a">+                &quot;model_name&quot;: &quot;chat-group&quot;,</span><span class="a">+                &quot;litellm_params&quot;: {</span><span class="a">+                    &quot;model&quot;: &quot;ollama/llama3&quot;,</span><span class="a">+                    &quot;api_base&quot;: &quot;http://127.0.0.1:1&quot;,  # unreachable host</span><span class="a">+                },</span><span class="a">+                &quot;model_info&quot;: {&quot;id&quot;: &quot;chat-down-host&quot;},</span><span class="a">+            },</span><span class="a">+            {</span><span class="a">+                &quot;model_name&quot;: &quot;chat-group&quot;,</span><span class="a">+                &quot;litellm_params&quot;: {</span><span class="a">+                    &quot;model&quot;: &quot;ollama/llama3&quot;,</span><span class="a">+                    &quot;api_base&quot;: &quot;http://127.0.0.1:2&quot;,</span><span class="a">+                    &quot;mock_response&quot;: &quot;hello from up host&quot;,</span><span class="a">+                },</span><span class="a">+                &quot;model_info&quot;: {&quot;id&quot;: &quot;chat-up-host&quot;},</span><span class="a">+            },</span><span class="a">+        ],</span><span class="a">+        routing_strategy=&quot;simple-shuffle&quot;,</span><span class="a">+        allowed_fails=0,</span><span class="a">+        cooldown_time=60,</span><span class="a">+        retry_after=0,</span><span class="a">+        **router_kwargs,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+def _force_first_pick_down_host(</span><span class="a">+    router: Router, monkeypatch, down_id=&quot;down-host&quot;, up_id=&quot;up-host&quot;</span><span class="a">+):</span><span class="a">+    &quot;&quot;&quot;Route the first attempt to the unreachable host and retries to the healthy one.&quot;&quot;&quot;</span><span class="a">+    picks = []</span><span class="a">+</span><span class="a">+    def _pick(*args, **kwargs):</span><span class="a">+        model_id = up_id if picks else down_id</span><span class="a">+        picks.append(model_id)</span><span class="a">+        return router.get_deployment(model_id=model_id).model_dump(exclude_none=True)</span><span class="a">+</span><span class="a">+    async def _async_pick(*args, **kwargs):</span><span class="a">+        return _pick(*args, **kwargs)</span><span class="a">+</span><span class="a">+    monkeypatch.setattr(router, &quot;async_get_available_deployment&quot;, _async_pick)</span><span class="a">+    monkeypatch.setattr(router, &quot;get_available_deployment&quot;, _pick)</span><span class="a">+    return picks</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_aembedding_fails_over_when_deployment_unreachable(monkeypatch):</span><span class="a">+    router = _make_router(num_retries=3)</span><span class="a">+    picks = _force_first_pick_down_host(router, monkeypatch)</span><span class="a">+</span><span class="a">+    response = await router.aembedding(model=MODEL_GROUP, input=[&quot;hello&quot;])</span><span class="a">+</span><span class="a">+    assert response.data[0][&quot;embedding&quot;] == [0.1, 0.2, 0.3]</span><span class="a">+    assert picks == [&quot;down-host&quot;, &quot;up-host&quot;]</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_aembedding_explicit_none_num_retries_uses_router_default(monkeypatch):</span><span class="a">+    &quot;&quot;&quot;num_retries=None (e.g. unset key/team router_settings) must not disable retries.&quot;&quot;&quot;</span><span class="a">+    router = _make_router(num_retries=3)</span><span class="a">+    picks = _force_first_pick_down_host(router, monkeypatch)</span><span class="a">+</span><span class="a">+    response = await router.aembedding(</span><span class="a">+        model=MODEL_GROUP, input=[&quot;hello&quot;], num_retries=None</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert response.data[0][&quot;embedding&quot;] == [0.1, 0.2, 0.3]</span><span class="a">+    assert picks == [&quot;down-host&quot;, &quot;up-host&quot;]</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_aembedding_respects_explicit_zero_num_retries(monkeypatch):</span><span class="a">+    router = _make_router(num_retries=3)</span><span class="a">+    picks = _force_first_pick_down_host(router, monkeypatch)</span><span class="a">+</span><span class="a">+    with pytest.raises(litellm.APIConnectionError):</span><span class="a">+        await router.aembedding(model=MODEL_GROUP, input=[&quot;hello&quot;], num_retries=0)</span><span class="a">+</span><span class="a">+    assert picks == [&quot;down-host&quot;]</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_embedding_fails_over_when_deployment_unreachable(monkeypatch):</span><span class="a">+    router = _make_router(num_retries=3)</span><span class="a">+    picks = _force_first_pick_down_host(router, monkeypatch)</span><span class="a">+</span><span class="a">+    response = router.embedding(model=MODEL_GROUP, input=[&quot;hello&quot;], num_retries=None)</span><span class="a">+</span><span class="a">+    assert response.data[0][&quot;embedding&quot;] == [0.1, 0.2, 0.3]</span><span class="a">+    assert picks == [&quot;down-host&quot;, &quot;up-host&quot;]</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_acompletion_explicit_none_num_retries_uses_router_default(monkeypatch):</span><span class="a">+    router = _make_router(num_retries=3)</span><span class="a">+    picks = _force_first_pick_down_host(</span><span class="a">+        router, monkeypatch, down_id=&quot;chat-down-host&quot;, up_id=&quot;chat-up-host&quot;</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    response = await router.acompletion(</span><span class="a">+        model=&quot;chat-group&quot;,</span><span class="a">+        messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}],</span><span class="a">+        num_retries=None,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert response.choices[0].message.content == &quot;hello from up host&quot;</span><span class="a">+    assert picks == [&quot;chat-down-host&quot;, &quot;chat-up-host&quot;]</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/BerriAI/litellm/commit/7c83761ac570eaf5dee568db0c5754d01bc133b1" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+1</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">litellm/router.py</span><span class="h">index 7512ee387dc..f86cbf77512 100644</span><span class="h">@@ -4383,6 +4383,7 @@ class Router:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;input&quot;] = input</span><span class="c">             kwargs[&quot;original_function&quot;] = self._aembedding</span><span class="a">+            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="c">             self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)</span><span class="c">             response = await self.async_function_with_fallbacks(**kwargs)</span><span class="c">             return response</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/litellm/run-20261019-033420/26939/">Previous · #26939</a>
+  <a class="mid" href="/backtests/litellm/run-20261019-033420/">All tickets in this run</a>
+  <a href="/backtests/litellm/run-20261019-033420/36566/">Next · #36566</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

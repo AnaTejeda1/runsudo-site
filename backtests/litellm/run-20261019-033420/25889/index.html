@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#25889 TypeError: &#39;&gt;&#39; not supported between &#39;NoneType&#39; and &#39;int&#39; when Ollama returns rate limit error — BerriAI/litellm backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #25889 in BerriAI/litellm, run 19 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/litellm/run-20261019-033420/25889/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/litellm/">litellm</a><span aria-hidden="true">/</span><a href="/backtests/litellm/run-20261019-033420/">run-20261019-033420</a><span aria-hidden="true">/</span><span aria-current="page">#25889</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/BerriAI/litellm/issues/25889" rel="noopener" target="_blank">#25889</a></span>
+  <span>Merged fix <a href="https://github.com/BerriAI/litellm/commit/1a4989dd090ccac31f3d683bb2904d583edd1012" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 19 Oct 2026 · <span class="runid">run-20261019-033420</span></span>
+  <span>BerriAI/litellm</span>
+</div>
+<h1 class="ticket-title">TypeError: &#39;&gt;&#39; not supported between &#39;NoneType&#39; and &#39;int&#39; when Ollama returns rate limit error</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches stop the TypeError, and the independent tests pass on both. Patch A only guards the comparison at the crash site: when num_retries is None it falls into the `else: raise` branch, so the original provider error propagates, but the router&#39;s configured retry count is silently ignored for any request where the body or key/team override supplied num_retries=None, and `_metadata[&#39;max_retries&#39;]` is still written as None. That masks the symptom rather than addressing why None reaches the retry loop. Patch B fixes the root cause: every entry point used `kwargs.get(&#39;num_retries&#39;, self.num_retries)`, which does not fall back when the key is present with a None value. The new `_get_num_retries_from_kwargs` helper treats explicit None as unset and is applied consistently across `_update_kwargs_before_fallbacks`, the per-call-type entry points, and `async_function_with_retries` itself (with a safe pop). This preserves the router default retry behaviour and still propagates the original RateLimitError when retries are exhausted. Patch B also adds regression tests that cover the None-propagates-error case, the None-falls-back-to-router-default case with a retry count assertion, a non-completion entry point, and the kwargs normalization including the num_retries=0 edge. The broader diff is mechanical and low risk. Patch A adds no tests. B is the better fix on correctness and tests.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">17m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">452 passed · 26 skipped · 478 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">143<small>vs 2 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/BerriAI/litellm/issues/25889" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Bug Description</h2>
+<p>When Ollama returns a rate limit/session usage limit error, litellm crashes with a TypeError instead of properly handling the error and returning a meaningful message to the caller.</p>
+<h2>Error Details</h2>
+<p>The original error from Ollama:</p>
+<pre><code>litellm.APIConnectionError: Ollama_chatException - {&quot;error&quot;:&quot;you ({username}) have reached your session usage limit, upgrade for higher limits: https://ollama.com/upgrade (ref: 54b63ef7-b3a4-402f-bcc2-bca8a892767c)&quot;}</code></pre>
+<p>This triggers a secondary crash in the retry logic:</p>
+<pre><code>TypeError: &#39;&gt;&#39; not supported between instances of &#39;NoneType&#39; and &#39;int&#39;</code></pre>
+<h2>Stack Trace</h2>
+<pre><code>File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 5647, in async_function_with_retries
+    if num_retries &gt; 0:
+    ^^^^^^^^^^^^^^
+TypeError: &#39;&gt;&#39; not supported between instances of &#39;NoneType&#39; and &#39;int&#39;</code></pre>
+<p>Full traceback:</p>
+<pre><code>File &quot;/usr/lib/python3.13/site-packages/litellm/proxy/anthropic_endpoints/endpoints.py&quot;, line 53, in anthropic_response
+    result = await base_llm_response_processor.base_process_llm_request(
+File &quot;/usr/lib/python3.13/site-packages/litellm/proxy/common_request_processing.py&quot;, line 992, in base_process_llm_request
+    responses = await llm_responses
+File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 5083, in async_wrapper
+    return await self._ageneric_api_call_with_fallbacks(
+File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 3779, in _ageneric_api_call_with_fallbacks
+    raise e
+File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 3766, in _ageneric_api_call_with_fallbacks
+    response = await self.async_function_with_fallbacks(**kwargs)
+File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 5489, in async_function_with_fallbacks
+    return await self.async_function_with_fallbacks_common_utils(
+File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 5446, in async_function_with_fallbacks_common_utils
+    raise original_exception
+File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 5480, in async_function_with_fallbacks
+    response = await self.async_function_with_retries(*args, **kwargs)
+File &quot;/usr/lib/python3.13/site-packages/litellm/router.py&quot;, line 5647, in async_function_with_retries
+    if num_retries &gt; 0:
+TypeError: &#39;&gt;&#39; not supported between instances of &#39;NoneType&#39; and &#39;int&#39;</code></pre>
+<h2>Expected Behavior</h2>
+<p>The rate limit error from Ollama should be caught and properly propagated as an  or similar exception with the original error message, allowing the caller to handle it appropriately (e.g., implement backoff, notify user, etc.).</p>
+<h2>Actual Behavior</h2>
+<p>Instead of propagating the original error, litellm crashes with a TypeError because <code>num_retries</code> is None when the retry logic attempts to compare it with 0.</p>
+<h2>Root Cause</h2>
+<p>In <code>router.py</code> line 5647, the code assumes <code>num_retries</code> is always an integer:</p>
+<pre><code class="lang-python">if num_retries &gt; 0:</code></pre>
+<p>But <code>num_retries</code> can be <code>None</code> in certain error paths, causing the TypeError.</p>
+<h2>Suggested Fix</h2>
+<p>Add a defensive check before the comparison:</p>
+<pre><code class="lang-python">if num_retries is not None and num_retries &gt; 0:</code></pre>
+<p>Or ensure <code>num_retries</code> is always initialized to 0 instead of None.</p>
+<h2>Environment</h2>
+<ul><li>Python: 3.13</li><li>litellm: installed via pip (version visible in path as site-packages)</li><li>Provider: Ollama (via litellm proxy)</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+134</span> <span class="r">−9</span></span></div><pre class="diff"><span class="f">litellm/router.py</span><span class="h">index 9185e437a3..b98220529c 100644</span><span class="h">@@ -2252,7 +2252,7 @@ class Router:</span><span class="c">         - litellm_trace_id</span><span class="c">         - metadata</span><span class="c">         &quot;&quot;&quot;</span><span class="r">-        kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+        kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">         kwargs.setdefault(&quot;litellm_trace_id&quot;, str(uuid.uuid4()))</span><span class="c">         model_group_alias: Optional[str] = None</span><span class="c">         if self._get_model_from_alias(model=model):</span><span class="h">@@ -2261,6 +2261,18 @@ class Router:</span><span class="c">             {&quot;model_group&quot;: model, &quot;model_group_alias&quot;: model_group_alias}</span><span class="c">         )</span><span class="c"> </span><span class="a">+    def _get_num_retries_from_kwargs(self, kwargs: dict) -&gt; int:</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        Get num_retries for this request, falling back to the router default.</span><span class="a">+</span><span class="a">+        An explicit `num_retries=None` (e.g. from a request body or key/team</span><span class="a">+        router_settings override) is treated as unset.</span><span class="a">+        &quot;&quot;&quot;</span><span class="a">+        num_retries = kwargs.get(&quot;num_retries&quot;)</span><span class="a">+        if num_retries is None:</span><span class="a">+            return self.num_retries</span><span class="a">+        return num_retries</span><span class="a">+</span><span class="c">     def _set_deployment_num_retries_on_exception(</span><span class="c">         self, exception: Exception, deployment: dict</span><span class="c">     ) -&gt; None:</span><span class="h">@@ -2992,7 +3004,7 @@ class Router:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;prompt&quot;] = prompt</span><span class="c">             kwargs[&quot;original_function&quot;] = self._image_generation</span><span class="r">-            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+            kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">             kwargs.setdefault(&quot;metadata&quot;, {}).update({&quot;model_group&quot;: model})</span><span class="c">             response = self.function_with_fallbacks(**kwargs)</span><span class="c"> </span><span class="h">@@ -3051,7 +3063,7 @@ class Router:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;prompt&quot;] = prompt</span><span class="c">             kwargs[&quot;original_function&quot;] = self._aimage_generation</span><span class="r">-            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+            kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">             self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)</span><span class="c">             response = await self.async_function_with_fallbacks(**kwargs)</span><span class="c"> </span><span class="h">@@ -3414,7 +3426,7 @@ class Router:</span><span class="c">         try:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;prompt&quot;] = prompt</span><span class="r">-            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+            kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">             kwargs.setdefault(&quot;metadata&quot;, {}).update({&quot;model_group&quot;: model})</span><span class="c"> </span><span class="c">             # pick the one that is available (lowest TPM/RPM)</span><span class="h">@@ -3558,7 +3570,7 @@ class Router:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;adapter_id&quot;] = adapter_id</span><span class="c">             kwargs[&quot;original_function&quot;] = self._aadapter_completion</span><span class="r">-            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+            kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">             kwargs.setdefault(&quot;metadata&quot;, {}).update({&quot;model_group&quot;: model})</span><span class="c">             response = await self.async_function_with_fallbacks(**kwargs)</span><span class="c"> </span><span class="h">@@ -4184,7 +4196,7 @@ class Router:</span><span class="c">         try:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;original_function&quot;] = self._acreate_file</span><span class="r">-            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+            kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">             self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs)</span><span class="c">             response = await self.async_function_with_fallbacks(**kwargs)</span><span class="c"> </span><span class="h">@@ -4463,7 +4475,7 @@ class Router:</span><span class="c">         try:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;original_function&quot;] = self._acreate_batch</span><span class="r">-            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+            kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">             metadata_variable_name = _get_router_metadata_variable_name(</span><span class="c">                 function_name=&quot;_acreate_batch&quot;</span><span class="c">             )</span><span class="h">@@ -4702,7 +4714,7 @@ class Router:</span><span class="c">         try:</span><span class="c">             kwargs[&quot;model&quot;] = model</span><span class="c">             kwargs[&quot;original_function&quot;] = self._acancel_batch</span><span class="r">-            kwargs[&quot;num_retries&quot;] = kwargs.get(&quot;num_retries&quot;, self.num_retries)</span><span class="a">+            kwargs[&quot;num_retries&quot;] = self._get_num_retries_from_kwargs(kwargs)</span><span class="c">             metadata_variable_name = _get_router_metadata_variable_name(</span><span class="c">                 function_name=&quot;_acancel_batch&quot;</span><span class="c">             )</span><span class="h">@@ -5685,7 +5697,8 @@ class Router:</span><span class="c">             &quot;model_group_retry_policy&quot;, self.model_group_retry_policy</span><span class="c">         )</span><span class="c">         model_group: Optional[str] = kwargs.get(&quot;model&quot;)</span><span class="r">-        num_retries = kwargs.pop(&quot;num_retries&quot;)</span><span class="a">+        num_retries = self._get_num_retries_from_kwargs(kwargs)</span><span class="a">+        kwargs.pop(&quot;num_retries&quot;, None)</span><span class="c"> </span><span class="c">         ## ADD MODEL GROUP SIZE TO METADATA - used for model_group_rate_limit_error tracking</span><span class="c">         _metadata: dict = kwargs.get(&quot;litellm_metadata&quot;, kwargs.get(&quot;metadata&quot;)) or {}</span><span class="f">tests/test_litellm/test_router_num_retries_none.py</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..13eabffc47</span><span class="h">@@ -0,0 +1,112 @@</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+Regression tests: an explicit `num_retries=None` passed to the Router (e.g. from a</span><span class="a">+proxy request body or a key/team `router_settings` override) must fall back to the</span><span class="a">+router default instead of crashing the retry logic with</span><span class="a">+`TypeError: &#39;&gt;&#39; not supported between instances of &#39;NoneType&#39; and &#39;int&#39;`.</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+from unittest.mock import AsyncMock, patch</span><span class="a">+</span><span class="a">+import pytest</span><span class="a">+</span><span class="a">+import litellm</span><span class="a">+from litellm import Router</span><span class="a">+</span><span class="a">+</span><span class="a">+def _create_router(num_retries):</span><span class="a">+    return Router(</span><span class="a">+        model_list=[</span><span class="a">+            {</span><span class="a">+                &quot;model_name&quot;: &quot;test-model&quot;,</span><span class="a">+                &quot;litellm_params&quot;: {</span><span class="a">+                    &quot;model&quot;: &quot;openai/gpt-4&quot;,</span><span class="a">+                    &quot;api_key&quot;: &quot;fake-key&quot;,</span><span class="a">+                },</span><span class="a">+            },</span><span class="a">+        ],</span><span class="a">+        num_retries=num_retries,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+def _ollama_rate_limit_error():</span><span class="a">+    return litellm.RateLimitError(</span><span class="a">+        message=&#39;{&quot;error&quot;:&quot;you have reached your session usage limit, upgrade for higher limits&quot;}&#39;,</span><span class="a">+        llm_provider=&quot;ollama_chat&quot;,</span><span class="a">+        model=&quot;ollama_chat/llama3&quot;,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_acompletion_num_retries_none_raises_original_error():</span><span class="a">+    &quot;&quot;&quot;Router.acompletion(num_retries=None) propagates the provider error.&quot;&quot;&quot;</span><span class="a">+    router = _create_router(num_retries=0)</span><span class="a">+</span><span class="a">+    with pytest.raises(litellm.RateLimitError):</span><span class="a">+        await router.acompletion(</span><span class="a">+            model=&quot;test-model&quot;,</span><span class="a">+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}],</span><span class="a">+            num_retries=None,</span><span class="a">+            mock_response=&quot;litellm.RateLimitError&quot;,</span><span class="a">+        )</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_async_function_with_retries_num_retries_none_uses_router_default():</span><span class="a">+    &quot;&quot;&quot;num_retries=None falls back to router.num_retries and retries accordingly.&quot;&quot;&quot;</span><span class="a">+    router = _create_router(num_retries=2)</span><span class="a">+</span><span class="a">+    call_count = 0</span><span class="a">+</span><span class="a">+    async def mock_make_call(*args, **kwargs):</span><span class="a">+        nonlocal call_count</span><span class="a">+        call_count += 1</span><span class="a">+        raise _ollama_rate_limit_error()</span><span class="a">+</span><span class="a">+    with patch.object(router, &quot;make_call&quot;, side_effect=mock_make_call), patch.object(</span><span class="a">+        router, &quot;_async_get_healthy_deployments&quot;, return_value=([&quot;d1&quot;], [&quot;d1&quot;])</span><span class="a">+    ), patch.object(router, &quot;_time_to_sleep_before_retry&quot;, return_value=0), patch.object(</span><span class="a">+        router, &quot;log_retry&quot;, side_effect=lambda kwargs, e: kwargs</span><span class="a">+    ):</span><span class="a">+        with pytest.raises(litellm.RateLimitError) as exc_info:</span><span class="a">+            await router.async_function_with_retries(</span><span class="a">+                model=&quot;test-model&quot;,</span><span class="a">+                messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}],</span><span class="a">+                original_function=AsyncMock(),</span><span class="a">+                metadata={},</span><span class="a">+                num_retries=None,</span><span class="a">+            )</span><span class="a">+</span><span class="a">+    assert &quot;session usage limit&quot; in str(exc_info.value)</span><span class="a">+    # initial call + 2 retries from the router default</span><span class="a">+    assert call_count == 3</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_aimage_generation_num_retries_none_raises_original_error():</span><span class="a">+    &quot;&quot;&quot;Per-call-type entrypoints (e.g. aimage_generation) also handle num_retries=None.&quot;&quot;&quot;</span><span class="a">+    router = _create_router(num_retries=0)</span><span class="a">+</span><span class="a">+    async def mock_make_call(*args, **kwargs):</span><span class="a">+        raise _ollama_rate_limit_error()</span><span class="a">+</span><span class="a">+    with patch.object(router, &quot;make_call&quot;, side_effect=mock_make_call):</span><span class="a">+        with pytest.raises(litellm.RateLimitError):</span><span class="a">+            await router.aimage_generation(</span><span class="a">+                prompt=&quot;a cat&quot;, model=&quot;test-model&quot;, num_retries=None</span><span class="a">+            )</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_update_kwargs_before_fallbacks_replaces_none_with_default():</span><span class="a">+    router = _create_router(num_retries=4)</span><span class="a">+</span><span class="a">+    kwargs = {&quot;num_retries&quot;: None}</span><span class="a">+    router._update_kwargs_before_fallbacks(model=&quot;test-model&quot;, kwargs=kwargs)</span><span class="a">+    assert kwargs[&quot;num_retries&quot;] == 4</span><span class="a">+</span><span class="a">+    kwargs = {&quot;num_retries&quot;: 1}</span><span class="a">+    router._update_kwargs_before_fallbacks(model=&quot;test-model&quot;, kwargs=kwargs)</span><span class="a">+    assert kwargs[&quot;num_retries&quot;] == 1</span><span class="a">+</span><span class="a">+    kwargs = {&quot;num_retries&quot;: 0}</span><span class="a">+    router._update_kwargs_before_fallbacks(model=&quot;test-model&quot;, kwargs=kwargs)</span><span class="a">+    assert kwargs[&quot;num_retries&quot;] == 0</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/BerriAI/litellm/commit/1a4989dd090ccac31f3d683bb2904d583edd1012" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">litellm/router.py</span><span class="h">index 9185e437a3a..edaf4dec979 100644</span><span class="h">@@ -5768,7 +5768,7 @@ class Router:</span><span class="c">             _metadata[&quot;max_retries&quot;] = num_retries</span><span class="c"> </span><span class="c">             ## LOGGING</span><span class="r">-            if num_retries &gt; 0:</span><span class="a">+            if num_retries is not None and num_retries &gt; 0:</span><span class="c">                 kwargs = self.log_retry(kwargs=kwargs, e=original_exception)</span><span class="c">             else:</span><span class="c">                 raise</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/litellm/run-20261019-033420/25857/">Previous · #25857</a>
+  <a class="mid" href="/backtests/litellm/run-20261019-033420/">All tickets in this run</a>
+  <a href="/backtests/litellm/run-20261019-033420/25947/">Next · #25947</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

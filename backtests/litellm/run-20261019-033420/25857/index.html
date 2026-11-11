@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#25857 [Bug]: amazon.titan-embed-image-v1 — usage.prompt_tokens=0 for image inputs (EmbeddingResponse field, not cost calc) — BerriAI/litellm backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #25857 in BerriAI/litellm, run 19 Oct 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/litellm/run-20261019-033420/25857/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/litellm/">litellm</a><span aria-hidden="true">/</span><a href="/backtests/litellm/run-20261019-033420/">run-20261019-033420</a><span aria-hidden="true">/</span><span aria-current="page">#25857</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/BerriAI/litellm/issues/25857" rel="noopener" target="_blank">#25857</a></span>
+  <span>Merged fix <a href="https://github.com/BerriAI/litellm/commit/eff7a9931c70e5face27efe095de9442fc77f46a" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 19 Oct 2026 · <span class="runid">run-20261019-033420</span></span>
+  <span>BerriAI/litellm</span>
+</div>
+<h1 class="ticket-title">[Bug]: amazon.titan-embed-image-v1 — usage.prompt_tokens=0 for image inputs (EmbeddingResponse field, not cost calc)</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The functional change is identical in both patches: prompt_tokens and total_tokens become total_prompt_tokens + image_count, exactly as the issue proposes, and the independent tests confirm both fix the reported behaviour equally (all five pass on A and B, fail on base). The difference is in tests and craft. Patch A only appends two assertions to an existing cost-tracking test, covering the single-image case. Patch B adds four dedicated tests: image-only batch of two, mixed text+image (verifying the sum 5+1=6), a text-only regression guard, and an end-to-end litellm.embedding() test that also checks completion_cost still equals input_cost_per_image, directly guarding the issue&#39;s concern that the change must not alter cost calculation. B also adds a concise comment explaining why images count as one unit and why cost is unaffected, which matters since the code otherwise looks like it conflates tokens with images. Neither patch touches the Nova transformation the issue flags as &#39;worth checking&#39;, so scope is equal. B wins on test quality and clarity with no added risk.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">15m 59s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">30 passed · 0 skipped · 30 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">118<small>vs 6 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/BerriAI/litellm/issues/25857" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Check for existing issues</h3>
+<ul><li><input type="checkbox" disabled checked> I have searched the existing issues and checked that my issue is not a duplicate.</li></ul>
+<h3>What happened?</h3>
+<p>When calling <code>litellm.embedding()</code> with <code>amazon.titan-embed-image-v1</code> and an image input (data URI), the returned <code>EmbeddingResponse.usage.prompt_tokens</code> is <strong>always 0</strong>, even though the model successfully processed the image and returned an embedding.</p>
+<p>This is <strong>distinct from the cost-calculation bug</strong> fixed in PR #21646 (merged Feb 20, 2026). That PR correctly fixed LiteLLM&#39;s internal cost calculator to use <code>input_cost_per_image</code> via <code>prompt_tokens_details.image_count</code>. However, <strong><code>usage.prompt_tokens</code> itself is still 0</strong> in the returned response object.</p>
+<p>Any downstream consumer (e.g., a quota/billing system, logging layer, or monitoring tool) reading <code>response.usage.prompt_tokens</code> directly — rather than going through LiteLLM&#39;s cost calculator — gets <code>0</code> and cannot detect that work was performed.</p>
+<hr>
+<h3>Root cause</h3>
+<p>In <code>litellm/llms/bedrock/embed/amazon_titan_multimodal_transformation.py</code>, <code>_transform_response()</code>:</p>
+<pre><code class="lang-python">total_prompt_tokens += _parsed_response[&quot;inputTextTokenCount&quot;]  # always 0 for image inputs
+
+# image_count IS correctly counted (fix from #21646):
+if image_count &gt; 0:
+    prompt_tokens_details = PromptTokensDetailsWrapper(image_count=image_count)
+
+# But prompt_tokens is set from total_prompt_tokens, which is still 0:
+usage = Usage(
+    prompt_tokens=total_prompt_tokens,   # &lt;- 0 for image-only input
+    total_tokens=total_prompt_tokens,    # &lt;- 0
+    prompt_tokens_details=prompt_tokens_details,
+)</code></pre>
+<p>AWS returns <code>inputTextTokenCount=0</code> for image inputs by design — <code>amazon.titan-embed-image-v1</code> charges <strong>per image</strong> at a flat rate of <code>$0.00006/image</code>, not per token. LiteLLM&#39;s pricing registry already encodes this correctly:</p>
+<pre><code class="lang-json">&quot;amazon.titan-embed-image-v1&quot;: {
+    &quot;input_cost_per_image&quot;: 6e-05,
+    &quot;input_cost_per_token&quot;: 8e-07
+}</code></pre>
+<p>PR #21646 fixed the <strong>cost calculator</strong> path (<code>generic_cost_per_token</code> in <code>utils.py</code> now reads <code>image_count</code> from <code>prompt_tokens_details</code> and applies <code>input_cost_per_image</code>). But the <code>usage.prompt_tokens</code> field on the <code>EmbeddingResponse</code> was never updated, so it remains <code>0</code>.</p>
+<hr>
+<h3>Expected vs. actual</h3>
+<div class="tablewrap"><table class="table"><thead><tr><th>Field</th><th>Expected</th><th>Actual (v1.83.8)</th></tr></thead><tbody><tr><td><code>usage.prompt_tokens</code></td><td><code>N</code> (number of images, e.g. <code>1</code>)</td><td><strong><code>0</code></strong> ← bug</td></tr><tr><td><code>usage.total_tokens</code></td><td><code>N</code></td><td><strong><code>0</code></strong> ← bug</td></tr><tr><td><code>usage.prompt_tokens_details.image_count</code></td><td><code>N</code></td><td>correct (fixed by #21646)</td></tr><tr><td><code>litellm.completion_cost(response)</code></td><td>correct (<code>$0.00006</code>)</td><td>correct (fixed by #21646)</td></tr></tbody></table></div>
+<hr>
+<h3>Proposed fix</h3>
+<p>In <code>_transform_response()</code> of <code>amazon_titan_multimodal_transformation.py</code>:</p>
+<pre><code class="lang-python">prompt_tokens_details = None
+if image_count &gt; 0:
+    prompt_tokens_details = PromptTokensDetailsWrapper(
+        image_count=image_count,
+        image_tokens=image_count,  # populate the existing but currently unused field
+    )
+
+usage = Usage(
+    prompt_tokens=total_prompt_tokens + image_count,   # non-zero when images were processed
+    completion_tokens=0,
+    total_tokens=total_prompt_tokens + image_count,
+    prompt_tokens_details=prompt_tokens_details,
+)</code></pre>
+<p>This ensures <code>prompt_tokens &gt; 0</code> for any completed image embedding call and is fully backward-compatible (text-only paths unaffected since <code>image_count=0</code>).</p>
+<p>The same gap likely exists in <code>amazon_nova_transformation.py</code> — worth checking <code>AmazonNovaEmbeddingConfig._transform_response()</code> for identical behaviour.</p>
+<hr>
+<h3>Related</h3>
+<ul><li>PR #21646 — fixed cost calculation, but not <code>usage.prompt_tokens</code></li></ul>
+<h3>Steps to Reproduce</h3>
+<h3>Minimal pure-LiteLLM repro (no real AWS call needed for the logic, but an AWS account is needed to run):</h3>
+<pre><code class="lang-python">import base64
+from io import BytesIO
+from PIL import Image
+from litellm import embedding
+
+# Image must be a data URI — litellm&#39;s is_base64_encoded() requires `data:` prefix
+img = Image.new(&quot;RGB&quot;, (8, 8), color=&quot;blue&quot;)
+buf = BytesIO()
+img.save(buf, format=&quot;PNG&quot;)
+img_b64 = base64.b64encode(buf.getvalue()).decode(&quot;utf-8&quot;)
+img_data_uri = f&quot;data:image/png;base64,{img_b64}&quot;
+
+response = embedding(
+    model=&quot;amazon.titan-embed-image-v1&quot;,
+    input=[img_data_uri],
+    aws_region_name=&quot;us-east-1&quot;,
+)
+
+print(response.usage)
+# Usage(prompt_tokens=0, total_tokens=0, ...)  ← BUG: should be non-zero
+
+print(response.usage.prompt_tokens_details)
+# PromptTokensDetailsWrapper(image_count=1)  ← image IS tracked here, just not surfaced in prompt_tokens</code></pre>
+<h3>Raw boto3 confirmation (proves this is a LiteLLM-level issue, not AWS):</h3>
+<pre><code class="lang-python">import json, base64, boto3
+from io import BytesIO
+from PIL import Image
+
+img = Image.new(&quot;RGB&quot;, (8, 8), color=&quot;blue&quot;)
+buf = BytesIO()
+img.save(buf, format=&quot;PNG&quot;)
+img_b64 = base64.b64encode(buf.getvalue()).decode(&quot;utf-8&quot;)
+
+bedrock = boto3.client(&quot;bedrock-runtime&quot;, region_name=&quot;us-east-1&quot;)
+resp = bedrock.invoke_model(
+    modelId=&quot;amazon.titan-embed-image-v1&quot;,
+    body=json.dumps({&quot;inputImage&quot;: img_b64}),
+    accept=&quot;application/json&quot;,
+    contentType=&quot;application/json&quot;,
+)
+
+print(json.loads(resp[&quot;body&quot;].read()))
+# {&quot;embedding&quot;: [...], &quot;inputTextTokenCount&quot;: 0}
+# AWS intentionally returns inputTextTokenCount=0 for images —
+# the model is priced PER IMAGE ($0.00006/image), not per token.
+# There is no &quot;inputImageTokenCount&quot; field — AWS does not expose one.</code></pre>
+<h3>Relevant log output</h3>
+<pre><code class="lang-shell"></code></pre>
+<h3>What part of LiteLLM is this about?</h3>
+<p>SDK (litellm Python package)</p>
+<h3>What LiteLLM version are you on ?</h3>
+<p>v1.83.8</p>
+<h3>Twitter / LinkedIn details</h3>
+<p><a href="https://www.linkedin.com/in/shay-margalit-40581668/" rel="noopener nofollow" target="_blank">https://www.linkedin.com/in/shay-margalit-40581668/</a></p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+116</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">litellm/llms/bedrock/embed/amazon_titan_multimodal_transformation.py</span><span class="h">index 07b04734c3..a42207c240 100644</span><span class="h">@@ -92,10 +92,16 @@ class AmazonTitanMultimodalEmbeddingG1Config:</span><span class="c">                 image_count=image_count,</span><span class="c">             )</span><span class="c"> </span><span class="a">+        # AWS returns inputTextTokenCount=0 for image inputs (images are billed</span><span class="a">+        # per image, not per token), so count each image as one prompt unit to</span><span class="a">+        # keep usage.prompt_tokens non-zero. Cost calc uses image_count with</span><span class="a">+        # input_cost_per_image, so this does not affect the computed cost.</span><span class="a">+        prompt_tokens = total_prompt_tokens + image_count</span><span class="a">+</span><span class="c">         usage = Usage(</span><span class="r">-            prompt_tokens=total_prompt_tokens,</span><span class="a">+            prompt_tokens=prompt_tokens,</span><span class="c">             completion_tokens=0,</span><span class="r">-            total_tokens=total_prompt_tokens,</span><span class="a">+            total_tokens=prompt_tokens,</span><span class="c">             prompt_tokens_details=prompt_tokens_details,</span><span class="c">         )</span><span class="c">         return EmbeddingResponse(model=model, usage=usage, data=transformed_responses)</span><span class="f">tests/test_litellm/llms/bedrock/embed/test_bedrock_embedding.py</span><span class="h">index a38a6612f7..b0a2f7f236 100644</span><span class="h">@@ -955,3 +955,111 @@ def test_titan_image_embedding_cost_uses_per_image_rate():</span><span class="c">         assert response.usage is not None</span><span class="c">         assert response.usage.prompt_tokens_details is not None</span><span class="c">         assert response.usage.prompt_tokens_details.image_count == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_titan_multimodal_embedding_image_prompt_tokens_non_zero():</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    Image-only Titan multimodal embeddings must report non-zero usage.prompt_tokens.</span><span class="a">+    AWS returns inputTextTokenCount=0 for images, so each image counts as one unit.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (</span><span class="a">+        AmazonTitanMultimodalEmbeddingG1Config,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    config = AmazonTitanMultimodalEmbeddingG1Config()</span><span class="a">+</span><span class="a">+    result = config._transform_response(</span><span class="a">+        response_list=[</span><span class="a">+            {&quot;embedding&quot;: [0.1, 0.2, 0.3], &quot;inputTextTokenCount&quot;: 0},</span><span class="a">+            {&quot;embedding&quot;: [0.4, 0.5, 0.6], &quot;inputTextTokenCount&quot;: 0},</span><span class="a">+        ],</span><span class="a">+        model=&quot;amazon.titan-embed-image-v1&quot;,</span><span class="a">+        batch_data=[</span><span class="a">+            {&quot;inputImage&quot;: &quot;/9j/4AAQSkZJRg==&quot;},</span><span class="a">+            {&quot;inputImage&quot;: &quot;/9j/4AAQSkZJRg==&quot;},</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert result.usage.prompt_tokens == 2</span><span class="a">+    assert result.usage.total_tokens == 2</span><span class="a">+    assert result.usage.prompt_tokens_details.image_count == 2</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_titan_multimodal_embedding_mixed_text_and_image_prompt_tokens():</span><span class="a">+    &quot;&quot;&quot;Mixed text + image batch: prompt_tokens = text tokens + image count.&quot;&quot;&quot;</span><span class="a">+    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (</span><span class="a">+        AmazonTitanMultimodalEmbeddingG1Config,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    config = AmazonTitanMultimodalEmbeddingG1Config()</span><span class="a">+</span><span class="a">+    result = config._transform_response(</span><span class="a">+        response_list=[</span><span class="a">+            {&quot;embedding&quot;: [0.1, 0.2, 0.3], &quot;inputTextTokenCount&quot;: 5},</span><span class="a">+            {&quot;embedding&quot;: [0.4, 0.5, 0.6], &quot;inputTextTokenCount&quot;: 0},</span><span class="a">+        ],</span><span class="a">+        model=&quot;amazon.titan-embed-image-v1&quot;,</span><span class="a">+        batch_data=[</span><span class="a">+            {&quot;inputText&quot;: &quot;hello world&quot;},</span><span class="a">+            {&quot;inputImage&quot;: &quot;/9j/4AAQSkZJRg==&quot;},</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert result.usage.prompt_tokens == 6</span><span class="a">+    assert result.usage.total_tokens == 6</span><span class="a">+    assert result.usage.prompt_tokens_details.image_count == 1</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_titan_multimodal_embedding_text_only_prompt_tokens_unchanged():</span><span class="a">+    &quot;&quot;&quot;Text-only Titan multimodal embeddings keep prompt_tokens = inputTextTokenCount.&quot;&quot;&quot;</span><span class="a">+    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (</span><span class="a">+        AmazonTitanMultimodalEmbeddingG1Config,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    config = AmazonTitanMultimodalEmbeddingG1Config()</span><span class="a">+</span><span class="a">+    result = config._transform_response(</span><span class="a">+        response_list=[{&quot;embedding&quot;: [0.1, 0.2, 0.3], &quot;inputTextTokenCount&quot;: 5}],</span><span class="a">+        model=&quot;amazon.titan-embed-image-v1&quot;,</span><span class="a">+        batch_data=[{&quot;inputText&quot;: &quot;hello world&quot;}],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert result.usage.prompt_tokens == 5</span><span class="a">+    assert result.usage.total_tokens == 5</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_titan_image_embedding_e2e_prompt_tokens_and_cost():</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    End-to-end: litellm.embedding() with an image data URI on</span><span class="a">+    amazon.titan-embed-image-v1 returns non-zero usage.prompt_tokens, and the</span><span class="a">+    cost is still exactly one image at input_cost_per_image (no extra token charge).</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    client = HTTPHandler()</span><span class="a">+</span><span class="a">+    with patch.object(client, &quot;post&quot;) as mock_post:</span><span class="a">+        mock_response = Mock()</span><span class="a">+        mock_response.status_code = 200</span><span class="a">+        mock_response.text = json.dumps(</span><span class="a">+            {&quot;embedding&quot;: [0.1] * 1024, &quot;inputTextTokenCount&quot;: 0}</span><span class="a">+        )</span><span class="a">+        mock_response.json = lambda: json.loads(mock_response.text)</span><span class="a">+        mock_post.return_value = mock_response</span><span class="a">+</span><span class="a">+        response = litellm.embedding(</span><span class="a">+            model=&quot;bedrock/amazon.titan-embed-image-v1&quot;,</span><span class="a">+            input=[&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==&quot;],</span><span class="a">+            client=client,</span><span class="a">+            aws_access_key_id=&quot;fake&quot;,</span><span class="a">+            aws_secret_access_key=&quot;fake&quot;,</span><span class="a">+            aws_region_name=&quot;us-east-1&quot;,</span><span class="a">+        )</span><span class="a">+</span><span class="a">+    assert response.usage.prompt_tokens == 1</span><span class="a">+    assert response.usage.total_tokens == 1</span><span class="a">+    assert response.usage.prompt_tokens_details.image_count == 1</span><span class="a">+</span><span class="a">+    model_info = litellm.get_model_info(</span><span class="a">+        model=&quot;amazon.titan-embed-image-v1&quot;, custom_llm_provider=&quot;bedrock&quot;</span><span class="a">+    )</span><span class="a">+    cost = litellm.completion_cost(completion_response=response)</span><span class="a">+    assert cost == pytest.approx(model_info[&quot;input_cost_per_image&quot;])</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/BerriAI/litellm/commit/eff7a9931c70e5face27efe095de9442fc77f46a" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+4</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">litellm/llms/bedrock/embed/amazon_titan_multimodal_transformation.py</span><span class="h">index 07b04734c30..d67f936aa88 100644</span><span class="h">@@ -93,9 +93,9 @@ class AmazonTitanMultimodalEmbeddingG1Config:</span><span class="c">             )</span><span class="c"> </span><span class="c">         usage = Usage(</span><span class="r">-            prompt_tokens=total_prompt_tokens,</span><span class="a">+            prompt_tokens=total_prompt_tokens + image_count,</span><span class="c">             completion_tokens=0,</span><span class="r">-            total_tokens=total_prompt_tokens,</span><span class="a">+            total_tokens=total_prompt_tokens + image_count,</span><span class="c">             prompt_tokens_details=prompt_tokens_details,</span><span class="c">         )</span><span class="c">         return EmbeddingResponse(model=model, usage=usage, data=transformed_responses)</span><span class="f">tests/test_litellm/llms/bedrock/embed/test_bedrock_embedding.py</span><span class="h">index a38a6612f79..d2813ecb3a8 100644</span><span class="h">@@ -863,6 +863,8 @@ def test_titan_multimodal_embedding_image_cost_tracking():</span><span class="c">     )</span><span class="c"> </span><span class="c">     assert result.usage is not None</span><span class="a">+    assert result.usage.prompt_tokens == 1  # image_count included in prompt_tokens</span><span class="a">+    assert result.usage.total_tokens == 1</span><span class="c">     assert result.usage.prompt_tokens_details is not None</span><span class="c">     assert result.usage.prompt_tokens_details.image_count == 1</span><span class="c"> </span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/litellm/run-20261019-033420/25669/">Previous · #25669</a>
+  <a class="mid" href="/backtests/litellm/run-20261019-033420/">All tickets in this run</a>
+  <a href="/backtests/litellm/run-20261019-033420/25889/">Next · #25889</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

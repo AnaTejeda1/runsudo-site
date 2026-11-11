@@ -665,6 +665,49 @@
           "judge": "panel"
         }
       ]
+    },
+    {
+      "slug": "litellm",
+      "name": "BerriAI/litellm",
+      "description": "Python SDK and proxy server for calling 100+ LLM APIs in the OpenAI format.",
+      "languages": [
+        "Python"
+      ],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-10-19",
+          "id": "run-20261019-033420",
+          "source_runs": [
+            "run-20261019-033420"
+          ],
+          "tickets": 30,
+          "better": 24,
+          "par": 0,
+          "worse": 5,
+          "tie": 1,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1 on the foreman lane; judge panel v3: four Fable 5.1 judges, with tests drafted by a test-writing agent, which now skips fixes that change only data or config",
+          "footnote": "Ticket 40477 counts as worse because of a harness fault, not the fix: the agent ran mypy, its patch picked up a binary .mypy_cache file, and the tests could not apply it. Its code change matches the human fix in approach and files. The fault is fixed for later runs.",
+          "judge": "panel"
+        },
+        {
+          "date": "2026-10-18",
+          "id": "run-20261018-182052",
+          "source_runs": [
+            "run-20261018-182052"
+          ],
+          "tickets": 30,
+          "better": 26,
+          "par": 0,
+          "worse": 4,
+          "tie": 0,
+          "error": 0,
+          "notes": "sudo-solver 0.5.1 on the foreman lane; judge panel v2: four Fable 5.1 judges, with tests drafted by a test-writing agent",
+          "footnote": "",
+          "judge": "panel"
+        }
+      ]
     }
   ],
   "events": []
