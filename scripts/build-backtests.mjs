@@ -367,7 +367,7 @@ const featured = listedRepos.find((r) => r.latest) || null;
 // Chart (inline SVG)
 // ---------------------------------------------------------------------------
 
-const PALETTE = ['#f5e900', '#8ab4f8', '#e39ad6', '#7fd1d1', '#f0b27a', '#b5a7f5', '#a8e05f', '#f06292'];
+const PALETTE = ['#f5e900', '#8ab4f8', '#e39ad6', '#7fd1d1', '#f0b27a', '#b5a7f5', '#a8e05f', '#f06292', '#ff6f3c'];
 
 function chart() {
   const series = listedRepos.filter((r) => r.runs.length).map((r, k) => ({ repo: r, color: PALETTE[k % PALETTE.length] }));
@@ -431,6 +431,15 @@ function chart() {
     for (const r of pts) {
       const label = `${fmtDate(r.date)} · ${s.repo.name} · ${r.id}: ${r.pct}% better (${r.better} better, ${r.par} par, ${r.tie ? `${r.tie} tie, ` : ''}${r.worse} worse, ${r.error} error)${r.notes ? '. ' + r.notes : ''}`;
       parts.push(`<a href="${runUrl(s.repo, r)}" data-tip data-date="${esc(fmtDate(r.date))}" data-run="${esc(r.id)}" data-repo="${esc(s.repo.name)}" data-pct="${r.pct}" data-better="${r.better}" data-par="${r.par}" data-tie="${r.tie}" data-worse="${r.worse}" data-error="${r.error}" data-notes="${esc(r.notes || '')}"><circle class="hit" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="16"/><circle class="pt" fill="${s.color}" cx="${x(runMs(r))}" cy="${y(r.pct)}" r="7"><title>${esc(label)}</title></circle></a>`);
+    }
+    // Two runs of one repo hours apart sit so close that their dots (r 7 + a 2.5 ring)
+    // hide the line between them (litellm's 18 and 19 Oct runs): draw that short link
+    // over the dots.
+    for (let k = 1; k < pts.length; k++) {
+      const [x1, y1, x2, y2] = [x(runMs(pts[k - 1])), y(pts[k - 1].pct), x(runMs(pts[k])), y(pts[k].pct)];
+      if (Math.hypot(x2 - x1, y2 - y1) < 20) {
+        parts.push(`<line class="line" stroke="${s.color}" pointer-events="none" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
+      }
     }
   }
 
