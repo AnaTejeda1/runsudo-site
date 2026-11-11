@@ -395,6 +395,23 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-11-06",
+          "id": "run-20261106-192752",
+          "source_runs": [
+            "run-20261106-192752"
+          ],
+          "tickets": 10,
+          "better": 2,
+          "par": 0,
+          "worse": 8,
+          "tie": 0,
+          "error": 0,
+          "notes": "Issues fixed by one maintainer, shared by link",
+          "footnote": "",
+          "judge": "panel",
+          "unlisted": true
+        },
+        {
           "date": "2026-10-21",
           "id": "run-20261021-133314",
           "source_runs": [
