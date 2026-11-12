@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#41435 [Bug]: Fix &quot;vertex_ai/xai/grok-4.6&quot; entry in &quot;model_prices_and_context_window.json&quot; — missing supports_prompt_caching — BerriAI/litellm backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #41435 in BerriAI/litellm, run 11 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/litellm/run-20261111-220245/41435/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/litellm/">litellm</a><span aria-hidden="true">/</span><a href="/backtests/litellm/run-20261111-220245/">run-20261111-220245</a><span aria-hidden="true">/</span><span aria-current="page">#41435</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/BerriAI/litellm/issues/41435" rel="noopener" target="_blank">#41435</a></span>
+  <span>Merged fix <a href="https://github.com/BerriAI/litellm/pull/41526" rel="noopener" target="_blank">PR #41526</a></span>
+  <span>Run 11 Nov 2026 · <span class="runid">run-20261111-220245</span></span>
+  <span>BerriAI/litellm</span>
+</div>
+<h1 class="ticket-title">[Bug]: Fix &quot;vertex_ai/xai/grok-4.6&quot; entry in &quot;model_prices_and_context_window.json&quot; — missing supports_prompt_caching</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both diffs contain only test changes; the JSON cost-map edits were evidently stripped as data files, so the comparison rests on the tests. Patch A rewrites the existing test to go through get_model_info instead of supports_prompt_caching and adds a few redundant assertions on the routed/catalog info for grok-4.6, but it removes nothing of substance and adds no coverage of the backup file the issue explicitly asks to be updated. Patch B leaves the existing tests intact and adds a parametrized test that reads both model_prices_and_context_window.json and litellm/model_prices_and_context_window_backup.json directly from disk and asserts all six vertex_ai/xai/grok-* rows named in the issue carry both a cache-read price and supports_prompt_caching: true. That test fails before the fix and passes after, pins the exact model list from the issue, and catches a source/backup drift that A&#39;s model_cost-based checks would miss. REPO_ROOT resolution (parents[2] from tests/test_litellm/) is correct. The pydantic TypeAdapter for parsing is slightly heavier than json.loads but harmless. B&#39;s tests more faithfully cover the issue&#39;s full ask with no churn to existing tests.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">15m 9s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">4 passed · 0 skipped · 4 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">32<small>vs 20 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/BerriAI/litellm/issues/41435" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Check for existing issues</h3>
+<ul><li><input type="checkbox" disabled checked> I have searched the existing issues and checked that my issue is not a duplicate.</li></ul>
+<h3>What happened?</h3>
+<p><a href="https://github.com/BerriAI/litellm/blob/v1.102.0-rc.1/model_prices_and_context_window.json#L48398-L48416" rel="noopener nofollow" target="_blank">https://github.com/BerriAI/litellm/blob/v1.102.0-rc.1/model_prices_and_context_window.json#L48398-L48416</a></p>
+<p>This entry has <code>cache_read_input_token_cost</code> (5e-07) and <code>cache_read_input_token_cost_above_200k_tokens</code> (1e-06) but no <code>supports_prompt_caching</code>, so <code>supports_prompt_caching()</code> returns false and <code>GET /v1/model/info</code> reports <code>&quot;supports_prompt_caching&quot;: false</code> for a Vertex Grok 4.6 deployment.</p>
+<p>The same model on the other providers does set it:</p>
+<ul><li><code>xai/grok-4.6</code> → <code>supports_prompt_caching: true</code> (L49979)</li><li><code>azure_ai/grok-4.6</code> → <code>supports_prompt_caching: true</code></li></ul>
+<p>xAI prompt caching is provider-managed (automatic on a stable prefix), and the Vertex route does return <code>usage.prompt_tokens_details.cached_tokens</code> &gt; 0 on follow-up turns, which is what the cache-read rate on this entry bills. Callers that gate on <code>/model/info</code> before reusing a prefix therefore skip caching on the Vertex route only.</p>
+<p>The whole <code>vertex_ai/xai/grok-*</code> family looks the same — each has a cache-read price and none sets the flag:</p>
+<div class="tablewrap"><table class="table"><thead><tr><th>key</th><th>cache_read_input_token_cost</th><th>supports_prompt_caching</th></tr></thead><tbody><tr><td><code>vertex_ai/xai/grok-4.1-fast-non-reasoning</code></td><td>5e-08</td><td>absent</td></tr><tr><td><code>vertex_ai/xai/grok-4.1-fast-reasoning</code></td><td>5e-08</td><td>absent</td></tr><tr><td><code>vertex_ai/xai/grok-4.20-non-reasoning</code></td><td>2e-07</td><td>absent</td></tr><tr><td><code>vertex_ai/xai/grok-4.20-reasoning</code></td><td>2e-07</td><td>absent</td></tr><tr><td><code>vertex_ai/xai/grok-4.3</code></td><td>2e-07</td><td>absent</td></tr><tr><td><code>vertex_ai/xai/grok-4.6</code></td><td>5e-07</td><td>absent</td></tr></tbody></table></div>
+<p>We also need to update <a href="https://github.com/BerriAI/litellm/blob/v1.102.0-rc.1/litellm/model_prices_and_context_window_backup.json" rel="noopener nofollow" target="_blank">model_prices_and_context_window_backup.json</a>.</p>
+<p>Confirmed on <code>v1.102.0-rc.1</code> and current <code>main</code>.</p>
+<h3>User Flow</h3>
+<p><strong>Before a (hypothetical) fix</strong></p>
+<p>The flow fails when I ask the gateway whether Vertex Grok 4.6 supports prompt caching: the catalog says no, even though a follow-up completion on that same model returns cached tokens.</p>
+<ol><li>I start the proxy with a config that exposes <code>grok-4.6-vertex</code> (<code>vertex_ai/xai/grok-4.6</code>) and <code>grok-4.6-direct</code> (<code>xai/grok-4.6</code>) and see it listening on <code>http://localhost:4000</code>.</li><li>I send <code>GET http://localhost:4000/v1/models</code> with <code>Authorization: Bearer sk-[REDACTED]</code>. I get HTTP 200 and both model names in <code>data</code>.</li><li>I send <code>GET http://localhost:4000/v1/model/info</code> with the same header. I get HTTP 200. For <code>grok-4.6-vertex</code>, <code>model_info.supports_prompt_caching</code> is <code>false</code> (or absent) while <code>cache_read_input_token_cost</code> is <code>5e-07</code>. For <code>grok-4.6-direct</code>, <code>supports_prompt_caching</code> is <code>true</code>.</li><li>I send <code>POST http://localhost:4000/v1/chat/completions</code> for <code>grok-4.6-vertex</code> with a long stable system prefix, a first user turn, and header <code>x-grok-conv-id: conv_repro_1</code>. I get HTTP 200 and <code>usage.prompt_tokens_details.cached_tokens</code> of <code>0</code>.</li><li>I send the same URL again with the same <code>x-grok-conv-id</code>, appending the assistant reply and a follow-up user turn. I get HTTP 200 and <code>usage.prompt_tokens_details.cached_tokens</code> greater than <code>0</code>.</li><li>I send <code>POST http://localhost:4000/v1/responses</code> for <code>grok-4.6-vertex</code> with the same prefix and <code>&quot;prompt_cache_key&quot;: &quot;conv_repro_1&quot;</code>. I get HTTP 200 and <code>usage.input_tokens_details.cached_tokens</code> of <code>0</code>.</li><li>I send the same URL again with the same <code>prompt_cache_key</code> and the follow-up turn. I get HTTP 200 and <code>usage.input_tokens_details.cached_tokens</code> greater than <code>0</code>.</li></ol>
+<p><strong>After a (hypothetical) fix</strong></p>
+<p>The flow succeeds at the catalog check: Vertex Grok 4.6 is listed as supporting prompt caching, matching the live cache hits on the next turns.</p>
+<ol><li>I start the proxy with a config that exposes <code>grok-4.6-vertex</code> (<code>vertex_ai/xai/grok-4.6</code>) and <code>grok-4.6-direct</code> (<code>xai/grok-4.6</code>) and see it listening on <code>http://localhost:4000</code>.</li><li>I send <code>GET http://localhost:4000/v1/models</code> with <code>Authorization: Bearer sk-[REDACTED]</code>. I get HTTP 200 and both model names in <code>data</code>.</li><li>I send <code>GET http://localhost:4000/v1/model/info</code> with the same header. I get HTTP 200. For both <code>grok-4.6-vertex</code> and <code>grok-4.6-direct</code>, <code>model_info.supports_prompt_caching</code> is <code>true</code>, and the Vertex row still shows <code>cache_read_input_token_cost</code> of <code>5e-07</code>.</li><li>I send <code>POST http://localhost:4000/v1/chat/completions</code> for <code>grok-4.6-vertex</code> with a long stable system prefix, a first user turn, and header <code>x-grok-conv-id: conv_repro_1</code>. I get HTTP 200 and <code>usage.prompt_tokens_details.cached_tokens</code> of <code>0</code>.</li><li>I send the same URL again with the same <code>x-grok-conv-id</code>, appending the assistant reply and a follow-up user turn. I get HTTP 200 and <code>usage.prompt_tokens_details.cached_tokens</code> greater than <code>0</code>.</li><li>I send <code>POST http://localhost:4000/v1/responses</code> for <code>grok-4.6-vertex</code> with the same prefix and <code>&quot;prompt_cache_key&quot;: &quot;conv_repro_1&quot;</code>. I get HTTP 200 and <code>usage.input_tokens_details.cached_tokens</code> of <code>0</code>.</li><li>I send the same URL again with the same <code>prompt_cache_key</code> and the follow-up turn. I get HTTP 200 and <code>usage.input_tokens_details.cached_tokens</code> greater than <code>0</code>.</li></ol>
+<h3>Proof the bug occurs</h3>
+<pre><code># config.yaml
+model_list:
+  - model_name: grok-4.6-vertex
+    litellm_params:
+      model: vertex_ai/xai/grok-4.6
+      vertex_project: YOUR_GCP_PROJECT
+      vertex_location: global
+      vertex_credentials: /path/to/sa.json
+  - model_name: grok-4.6-direct
+    litellm_params:
+      model: xai/grok-4.6
+      api_key: os.environ/XAI_API_KEY</code></pre>
+<pre><code># version captured: litellm==1.102.0rc1
+# (also reproduced on GitHub main cost map and PyPI 1.103.0.dev1)
+export VERTEXAI_PROJECT=YOUR_GCP_PROJECT
+# VERTEX credentials via vertex_credentials file above; do not paste the JSON
+litellm --config config.yaml --port 4000</code></pre>
+<pre><code># Catalog (no LLM $): Vertex row denies caching, direct xAI row advertises it
+curl -sS http://localhost:4000/model/info \
+  -H &quot;Authorization: Bearer sk-...&quot; | jq &#39;.data[] | select(.model_name|test(&quot;grok-4.6&quot;)) | {model_name, model: .litellm_params.model, supports_prompt_caching: .model_info.supports_prompt_caching, cache_read_input_token_cost: .model_info.cache_read_input_token_cost}&#39;</code></pre>
+<pre><code>{
+  &quot;model_name&quot;: &quot;grok-4.6-vertex&quot;,
+  &quot;model&quot;: &quot;vertex_ai/xai/grok-4.6&quot;,
+  &quot;supports_prompt_caching&quot;: false,
+  &quot;cache_read_input_token_cost&quot;: 5e-07
+}
+{
+  &quot;model_name&quot;: &quot;grok-4.6-direct&quot;,
+  &quot;model&quot;: &quot;xai/grok-4.6&quot;,
+  &quot;supports_prompt_caching&quot;: true,
+  &quot;cache_read_input_token_cost&quot;: 5e-07
+}</code></pre>
+<pre><code># Chat Completions
+curl -sS http://localhost:4000/v1/chat/completions \
+  -H &quot;Authorization: Bearer sk-...&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;x-grok-conv-id: conv_repro_1&quot; \
+  -d &#39;{&quot;model&quot;:&quot;grok-4.6-vertex&quot;,&quot;messages&quot;:[{&quot;role&quot;:&quot;system&quot;,&quot;content&quot;:&quot;&lt;LONG STABLE PREFIX&gt;&quot;},{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;What is prompt caching?&quot;}]}&#39;
+
+# second turn: append assistant + follow-up, same header
+# Responses
+curl -sS http://localhost:4000/v1/responses \
+  -H &quot;Authorization: Bearer sk-...&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;model&quot;:&quot;grok-4.6-vertex&quot;,&quot;input&quot;:[{&quot;role&quot;:&quot;system&quot;,&quot;content&quot;:&quot;&lt;LONG STABLE PREFIX&gt;&quot;},{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;What is prompt caching?&quot;}],&quot;prompt_cache_key&quot;:&quot;conv_repro_1&quot;}&#39;
+</code></pre>
+<p>On the follow-up, the live usage block looks like (numbers from a real Vertex hit; paste your own):</p>
+<ul><li>Chat: &quot;prompt_tokens_details&quot;: {&quot;cached_tokens&quot;: &lt;nonzero&gt;}</li><li>Responses: &quot;input_tokens_details&quot;: {&quot;cached_tokens&quot;: &lt;nonzero&gt;}</li></ul>
+<p>That is the mismatch: usage says cache hit, /model/info says supports_prompt_caching: false.</p>
+<p>What part of LiteLLM is this about?</p>
+<ul><li>Proxy catalog / GET /model/info</li><li>Vertex AI xAI (Grok) partner models</li><li>Prompt caching metadata vs live cached_tokens</li></ul>
+<h3>What part of LiteLLM is this about?</h3>
+<p>SDK (litellm Python package)</p>
+<h3>What LiteLLM version are you on ?</h3>
+<p>v1.102.0rc1</p>
+<h3>Twitter / LinkedIn details</h3>
+<p>_No response_</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+32</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">tests/test_litellm/test_vertex_ai_xai_grok_prompt_caching_metadata.py</span><span class="h">index 72e98711f0..6f80bc7722 100644</span><span class="h">@@ -1,6 +1,8 @@</span><span class="a">+from pathlib import Path</span><span class="c"> from typing import Final</span><span class="c"> </span><span class="c"> import pytest</span><span class="a">+from pydantic import TypeAdapter</span><span class="c"> </span><span class="c"> import litellm</span><span class="c"> from litellm import get_model_info</span><span class="h">@@ -9,6 +11,16 @@ from litellm.utils import supports_prompt_caching</span><span class="c"> </span><span class="c"> MODEL: Final = &quot;vertex_ai/xai/grok-4.6&quot;</span><span class="c"> GROK_KEY_PREFIXES: Final = (&quot;vertex_ai/xai/grok-&quot;, &quot;azure_ai/grok-&quot;, &quot;xai/grok-&quot;)</span><span class="a">+REPO_ROOT: Final = Path(__file__).parents[2]</span><span class="a">+COST_MAP_ADAPTER: Final = TypeAdapter(dict[str, dict[str, object]])</span><span class="a">+VERTEX_GROK_MODELS: Final = (</span><span class="a">+    &quot;vertex_ai/xai/grok-4.1-fast-non-reasoning&quot;,</span><span class="a">+    &quot;vertex_ai/xai/grok-4.1-fast-reasoning&quot;,</span><span class="a">+    &quot;vertex_ai/xai/grok-4.20-non-reasoning&quot;,</span><span class="a">+    &quot;vertex_ai/xai/grok-4.20-reasoning&quot;,</span><span class="a">+    &quot;vertex_ai/xai/grok-4.3&quot;,</span><span class="a">+    &quot;vertex_ai/xai/grok-4.6&quot;,</span><span class="a">+)</span><span class="c"> </span><span class="c"> </span><span class="c"> @pytest.mark.usefixtures(&quot;local_model_cost_map&quot;)</span><span class="h">@@ -36,3 +48,23 @@ def test_vertex_ai_grok_4_6_supports_prompt_caching_via_get_model_info() -&gt; None</span><span class="c">     assert info.get(&quot;supports_prompt_caching&quot;) is True</span><span class="c"> </span><span class="c">     assert supports_prompt_caching(model=MODEL) is True</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &quot;cost_map_path&quot;,</span><span class="a">+    (</span><span class="a">+        REPO_ROOT / &quot;model_prices_and_context_window.json&quot;,</span><span class="a">+        REPO_ROOT / &quot;litellm&quot; / &quot;model_prices_and_context_window_backup.json&quot;,</span><span class="a">+    ),</span><span class="a">+    ids=(&quot;source&quot;, &quot;backup&quot;),</span><span class="a">+)</span><span class="a">+def test_vertex_ai_grok_rows_flag_prompt_caching_in_both_cost_maps(cost_map_path: Path) -&gt; None:</span><span class="a">+    cost_map = COST_MAP_ADAPTER.validate_json(cost_map_path.read_bytes())</span><span class="a">+</span><span class="a">+    unflagged = tuple(</span><span class="a">+        key</span><span class="a">+        for key in VERTEX_GROK_MODELS</span><span class="a">+        if not cost_map[key].get(&quot;cache_read_input_token_cost&quot;)</span><span class="a">+        or cost_map[key].get(&quot;supports_prompt_caching&quot;) is not True</span><span class="a">+    )</span><span class="a">+    assert unflagged == (), f&quot;{cost_map_path.name}: vertex grok rows missing prompt caching: {unflagged}&quot;</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/BerriAI/litellm/pull/41526" rel="noopener" target="_blank">PR #41526</a></span><span class="pm"><span class="a">+14</span> <span class="r">−6</span></span></div><pre class="diff"><span class="f">tests/test_litellm/test_vertex_ai_xai_grok_prompt_caching_metadata.py</span><span class="h">index 72e98711f0c..2d5936fabdb 100644</span><span class="h">@@ -13,16 +13,18 @@ GROK_KEY_PREFIXES: Final = (&quot;vertex_ai/xai/grok-&quot;, &quot;azure_ai/grok-&quot;, &quot;xai/grok-&quot;</span><span class="c"> </span><span class="c"> @pytest.mark.usefixtures(&quot;local_model_cost_map&quot;)</span><span class="c"> def test_grok_models_with_cache_read_price_advertise_prompt_caching() -&gt; None:</span><span class="r">-    cached_grok_models = tuple(</span><span class="a">+    cached_grok_models: Final = tuple(</span><span class="c">         key</span><span class="c">         for key, entry in litellm.model_cost.items()</span><span class="c">         if key.startswith(GROK_KEY_PREFIXES) and entry.get(&quot;cache_read_input_token_cost&quot;)</span><span class="c">     )</span><span class="c">     assert cached_grok_models, &quot;expected at least one grok model with a cache read price&quot;</span><span class="c"> </span><span class="r">-    missing_flag = tuple(key for key in cached_grok_models if supports_prompt_caching(model=key) is not True)</span><span class="a">+    missing_flag: Final = tuple(</span><span class="a">+        key for key in cached_grok_models if get_model_info(model=key).get(&quot;supports_prompt_caching&quot;) is not True</span><span class="a">+    )</span><span class="c">     assert missing_flag == (), (</span><span class="r">-        f&quot;grok models with cache_read_input_token_cost fail supports_prompt_caching: {missing_flag}&quot;</span><span class="a">+        f&quot;grok models with cache_read_input_token_cost fail get_model_info supports_prompt_caching: {missing_flag}&quot;</span><span class="c">     )</span><span class="c"> </span><span class="c"> </span><span class="h">@@ -31,8 +33,14 @@ def test_vertex_ai_grok_4_6_supports_prompt_caching_via_get_model_info() -&gt; None</span><span class="c">     routed_model, provider, _, _ = get_llm_provider(model=MODEL)</span><span class="c">     assert (routed_model, provider) == (&quot;xai/grok-4.6&quot;, &quot;vertex_ai&quot;)</span><span class="c"> </span><span class="r">-    info = get_model_info(model=routed_model, custom_llm_provider=provider)</span><span class="r">-    assert info[&quot;litellm_provider&quot;] == &quot;vertex_ai&quot;</span><span class="r">-    assert info.get(&quot;supports_prompt_caching&quot;) is True</span><span class="a">+    routed_info: Final = get_model_info(model=routed_model, custom_llm_provider=provider)</span><span class="a">+    assert routed_info[&quot;litellm_provider&quot;] == &quot;vertex_ai&quot;</span><span class="a">+    assert routed_info.get(&quot;supports_prompt_caching&quot;) is True</span><span class="a">+    assert routed_info.get(&quot;cache_read_input_token_cost&quot;)</span><span class="a">+</span><span class="a">+    catalog_info: Final = get_model_info(model=MODEL)</span><span class="a">+    assert catalog_info[&quot;key&quot;] == MODEL</span><span class="a">+    assert catalog_info.get(&quot;supports_prompt_caching&quot;) is True</span><span class="a">+    assert catalog_info.get(&quot;cache_read_input_token_cost&quot;)</span><span class="c"> </span><span class="c">     assert supports_prompt_caching(model=MODEL) is True</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/litellm/run-20261111-220245/41394/">Previous · #41394</a>
+  <a class="mid" href="/backtests/litellm/run-20261111-220245/">All tickets in this run</a>
+  <a href="/backtests/litellm/run-20261111-220245/41548/">Next · #41548</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

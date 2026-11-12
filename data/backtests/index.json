@@ -676,6 +676,22 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-11-11",
+          "id": "run-20261111-220245",
+          "source_runs": [
+            "run-20261111-220245"
+          ],
+          "tickets": 30,
+          "better": 26,
+          "par": 0,
+          "worse": 2,
+          "tie": 2,
+          "error": 0,
+          "notes": "",
+          "footnote": "",
+          "judge": "panel"
+        },
+        {
           "date": "2026-10-19",
           "id": "run-20261019-033420",
           "source_runs": [

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#48743 [Bug]: Gemini grounding annotations drop additional sources for a passage — BerriAI/litellm backtest</title>
+<meta name="description" content="The judges split evenly between our patch and the merged fix. Issue #48743 in BerriAI/litellm, run 11 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/litellm/run-20261111-220245/48743/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/litellm/">litellm</a><span aria-hidden="true">/</span><a href="/backtests/litellm/run-20261111-220245/">run-20261111-220245</a><span aria-hidden="true">/</span><span aria-current="page">#48743</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/BerriAI/litellm/issues/48743" rel="noopener" target="_blank">#48743</a></span>
+  <span>Merged fix <a href="https://github.com/BerriAI/litellm/pull/48745" rel="noopener" target="_blank">PR #48745</a></span>
+  <span>Run 11 Nov 2026 · <span class="runid">run-20261111-220245</span></span>
+  <span>BerriAI/litellm</span>
+</div>
+<h1 class="ticket-title">[Bug]: Gemini grounding annotations drop additional sources for a passage</h1>
+
+<div class="verdict-block">
+  <span class="pill tie lg">Tie</span>
+  <p class="line">The judges split evenly between our patch and the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause the same way: they replace the `chunk_indices[0]` lookup with a loop over every index in `groundingChunkIndices`, skipping indices absent from `chunk_to_uri_map`. The independent tests confirm both pass all three scenarios (two web sources, non-web first source, several multi-source passages) where base fails. Correctness is equal; Patch B dropping the `chunk_indices` truthiness check is harmless since iterating an empty list emits nothing.
+
+The difference is in tests and craft. Patch B adds two explicit, separately named tests that map one-to-one onto the two scenarios called out in the issue (multiple web sources per passage, and web sources following a non-web first index), with literal expected annotations that are easy to read and that reproduce the issue&#39;s own example exactly. They are placed next to the existing `test_vertex_ai_annotation_conversion` tests, matching the surrounding file&#39;s conventions. Patch A&#39;s single parametrized test does cover both scenarios (via `[2, 1, 0]` with a retrievedContext chunk) plus an extra support, but its expected value is built by a list comprehension over the input, which is harder to read and edges toward re-deriving the result rather than stating it. Patch B&#39;s early `continue` on a missing segment also flattens nesting and its comment states why multiple annotations are emitted.
+
+These are small margins, but B&#39;s tests communicate the fix more directly and sit with related tests, so B is the better patch.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 44s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">63<small>vs 39 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/BerriAI/litellm/issues/48743" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Description</h3>
+<p>Gemini can attach several sources to the same grounded passage, but LiteLLM converts only the first source index to an annotation. The other source associations are lost even when Google returned them</p>
+<h3>Config</h3>
+<p>This reproduces directly in the Google grounding converter, without credentials or a proxy configuration</p>
+<h3>LiteLLM Version</h3>
+<p>1.109.0, current main at f1795e6d447a4e5a3660de0d2fde5e1f44f52929</p>
+<h3>Steps to Repro</h3>
+<p>Run the following against an unmodified checkout</p>
+<pre><code class="lang-python">from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+
+metadata = {
+    &quot;groundingChunks&quot;: [
+        {&quot;web&quot;: {&quot;uri&quot;: &quot;https://example.com/a&quot;, &quot;title&quot;: &quot;A&quot;}},
+        {&quot;web&quot;: {&quot;uri&quot;: &quot;https://example.com/b&quot;, &quot;title&quot;: &quot;B&quot;}},
+    ],
+    &quot;groundingSupports&quot;: [
+        {
+            &quot;segment&quot;: {&quot;startIndex&quot;: 0, &quot;endIndex&quot;: 5},
+            &quot;groundingChunkIndices&quot;: [0, 1],
+        }
+    ],
+}
+annotations = VertexGeminiConfig._convert_grounding_metadata_to_annotations([metadata], &quot;Claim&quot;)
+print(annotations)</code></pre>
+<p>Actual output</p>
+<pre><code class="lang-python">[{&#39;type&#39;: &#39;url_citation&#39;, &#39;url_citation&#39;: {&#39;start_index&#39;: 0, &#39;end_index&#39;: 5, &#39;url&#39;: &#39;https://example.com/a&#39;, &#39;title&#39;: &#39;A&#39;}}]</code></pre>
+<p>Expected output</p>
+<pre><code class="lang-python">[
+    {&#39;type&#39;: &#39;url_citation&#39;, &#39;url_citation&#39;: {&#39;start_index&#39;: 0, &#39;end_index&#39;: 5, &#39;url&#39;: &#39;https://example.com/a&#39;, &#39;title&#39;: &#39;A&#39;}},
+    {&#39;type&#39;: &#39;url_citation&#39;, &#39;url_citation&#39;: {&#39;start_index&#39;: 0, &#39;end_index&#39;: 5, &#39;url&#39;: &#39;https://example.com/b&#39;, &#39;title&#39;: &#39;B&#39;}},
+]</code></pre>
+<p>The converter reads <code>chunk_indices[0]</code> instead of iterating over all source indices. If the first index points to a non-web chunk, later valid web sources are lost too</p>
+<p>This reproduces locally using synthetic grounding metadata. Fresh direct Gemini API calls through a local LiteLLM proxy also reproduced it on 2026-10-28. The unmodified base retained 12 of 18 source associations. The fixed converter retained all 19 of 19 source associations in a separate generation, with matching URLs, titles and text ranges. Each call contained six passages with multiple web sources, and counts were compared within each response</p>
+<h3>Which part of LiteLLM is this about?</h3>
+<p>LLM translation: a specific provider&#39;s request or response</p>
+<h3>How are you deploying?</h3>
+<p>pip / Python SDK</p>
+<p>Related streaming issue #48744 covers citation events after Chat Completions conversion</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+58</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py</span><span class="h">index 9acbc9c459..1443f3bf98 100644</span><span class="h">@@ -2742,11 +2742,14 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):</span><span class="c">                 # Get the chunk indices for this support</span><span class="c">                 chunk_indices = support.get(&quot;groundingChunkIndices&quot;, [])</span><span class="c"> </span><span class="r">-                if start_index is not None and end_index is not None and chunk_indices:</span><span class="r">-                    # Use the first chunk&#39;s URL for the annotation</span><span class="r">-                    first_chunk_idx = chunk_indices[0]</span><span class="r">-                    if first_chunk_idx in chunk_to_uri_map:</span><span class="r">-                        uri_info = chunk_to_uri_map[first_chunk_idx]</span><span class="a">+                if start_index is None or end_index is None:</span><span class="a">+                    continue</span><span class="a">+</span><span class="a">+                # A passage can be backed by several sources; emit one</span><span class="a">+                # annotation per web source so none are dropped</span><span class="a">+                for chunk_idx in chunk_indices:</span><span class="a">+                    if chunk_idx in chunk_to_uri_map:</span><span class="a">+                        uri_info = chunk_to_uri_map[chunk_idx]</span><span class="c"> </span><span class="c">                         url_citation: ChatCompletionAnnotationURLCitation = {</span><span class="c">                             &quot;start_index&quot;: start_index,</span><span class="f">tests/unit/llms/vertex_ai/gemini/test_vertex_and_google_ai_studio_gemini.py</span><span class="h">index 065d894e65..0aeefdc901 100644</span><span class="h">@@ -3514,6 +3514,56 @@ def test_vertex_ai_annotation_conversion():</span><span class="c">     assert &quot;Current time&quot; in time_annotation[&quot;url_citation&quot;][&quot;title&quot;]</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_vertex_ai_annotation_keeps_every_source_of_a_passage():</span><span class="a">+    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (</span><span class="a">+        VertexGeminiConfig,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    metadata = {</span><span class="a">+        &quot;groundingChunks&quot;: [</span><span class="a">+            {&quot;web&quot;: {&quot;uri&quot;: &quot;https://example.com/a&quot;, &quot;title&quot;: &quot;A&quot;}},</span><span class="a">+            {&quot;web&quot;: {&quot;uri&quot;: &quot;https://example.com/b&quot;, &quot;title&quot;: &quot;B&quot;}},</span><span class="a">+        ],</span><span class="a">+        &quot;groundingSupports&quot;: [{&quot;segment&quot;: {&quot;startIndex&quot;: 0, &quot;endIndex&quot;: 5}, &quot;groundingChunkIndices&quot;: [0, 1]}],</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    annotations = VertexGeminiConfig._convert_grounding_metadata_to_annotations([metadata], &quot;Claim&quot;)</span><span class="a">+</span><span class="a">+    assert annotations == [</span><span class="a">+        {</span><span class="a">+            &quot;type&quot;: &quot;url_citation&quot;,</span><span class="a">+            &quot;url_citation&quot;: {&quot;start_index&quot;: 0, &quot;end_index&quot;: 5, &quot;url&quot;: &quot;https://example.com/a&quot;, &quot;title&quot;: &quot;A&quot;},</span><span class="a">+        },</span><span class="a">+        {</span><span class="a">+            &quot;type&quot;: &quot;url_citation&quot;,</span><span class="a">+            &quot;url_citation&quot;: {&quot;start_index&quot;: 0, &quot;end_index&quot;: 5, &quot;url&quot;: &quot;https://example.com/b&quot;, &quot;title&quot;: &quot;B&quot;},</span><span class="a">+        },</span><span class="a">+    ], annotations</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_vertex_ai_annotation_keeps_web_sources_after_a_non_web_first_source():</span><span class="a">+    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (</span><span class="a">+        VertexGeminiConfig,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    metadata = {</span><span class="a">+        &quot;groundingChunks&quot;: [</span><span class="a">+            {&quot;retrievedContext&quot;: {&quot;uri&quot;: &quot;gs://bucket/doc.pdf&quot;, &quot;title&quot;: &quot;Doc&quot;}},</span><span class="a">+            {&quot;web&quot;: {&quot;uri&quot;: &quot;https://example.com/b&quot;, &quot;title&quot;: &quot;B&quot;}},</span><span class="a">+        ],</span><span class="a">+        &quot;groundingSupports&quot;: [{&quot;segment&quot;: {&quot;startIndex&quot;: 0, &quot;endIndex&quot;: 5}, &quot;groundingChunkIndices&quot;: [0, 1]}],</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    annotations = VertexGeminiConfig._convert_grounding_metadata_to_annotations([metadata], &quot;Claim&quot;)</span><span class="a">+</span><span class="a">+    assert annotations == [</span><span class="a">+        {</span><span class="a">+            &quot;type&quot;: &quot;url_citation&quot;,</span><span class="a">+            &quot;url_citation&quot;: {&quot;start_index&quot;: 0, &quot;end_index&quot;: 5, &quot;url&quot;: &quot;https://example.com/b&quot;, &quot;title&quot;: &quot;B&quot;},</span><span class="a">+        },</span><span class="a">+    ], annotations</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_vertex_ai_annotation_empty_grounding_metadata():</span><span class="c">     &quot;&quot;&quot;</span><span class="c">     Test handling of empty or missing grounding metadata.</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/BerriAI/litellm/pull/48745" rel="noopener" target="_blank">PR #48745</a></span><span class="pm"><span class="a">+35</span> <span class="r">−4</span></span></div><pre class="diff"><span class="f">litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py</span><span class="h">index 9acbc9c459c..f27593dc94e 100644</span><span class="h">@@ -2743,10 +2743,10 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):</span><span class="c">                 chunk_indices = support.get(&quot;groundingChunkIndices&quot;, [])</span><span class="c"> </span><span class="c">                 if start_index is not None and end_index is not None and chunk_indices:</span><span class="r">-                    # Use the first chunk&#39;s URL for the annotation</span><span class="r">-                    first_chunk_idx = chunk_indices[0]</span><span class="r">-                    if first_chunk_idx in chunk_to_uri_map:</span><span class="r">-                        uri_info = chunk_to_uri_map[first_chunk_idx]</span><span class="a">+                    for chunk_index in chunk_indices:</span><span class="a">+                        if chunk_index not in chunk_to_uri_map:</span><span class="a">+                            continue</span><span class="a">+                        uri_info = chunk_to_uri_map[chunk_index]</span><span class="c"> </span><span class="c">                         url_citation: ChatCompletionAnnotationURLCitation = {</span><span class="c">                             &quot;start_index&quot;: start_index,</span><span class="f">tests/unit/llms/vertex_ai/gemini/test_vertex_and_google_ai_studio_gemini.py</span><span class="h">index 065d894e658..1546d1e9fe0 100644</span><span class="h">@@ -10655,3 +10655,34 @@ async def test_gemini_sends_a_boolean_for_a_gateway_default_written_as_text_or_n</span><span class="c">     sent: Final = await _sent_thinking_config(&quot;gemini-3.8-flash&quot;, {&quot;reasoning_effort&quot;: &quot;high&quot;})</span><span class="c"> </span><span class="c">     assert sent[&quot;includeThoughts&quot;] is expected</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&quot;chunk_indices&quot;, [[0, 1], [2, 1, 0]])</span><span class="a">+def test_grounding_support_preserves_every_web_source(chunk_indices: list[int]) -&gt; None:</span><span class="a">+    metadata: Final = {</span><span class="a">+        &quot;groundingChunks&quot;: [</span><span class="a">+            {&quot;web&quot;: {&quot;uri&quot;: &quot;https://example.com/a&quot;, &quot;title&quot;: &quot;A&quot;}},</span><span class="a">+            {&quot;web&quot;: {&quot;uri&quot;: &quot;https://example.com/b&quot;, &quot;title&quot;: &quot;B&quot;}},</span><span class="a">+            {&quot;retrievedContext&quot;: {&quot;uri&quot;: &quot;gs://document&quot;}},</span><span class="a">+        ],</span><span class="a">+        &quot;groundingSupports&quot;: [</span><span class="a">+            {&quot;segment&quot;: {&quot;startIndex&quot;: 0, &quot;endIndex&quot;: 5}, &quot;groundingChunkIndices&quot;: chunk_indices},</span><span class="a">+            {&quot;segment&quot;: {&quot;startIndex&quot;: 6, &quot;endIndex&quot;: 11}, &quot;groundingChunkIndices&quot;: [1]},</span><span class="a">+        ],</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    annotations: Final = VertexGeminiConfig._convert_grounding_metadata_to_annotations([metadata], &quot;First claim&quot;)</span><span class="a">+</span><span class="a">+    expected_sources: Final = [(index, 0, 5) for index in chunk_indices if index in (0, 1)] + [(1, 6, 11)]</span><span class="a">+    assert annotations == [</span><span class="a">+        {</span><span class="a">+            &quot;type&quot;: &quot;url_citation&quot;,</span><span class="a">+            &quot;url_citation&quot;: {</span><span class="a">+                &quot;start_index&quot;: start,</span><span class="a">+                &quot;end_index&quot;: end,</span><span class="a">+                &quot;url&quot;: metadata[&quot;groundingChunks&quot;][index][&quot;web&quot;][&quot;uri&quot;],</span><span class="a">+                &quot;title&quot;: metadata[&quot;groundingChunks&quot;][index][&quot;web&quot;][&quot;title&quot;],</span><span class="a">+            },</span><span class="a">+        }</span><span class="a">+        for index, start, end in expected_sources</span><span class="a">+    ]</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/litellm/run-20261111-220245/48363/">Previous · #48363</a>
+  <a class="mid" href="/backtests/litellm/run-20261111-220245/">All tickets in this run</a>
+  <a href="/backtests/litellm/run-20261111-220245/48760/">Next · #48760</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

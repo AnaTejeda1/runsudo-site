@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#25532 WebSocket /v1/responses requires ?model= query param, breaking OpenAI spec compatibility — BerriAI/litellm backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #25532 in BerriAI/litellm, run 11 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/litellm/run-20261111-220245/25532/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/litellm/">litellm</a><span aria-hidden="true">/</span><a href="/backtests/litellm/run-20261111-220245/">run-20261111-220245</a><span aria-hidden="true">/</span><span aria-current="page">#25532</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/BerriAI/litellm/issues/25532" rel="noopener" target="_blank">#25532</a></span>
+  <span>Merged fix <a href="https://github.com/BerriAI/litellm/pull/33101" rel="noopener" target="_blank">PR #33101</a></span>
+  <span>Run 11 Nov 2026 · <span class="runid">run-20261111-220245</span></span>
+  <span>BerriAI/litellm</span>
+</div>
+<h1 class="ticket-title">WebSocket /v1/responses requires ?model= query param, breaking OpenAI spec compatibility</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The independent tests show the base tree already accepts a bare ws://.../v1/responses connection and resolves the model from the first response.create frame, so neither patch needs to change the endpoint; the test file in Patch B already references _enforce_responses_ws_first_frame_model_auth and a first-frame model reader, confirming that logic exists. The question is which patch better covers the issue as reported. Patch B adds targeted regression tests for exactly the issue&#39;s scenario: both /v1/responses and /responses, flat and nested model placement in the first frame, real master-key websocket auth on the bare URL, and an error frame when no model is supplied anywhere. These would fail if the ?model= query requirement were ever reintroduced, which is the issue&#39;s ask. Patch A does not touch the endpoint or the query-param behavior at all; it changes ManagedResponsesWebSocketHandler._update_proxy_request to stop passing litellm_params as a kwarg to aresponses, fixing a provider-side &#39;Extra inputs are not permitted&#39; rejection that the issue never mentions. That is unrelated scope with some risk (it drops litellm_params.proxy_server_request that other code may read) and its tests verify the unrelated change, not the reported 403. On correctness relative to the issue, tests, and scope, B is the better match.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">11m 22s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">1,515 passed · 0 skipped · 1,515 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">83<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/BerriAI/litellm/issues/25532" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Bug</h2>
+<p>The WebSocket endpoint for <code>/v1/responses</code> requires <code>model</code> as a <strong>URL query parameter</strong> (<code>fastapi.Query(...)</code>), but the <a href="https://platform.openai.com/docs/guides/websocket-mode" rel="noopener nofollow" target="_blank">OpenAI WebSocket spec</a> sends <code>model</code> inside the <code>response.create</code> message payload, not as a query param.</p>
+<p>This means any spec-compliant client (e.g. <a href="https://github.com/openai/codex" rel="noopener nofollow" target="_blank">Codex CLI</a>) connecting to <code>ws://.../v1/responses</code> without <code>?model=</code> gets a <strong>403 Forbidden</strong> — FastAPI rejects the missing required query param before auth even runs.</p>
+<h2>Root cause</h2>
+<p>In <code>litellm/proxy/response_api_endpoints/endpoints.py</code>:</p>
+<pre><code class="lang-python">@router.websocket(&quot;/v1/responses&quot;)
+@router.websocket(&quot;/responses&quot;)
+async def responses_websocket_endpoint(
+    websocket: WebSocket,
+    model: str = fastapi.Query(
+        ..., description=&quot;The model to use for the responses WebSocket session.&quot;
+    ),
+    user_api_key_dict=Depends(user_api_key_auth_websocket),
+):</code></pre>
+<p><code>model: str = fastapi.Query(...)</code> makes it a required URL query parameter. When a client connects without it, FastAPI returns 403 at the framework level before the handler or auth logic runs.</p>
+<h2>Reproduction</h2>
+<pre><code class="lang-python">import asyncio
+from websockets.asyncio.client import connect
+
+async def main():
+    # This FAILS with 403 (how Codex CLI and spec-compliant clients connect)
+    async with connect(
+        &quot;ws://localhost:4000/v1/responses&quot;,
+        additional_headers={&quot;Authorization&quot;: &quot;Bearer sk-1234&quot;},
+    ) as ws:
+        await ws.send(&#39;{&quot;type&quot;:&quot;response.create&quot;,&quot;model&quot;:&quot;gpt-5.4&quot;,&quot;input&quot;:&quot;say hi&quot;}&#39;)
+
+    # This WORKS (non-spec workaround)
+    async with connect(
+        &quot;ws://localhost:4000/v1/responses?model=gpt-5.4&quot;,
+        additional_headers={&quot;Authorization&quot;: &quot;Bearer sk-1234&quot;},
+    ) as ws:
+        await ws.send(&#39;{&quot;type&quot;:&quot;response.create&quot;,&quot;model&quot;:&quot;gpt-5.4&quot;,&quot;input&quot;:&quot;say hi&quot;}&#39;)
+
+asyncio.run(main())</code></pre>
+<h2>Expected behavior</h2>
+<p>The endpoint should accept <code>model</code> from the <code>response.create</code> WebSocket message payload (matching the OpenAI spec), not require it as a URL query parameter. The <code>model</code> query param should either be optional or removed entirely.</p>
+<h2>Impact</h2>
+<ul><li><strong>Codex CLI</strong> always connects to bare <code>ws://.../v1/responses</code> per the OpenAI spec → gets 403 → retries 5 times (~6-8 seconds) → falls back to HTTP. This adds ~6-8s latency per turn.</li><li>Any client following the OpenAI WebSocket spec will hit the same issue.</li></ul>
+<h2>Environment</h2>
+<ul><li>LiteLLM version: tested on both v1.82.3-stable and v1.83.5-nightly (same behavior)</li><li>Codex CLI: @openai/codex@0.118.0</li><li>Running LiteLLM as proxy in router mode with models configured via config.yaml</li></ul>
+<h2>Related issues</h2>
+<ul><li>#22051 — WebSocket mode support for Responses API (covers streaming bugs <em>after</em> connection, not the connection failure itself)</li><li>#18456 — WebSocket auth header issue for <code>/v1/realtime</code> (different endpoint)</li></ul></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+83</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">tests/test_litellm/proxy/response_api_endpoints/test_endpoints.py</span><span class="h">index d7010de640..d1eac6a1c3 100644</span><span class="h">@@ -562,6 +562,89 @@ class TestResponsesWSFirstFrameModelAuth:</span><span class="c">         )</span><span class="c"> </span><span class="c"> </span><span class="a">+class TestResponsesWSConnectWithoutModelQueryParam:</span><span class="a">+    &quot;&quot;&quot;Spec-compliant clients (e.g. Codex CLI) connect to bare /v1/responses and send</span><span class="a">+    the model inside the first response.create frame; the handshake must not be</span><span class="a">+    rejected for a missing ?model= query param.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    @pytest.mark.parametrize(&quot;path&quot;, [&quot;/v1/responses&quot;, &quot;/responses&quot;])</span><span class="a">+    @pytest.mark.parametrize(</span><span class="a">+        &quot;first_frame&quot;,</span><span class="a">+        [</span><span class="a">+            {&quot;type&quot;: &quot;response.create&quot;, &quot;model&quot;: &quot;gpt-5.4&quot;, &quot;input&quot;: &quot;say hi&quot;},</span><span class="a">+            {&quot;type&quot;: &quot;response.create&quot;, &quot;response&quot;: {&quot;model&quot;: &quot;gpt-5.4&quot;, &quot;input&quot;: &quot;say hi&quot;}},</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+    def test_bare_url_accepts_and_uses_model_from_first_frame(self, path, first_frame):</span><span class="a">+        from litellm.proxy._types import UserAPIKeyAuth</span><span class="a">+        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth_websocket</span><span class="a">+</span><span class="a">+        processor = MagicMock()</span><span class="a">+        processor.common_processing_pre_call_logic = AsyncMock(side_effect=ValueError(&quot;stop after pre-call&quot;))</span><span class="a">+</span><span class="a">+        app.dependency_overrides[user_api_key_auth_websocket] = lambda: UserAPIKeyAuth(api_key=&quot;sk-1234&quot;)</span><span class="a">+        try:</span><span class="a">+            with (</span><span class="a">+                patch(</span><span class="a">+                    &quot;litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth&quot;,</span><span class="a">+                    new_callable=AsyncMock,</span><span class="a">+                ) as mock_model_auth,</span><span class="a">+                patch(</span><span class="a">+                    &quot;litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing&quot;,</span><span class="a">+                    return_value=processor,</span><span class="a">+                ) as mock_processor_cls,</span><span class="a">+            ):</span><span class="a">+                client = TestClient(app)</span><span class="a">+                with client.websocket_connect(path, headers={&quot;Authorization&quot;: &quot;Bearer sk-1234&quot;}) as ws:</span><span class="a">+                    raw = json.dumps(first_frame)</span><span class="a">+                    ws.send_text(raw)</span><span class="a">+                    error = json.loads(ws.receive_text())</span><span class="a">+        finally:</span><span class="a">+            app.dependency_overrides.pop(user_api_key_auth_websocket, None)</span><span class="a">+</span><span class="a">+        assert error[&quot;error&quot;][&quot;message&quot;] == &quot;stop after pre-call&quot;</span><span class="a">+        data = mock_processor_cls.call_args.kwargs[&quot;data&quot;]</span><span class="a">+        assert data[&quot;model&quot;] == &quot;gpt-5.4&quot;</span><span class="a">+        assert data[&quot;first_message&quot;] == raw</span><span class="a">+        assert mock_model_auth.await_args.kwargs[&quot;model&quot;] == &quot;gpt-5.4&quot;</span><span class="a">+        assert processor.common_processing_pre_call_logic.await_args.kwargs[&quot;model&quot;] == &quot;gpt-5.4&quot;</span><span class="a">+</span><span class="a">+    def test_bare_url_passes_real_websocket_auth_with_master_key(self):</span><span class="a">+        processor = MagicMock()</span><span class="a">+        processor.common_processing_pre_call_logic = AsyncMock(side_effect=ValueError(&quot;stop after pre-call&quot;))</span><span class="a">+</span><span class="a">+        with (</span><span class="a">+            patch(&quot;litellm.proxy.proxy_server.master_key&quot;, &quot;sk-1234&quot;),</span><span class="a">+            patch(&quot;litellm.proxy.proxy_server.prisma_client&quot;, None),</span><span class="a">+            patch(</span><span class="a">+                &quot;litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing&quot;,</span><span class="a">+                return_value=processor,</span><span class="a">+            ) as mock_processor_cls,</span><span class="a">+        ):</span><span class="a">+            client = TestClient(app)</span><span class="a">+            with client.websocket_connect(&quot;/v1/responses&quot;, headers={&quot;Authorization&quot;: &quot;Bearer sk-1234&quot;}) as ws:</span><span class="a">+                ws.send_text(json.dumps({&quot;type&quot;: &quot;response.create&quot;, &quot;model&quot;: &quot;gpt-5.4&quot;, &quot;input&quot;: &quot;say hi&quot;}))</span><span class="a">+                error = json.loads(ws.receive_text())</span><span class="a">+</span><span class="a">+        assert error[&quot;error&quot;][&quot;message&quot;] == &quot;stop after pre-call&quot;</span><span class="a">+        assert mock_processor_cls.call_args.kwargs[&quot;data&quot;][&quot;model&quot;] == &quot;gpt-5.4&quot;</span><span class="a">+</span><span class="a">+    def test_bare_url_without_model_anywhere_gets_error_frame(self):</span><span class="a">+        from litellm.proxy._types import UserAPIKeyAuth</span><span class="a">+        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth_websocket</span><span class="a">+</span><span class="a">+        app.dependency_overrides[user_api_key_auth_websocket] = lambda: UserAPIKeyAuth(api_key=&quot;sk-1234&quot;)</span><span class="a">+        try:</span><span class="a">+            client = TestClient(app)</span><span class="a">+            with client.websocket_connect(&quot;/v1/responses&quot;, headers={&quot;Authorization&quot;: &quot;Bearer sk-1234&quot;}) as ws:</span><span class="a">+                ws.send_text(json.dumps({&quot;type&quot;: &quot;response.create&quot;, &quot;input&quot;: &quot;say hi&quot;}))</span><span class="a">+                error = json.loads(ws.receive_text())</span><span class="a">+        finally:</span><span class="a">+            app.dependency_overrides.pop(user_api_key_auth_websocket, None)</span><span class="a">+</span><span class="a">+        assert &quot;No model provided&quot; in error[&quot;error&quot;][&quot;message&quot;]</span><span class="a">+</span><span class="a">+</span><span class="c"> class TestReadWSModelFromFirstFrameErrors:</span><span class="c">     @pytest.mark.asyncio</span><span class="c">     async def test_timeout_closes_without_error_frame(self):</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/BerriAI/litellm/pull/33101" rel="noopener" target="_blank">PR #33101</a></span><span class="pm"><span class="a">+54</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">litellm/responses/streaming_iterator.py</span><span class="h">index 8d766cf1cd0..61c93063826 100644</span><span class="h">@@ -2589,8 +2589,7 @@ class ManagedResponsesWebSocketHandler:</span><span class="c">         if &quot;litellm_metadata&quot; not in call_kwargs:</span><span class="c">             call_kwargs[&quot;litellm_metadata&quot;] = {}</span><span class="c">         call_kwargs[&quot;litellm_metadata&quot;][&quot;proxy_server_request&quot;] = proxy_server_request</span><span class="r">-        call_kwargs.setdefault(&quot;litellm_params&quot;, {})</span><span class="r">-        call_kwargs[&quot;litellm_params&quot;][&quot;proxy_server_request&quot;] = proxy_server_request</span><span class="a">+        call_kwargs[&quot;proxy_server_request&quot;] = proxy_server_request</span><span class="c"> </span><span class="c">     async def _stream_and_forward(self, model: str, call_kwargs: dict[str, Any]) -&gt; _MutableJsonObject | None:</span><span class="c">         &quot;&quot;&quot;</span><span class="f">tests/test_litellm/responses/test_responses_websocket_all_providers.py</span><span class="h">index fe3c4a0640d..0394e260606 100644</span><span class="h">@@ -669,6 +669,59 @@ class TestChunkTransformation:</span><span class="c">         assert ManagedResponsesWebSocketHandler._input_to_messages({}) == []</span><span class="c"> </span><span class="c"> </span><span class="a">+class TestUpdateProxyRequest:</span><span class="a">+    &quot;&quot;&quot;Regression tests for ManagedResponsesWebSocketHandler._update_proxy_request.</span><span class="a">+</span><span class="a">+    The managed WebSocket path calls ``litellm.aresponses(model=..., **call_kwargs)``.</span><span class="a">+    ``litellm_params`` is not a Responses API request field, so passing it as a</span><span class="a">+    top-level kwarg leaks it into the provider request body and providers that</span><span class="a">+    forbid extra inputs (e.g. Anthropic) reject the call with</span><span class="a">+    ``litellm_params: Extra inputs are not permitted``. The request-tracking data</span><span class="a">+    must ride along as ``proxy_server_request`` instead, which litellm consumes</span><span class="a">+    internally and never forwards to the provider.</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    def test_does_not_inject_litellm_params_kwarg(self):</span><span class="a">+        from litellm.responses.streaming_iterator import (</span><span class="a">+            ManagedResponsesWebSocketHandler,</span><span class="a">+        )</span><span class="a">+</span><span class="a">+        call_kwargs = {</span><span class="a">+            &quot;input&quot;: &quot;hello&quot;,</span><span class="a">+            &quot;store&quot;: True,</span><span class="a">+            &quot;litellm_metadata&quot;: {</span><span class="a">+                &quot;proxy_server_request&quot;: {&quot;headers&quot;: {}, &quot;body&quot;: {}},</span><span class="a">+            },</span><span class="a">+        }</span><span class="a">+</span><span class="a">+        ManagedResponsesWebSocketHandler._update_proxy_request(</span><span class="a">+            call_kwargs, &quot;anthropic/claude-sonnet-4-5&quot;</span><span class="a">+        )</span><span class="a">+</span><span class="a">+        assert &quot;litellm_params&quot; not in call_kwargs</span><span class="a">+        assert call_kwargs[&quot;proxy_server_request&quot;][&quot;body&quot;][&quot;model&quot;] == (</span><span class="a">+            &quot;anthropic/claude-sonnet-4-5&quot;</span><span class="a">+        )</span><span class="a">+        assert call_kwargs[&quot;proxy_server_request&quot;][&quot;body&quot;][&quot;input&quot;] == &quot;hello&quot;</span><span class="a">+</span><span class="a">+    def test_proxy_server_request_matches_metadata(self):</span><span class="a">+        from litellm.responses.streaming_iterator import (</span><span class="a">+            ManagedResponsesWebSocketHandler,</span><span class="a">+        )</span><span class="a">+</span><span class="a">+        call_kwargs = {</span><span class="a">+            &quot;input&quot;: &quot;hi&quot;,</span><span class="a">+            &quot;litellm_metadata&quot;: {&quot;proxy_server_request&quot;: {&quot;body&quot;: {}}},</span><span class="a">+        }</span><span class="a">+</span><span class="a">+        ManagedResponsesWebSocketHandler._update_proxy_request(call_kwargs, &quot;gpt-4o&quot;)</span><span class="a">+</span><span class="a">+        assert (</span><span class="a">+            call_kwargs[&quot;proxy_server_request&quot;]</span><span class="a">+            == call_kwargs[&quot;litellm_metadata&quot;][&quot;proxy_server_request&quot;]</span><span class="a">+        )</span><span class="a">+</span><span class="a">+</span><span class="c"> class TestWebSocketEventTypes:</span><span class="c">     &quot;&quot;&quot;Test that all WebSocket event types are properly handled with dict-based chunks&quot;&quot;&quot;</span><span class="c"> </span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/litellm/run-20261111-220245/25322/">Previous · #25322</a>
+  <a class="mid" href="/backtests/litellm/run-20261111-220245/">All tickets in this run</a>
+  <a href="/backtests/litellm/run-20261111-220245/32308/">Next · #32308</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#49103 [Bug]: Router retry reuses success logging state and drops later attempt cost — BerriAI/litellm backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #49103 in BerriAI/litellm, run 11 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/litellm/run-20261111-220245/49103/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/litellm/">litellm</a><span aria-hidden="true">/</span><a href="/backtests/litellm/run-20261111-220245/">run-20261111-220245</a><span aria-hidden="true">/</span><span aria-current="page">#49103</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/BerriAI/litellm/issues/49103" rel="noopener" target="_blank">#49103</a></span>
+  <span>Merged fix <a href="https://github.com/BerriAI/litellm/pull/50735" rel="noopener" target="_blank">PR #50735</a></span>
+  <span>Run 11 Nov 2026 · <span class="runid">run-20261111-220245</span></span>
+  <span>BerriAI/litellm</span>
+</div>
+<h1 class="ticket-title">[Bug]: Router retry reuses success logging state and drops later attempt cost</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The issue names the root cause explicitly: a shared Logging object carries has_logged_async_success/has_logged_sync_success across router retries, so the later successful attempt&#39;s success log is skipped. Patch A only handles the proxy&#39;s deferred (&quot;parked&quot;) success result: in carry_failed_attempt_usage it moves a parked deferred_success_result into failed_attempts_usage so the serving attempt bills it. That fixes the proxy reproduction (both proxy tests pass) but leaves the non-deferred case untouched: when the first attempt&#39;s success log has already been emitted or enqueued (has_logged_async_success set), the retry&#39;s success log is still suppressed. The independent test that exercises exactly that quoted root cause (Router.acompletion with a shared logging object, first attempt already logged) still fails on A with recorded_costs=[0.147], identical to base. Patch B addresses both paths: it detects a superseded attempt that already logged or enqueued its success (async enqueued, sync scheduled, or has_logged_* set), clears the one-success-per-request markers and stale cost/usage state so the retry logs and prices its own response, and uses pending counters so the in-flight first-attempt log&#39;s completion marker does not re-suppress the retry; it separately handles the parked deferred result by carrying it as a served round. It also marks sync success logs as scheduled in utils.client so the sync executor path is covered. All three independent tests pass on B. B&#39;s tests are more substantive too: proxy-level chat, messages-refusal and retry scenarios plus router-level shared-logging tests, including a sync in-flight log race, versus A&#39;s single unit test that only drives the parked path through manual calls. B is larger and more intricate, which carries some risk, but the added state is targeted and documented, whereas A leaves the issue&#39;s stated root cause unfixed. B wins on correctness and tests.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 4m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">508<small>vs 84 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/BerriAI/litellm/issues/49103" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>What happened?</h3>
+<p>When a retryable error is raised after a non-streaming provider response has already completed success processing, the router retries with the same <code>Logging</code> object. The first attempt has already set <code>has_logged_async_success</code>/<code>has_logged_sync_success</code>, so success logging for the later successful attempt is skipped.</p>
+<p>This causes the final response usage and reported cost to describe different attempts. In the reproduction, the response body contains the final attempt&#39;s cache-read usage, while both the accounting callback and <code>x-litellm-response-cost</code> retain only the discarded first attempt&#39;s cache-write cost.</p>
+<p>For example, a provider can return a billable response marked as a content-policy refusal. LiteLLM maps that provider refusal to <code>ContentPolicyViolationError</code> and retries. If the retry succeeds, its cost is then skipped because the first attempt already marked success logging as complete.</p>
+<h3>Reproduction</h3>
+<p>The test below uses only stock LiteLLM APIs and a local fake Bedrock endpoint. The first response is fully priced, then the test raises <code>ContentPolicyViolationError</code>; the configured router retry succeeds with different usage.</p>
+<p>Save as <code>test_retry_cost_accounting_upstream_repro.py</code>, then run:</p>
+<pre><code class="lang-bash">pip install &#39;litellm[proxy]==1.104.5&#39; pytest pytest-asyncio
+pytest -q test_retry_cost_accounting_upstream_repro.py</code></pre>
+<p>&lt;details&gt;<br>&lt;summary&gt;Self-contained failing test&lt;/summary&gt;</p>
+<pre><code class="lang-python">&quot;&quot;&quot;Portable upstream reproduction for post-cost router retry accounting.
+
+This file intentionally uses only public LiteLLM package APIs and a local fake
+Bedrock endpoint. It is expected to fail on unpatched LiteLLM v1.104.5.
+&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import asyncio
+import copy
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Any
+
+import litellm
+import pytest
+from aiohttp import web
+from fastapi.testclient import TestClient
+from litellm import Router
+from litellm.integrations.custom_logger import CustomLogger
+from litellm.proxy import proxy_server
+from litellm.proxy._types import UserAPIKeyAuth
+from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+
+
+MODEL_GROUP = &quot;retry-cost-repro&quot;
+BEDROCK_MODEL = &quot;bedrock/global.anthropic.retry-cost-repro&quot;
+CACHE_TOKENS = 100
+FRESH_TOKENS = 2
+FIRST_OUTPUT_TOKENS = 10
+FINAL_OUTPUT_TOKENS = 12
+INPUT_RATE = 0.001
+CACHE_READ_RATE = 0.0001
+CACHE_WRITE_RATE = 0.00125
+OUTPUT_RATE = 0.002
+
+
+@pytest.fixture(autouse=True)
+def _register_model() -&gt; None:
+    pricing = {
+        &quot;litellm_provider&quot;: &quot;bedrock&quot;,
+        &quot;mode&quot;: &quot;chat&quot;,
+        &quot;input_cost_per_token&quot;: INPUT_RATE,
+        &quot;cache_read_input_token_cost&quot;: CACHE_READ_RATE,
+        &quot;cache_creation_input_token_cost&quot;: CACHE_WRITE_RATE,
+        &quot;output_cost_per_token&quot;: OUTPUT_RATE,
+    }
+    litellm.register_model({BEDROCK_MODEL: pricing})
+
+
+def _provider_response(attempt: int) -&gt; dict[str, Any]:
+    first_attempt = attempt == 1
+    return {
+        &quot;id&quot;: f&quot;msg_attempt_{attempt}&quot;,
+        &quot;type&quot;: &quot;message&quot;,
+        &quot;role&quot;: &quot;assistant&quot;,
+        &quot;content&quot;: [{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: f&quot;attempt {attempt}&quot;}],
+        &quot;model&quot;: BEDROCK_MODEL,
+        &quot;stop_reason&quot;: &quot;max_tokens&quot;,
+        &quot;stop_sequence&quot;: None,
+        &quot;usage&quot;: {
+            &quot;input_tokens&quot;: FRESH_TOKENS,
+            &quot;output_tokens&quot;: FIRST_OUTPUT_TOKENS if first_attempt else FINAL_OUTPUT_TOKENS,
+            &quot;cache_creation_input_tokens&quot;: CACHE_TOKENS if first_attempt else 0,
+            &quot;cache_read_input_tokens&quot;: 0 if first_attempt else CACHE_TOKENS,
+        },
+    }
+
+
+class _Upstream:
+    def __init__(self) -&gt; None:
+        self.hits = 0
+
+    async def handle(self, request: web.Request) -&gt; web.Response:
+        await request.read()
+        self.hits += 1
+        return web.json_response(_provider_response(self.hits))
+
+
+class _AccountingCapture(CustomLogger):
+    def __init__(self) -&gt; None:
+        self.records: list[dict[str, Any]] = []
+        self.first_record = asyncio.Event()
+
+    async def async_log_success_event(
+        self,
+        kwargs: dict[str, Any],
+        response_obj: object,
+        start_time: datetime,
+        end_time: datetime,
+    ) -&gt; None:
+        self.records.append(
+            {
+                &quot;response_cost&quot;: kwargs.get(&quot;response_cost&quot;),
+                &quot;response&quot;: copy.deepcopy(response_obj),
+            }
+        )
+        self.first_record.set()
+
+
+@asynccontextmanager
+async def _router(upstream: _Upstream) -&gt; AsyncIterator[Router]:
+    app = web.Application()
+    app.router.add_post(&quot;/{path:.*}&quot;, upstream.handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, &quot;127.0.0.1&quot;, 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    try:
+        yield Router(
+            model_list=[
+                {
+                    &quot;model_name&quot;: MODEL_GROUP,
+                    &quot;litellm_params&quot;: {
+                        &quot;model&quot;: BEDROCK_MODEL,
+                        &quot;aws_bedrock_runtime_endpoint&quot;: f&quot;http://127.0.0.1:{port}&quot;,
+                        &quot;aws_access_key_id&quot;: &quot;test-access-key&quot;,
+                        &quot;aws_secret_access_key&quot;: &quot;test-secret-key&quot;,
+                        &quot;aws_region_name&quot;: &quot;us-east-1&quot;,
+                        &quot;max_retries&quot;: 0,
+                    },
+                    &quot;model_info&quot;: {
+                        &quot;input_cost_per_token&quot;: INPUT_RATE,
+                        &quot;cache_read_input_token_cost&quot;: CACHE_READ_RATE,
+                        &quot;cache_creation_input_token_cost&quot;: CACHE_WRITE_RATE,
+                        &quot;output_cost_per_token&quot;: OUTPUT_RATE,
+                    },
+                }
+            ],
+            num_retries=1,
+            retry_policy={&quot;ContentPolicyViolationErrorRetries&quot;: 1},
+        )
+    finally:
+        await runner.cleanup()
+
+
+@pytest.mark.anyio
+async def test_post_cost_retry_accounts_for_both_priced_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -&gt; None:
+    upstream = _Upstream()
+    capture = _AccountingCapture()
+    monkeypatch.setenv(
+        &quot;LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY&quot;,
+        &quot;true&quot;,
+    )
+    monkeypatch.setattr(litellm, &quot;callbacks&quot;, [])
+    monkeypatch.setattr(litellm, &quot;success_callback&quot;, [])
+    monkeypatch.setattr(litellm, &quot;_async_success_callback&quot;, [capture])
+
+    async with _router(upstream) as router:
+        original_make_call = router.make_call
+        attempt = 0
+
+        async def reject_first_costed_response(*args: Any, **kwargs: Any) -&gt; Any:
+            nonlocal attempt
+            attempt += 1
+            response = await original_make_call(*args, **kwargs)
+            if attempt == 1:
+                await asyncio.wait_for(capture.first_record.wait(), timeout=2)
+                raise litellm.ContentPolicyViolationError(
+                    message=&quot;simulated safeguard refusal after response processing&quot;,
+                    model=BEDROCK_MODEL,
+                    llm_provider=&quot;bedrock&quot;,
+                )
+            return response
+
+        monkeypatch.setattr(router, &quot;make_call&quot;, reject_first_costed_response)
+
+        with TestClient(proxy_server.app) as client:
+            monkeypatch.setattr(proxy_server, &quot;llm_router&quot;, router)
+            monkeypatch.setattr(proxy_server, &quot;llm_model_list&quot;, router.model_list)
+            monkeypatch.setattr(proxy_server, &quot;general_settings&quot;, {})
+            monkeypatch.setattr(proxy_server, &quot;prisma_client&quot;, None)
+            proxy_server.app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
+                api_key=&quot;hashed-key&quot;,
+                user_email=&quot;user@example.com&quot;,
+                user_role=&quot;internal_user&quot;,
+            )
+            try:
+                http_response = await asyncio.to_thread(
+                    client.post,
+                    &quot;/v1/messages&quot;,
+                    headers={&quot;user-agent&quot;: &quot;upstream-retry-cost-repro&quot;},
+                    json={
+                        &quot;model&quot;: MODEL_GROUP,
+                        &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;cached prefix&quot;}],
+                        &quot;max_tokens&quot;: FINAL_OUTPUT_TOKENS,
+                    },
+                )
+            finally:
+                proxy_server.app.dependency_overrides.pop(user_api_key_auth, None)
+
+        await asyncio.sleep(0.2)
+
+    assert http_response.status_code == 200, http_response.text
+    assert upstream.hits == 2
+    assert http_response.headers[&quot;x-litellm-attempted-retries&quot;] == &quot;1&quot;
+    assert http_response.json()[&quot;usage&quot;][&quot;cache_read_input_tokens&quot;] == CACHE_TOKENS
+
+    first_cost = (
+        FRESH_TOKENS * INPUT_RATE
+        + CACHE_TOKENS * CACHE_WRITE_RATE
+        + FIRST_OUTPUT_TOKENS * OUTPUT_RATE
+    )
+    final_cost = (
+        FRESH_TOKENS * INPUT_RATE
+        + CACHE_TOKENS * CACHE_READ_RATE
+        + FINAL_OUTPUT_TOKENS * OUTPUT_RATE
+    )
+
+    recorded_costs = [record[&quot;response_cost&quot;] for record in capture.records]
+    header_cost = float(http_response.headers[&quot;x-litellm-response-cost&quot;])
+    assert recorded_costs == pytest.approx(
+        [first_cost, final_cost]
+    ), f&quot;recorded_costs={recorded_costs}, header_cost={header_cost}&quot;
+    assert header_cost == pytest.approx(first_cost + final_cost)
+
+
+@pytest.fixture
+def anyio_backend() -&gt; str:
+    return &quot;asyncio&quot;</code></pre>
+<p>&lt;/details&gt;</p>
+<p>Observed on <code>litellm[proxy]==1.104.5</code>:</p>
+<pre><code class="lang-text">AssertionError: recorded_costs=[0.147], header_cost=0.147
+Expected records: [0.147, 0.036]
+Expected measurable request cost: 0.183</code></pre>
+<p>The request itself succeeds with HTTP 200, reports one attempted retry, and its response body contains the final attempt&#39;s cache-read usage.</p>
+<h3>Root cause</h3>
+<p><code>Router.async_function_with_retries</code> carries <code>litellm_logging_obj</code> into later attempts. In <code>litellm/litellm_core_utils/litellm_logging.py</code>, <code>Logging.should_run_logging()</code> returns false once the shared object contains <code>has_logged_&lt;success event&gt; = True</code>. As a result, the later attempt does not run <code>_process_hidden_params_and_response_cost</code> and does not emit its accounting event.</p>
+<p>The proxy subsequently reads stale first-attempt state when constructing <code>x-litellm-response-cost</code>.</p>
+<h3>Expected behavior</h3>
+<p>Every provider response with billable usage should be accounted exactly once, including a later successful attempt after a post-response retry. The request-level cost must not silently omit later attempts. Please confirm whether <code>x-litellm-response-cost</code> is intended to aggregate all billable attempts; the missing final-attempt accounting record is a defect independently of that public header contract.</p>
+<h3>Affected area</h3>
+<ul><li>Router retries after post-response errors</li><li>Non-streaming success logging/accounting</li><li>Reproduced with Anthropic Messages semantics through Bedrock</li></ul>
+<p>Related but distinct from #26475, #37105, #40736, #19216, and #42663.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+508</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">litellm/litellm_core_utils/litellm_logging.py</span><span class="h">index fcc521cf6c..b8b436f4ac 100644</span><span class="h">@@ -928,6 +928,10 @@ class Logging(LiteLLMLoggingBaseClass):</span><span class="c">         self._async_success_scheduled: bool = False</span><span class="c">         self._async_success_enqueued: bool = False</span><span class="c">         self._sync_success_scheduled: bool = False</span><span class="a">+        # Success logs of attempts a retry replaced that were scheduled but had not logged yet: each one&#39;s</span><span class="a">+        # completion marker is theirs, not the retry&#39;s, so it must not drop the retry&#39;s success log.</span><span class="a">+        self._superseded_async_success_pending: int = 0</span><span class="a">+        self._superseded_sync_success_pending: int = 0</span><span class="c">         self.on_detached_stream_failure: Callable[[Exception], Awaitable[None]] | None = None</span><span class="c">         self._stream_failure_claimed: bool = False</span><span class="c">         self._stash_owed_on_success: bool = False</span><span class="h">@@ -2761,6 +2765,10 @@ class Logging(LiteLLMLoggingBaseClass):</span><span class="c">     def carry_failed_attempt_usage(self) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Move what a failed earlier attempt stashed off the retry sharing this logging object, so the retry logs its</span><span class="c">         own usage while the request&#39;s failure log still bills every attempt.&quot;&quot;&quot;</span><span class="a">+        if self._superseded_attempt_logged_success():</span><span class="a">+            self._forget_superseded_success()</span><span class="a">+            return</span><span class="a">+        self._stash_parked_success_for_retry()</span><span class="c">         usage: Final = self._model_call_details_view.get(&quot;combined_usage_object&quot;)</span><span class="c">         response_cost: Final = self._model_call_details_view.get(&quot;response_cost&quot;)</span><span class="c">         billed_by_continuation: Final = self._stash_billed_by_continuation</span><span class="h">@@ -2783,6 +2791,47 @@ class Logging(LiteLLMLoggingBaseClass):</span><span class="c">             return</span><span class="c">         self._failed_attempts_owed_on_success = (*self._failed_attempts_owed_on_success, attempt)</span><span class="c"> </span><span class="a">+    def _superseded_attempt_logged_success(self) -&gt; bool:</span><span class="a">+        &quot;&quot;&quot;The attempt a retry replaces already emitted (or enqueued) its own non-streaming success log, a provider</span><span class="a">+        response an error raised after it (a blocked response, a refusal) turned into a retry.&quot;&quot;&quot;</span><span class="a">+        return (</span><span class="a">+            self._async_success_enqueued</span><span class="a">+            or self._sync_success_scheduled</span><span class="a">+            or self.model_call_details.get(&quot;has_logged_async_success&quot;) is True</span><span class="a">+            or self.model_call_details.get(&quot;has_logged_sync_success&quot;) is True</span><span class="a">+        )</span><span class="a">+</span><span class="a">+    def _forget_superseded_success(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;The replaced attempt&#39;s success log bills it, so none of its usage is carried; clearing the one-success-a-</span><span class="a">+        request markers lets the retry that replaces it log, and price, its own response.&quot;&quot;&quot;</span><span class="a">+        self.model_call_details.pop(&quot;_accounting_pricing_snapshot&quot;, None)</span><span class="a">+        self.model_call_details.pop(&quot;_accounting_usage_observed&quot;, None)</span><span class="a">+        self.model_call_details.pop(&quot;combined_usage_object&quot;, None)</span><span class="a">+        self.model_call_details.pop(&quot;response_cost&quot;, None)</span><span class="a">+        self._stash_billed_by_continuation = False</span><span class="a">+        self._stash_owed_on_success = False</span><span class="a">+        if self._async_success_enqueued and self.model_call_details.get(&quot;has_logged_async_success&quot;) is not True:</span><span class="a">+            self._superseded_async_success_pending += 1</span><span class="a">+        if self._sync_success_scheduled and self.model_call_details.get(&quot;has_logged_sync_success&quot;) is not True:</span><span class="a">+            self._superseded_sync_success_pending += 1</span><span class="a">+        self._async_success_scheduled = False</span><span class="a">+        self._async_success_enqueued = False</span><span class="a">+        self._reset_success_emission_dedupe()</span><span class="a">+</span><span class="a">+    def _stash_parked_success_for_retry(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;The replaced attempt&#39;s success log is parked until the proxy&#39;s post-call hooks run, which would log it in</span><span class="a">+        place of the retry&#39;s response. Its response was served and billed by the provider, so it is carried like a</span><span class="a">+        failed attempt the request&#39;s success (or failure) log bills, and the retry claims the success log.&quot;&quot;&quot;</span><span class="a">+        parked: Final = self.deferred_success_result</span><span class="a">+        if parked is None or not self._async_success_scheduled:</span><span class="a">+            return</span><span class="a">+        self.deferred_success_result = None</span><span class="a">+        self.enqueue_deferred_logging = None</span><span class="a">+        self._async_success_scheduled = False</span><span class="a">+        served: Final = self.served_round(parked[0])</span><span class="a">+        if served is not None:</span><span class="a">+            self.record_served_rounds_for_failure((served,))</span><span class="a">+</span><span class="c">     def mark_stash_billed_by_continuation(self) -&gt; None:</span><span class="c">         self._stash_billed_by_continuation = True</span><span class="c"> </span><span class="h">@@ -2915,6 +2964,11 @@ class Logging(LiteLLMLoggingBaseClass):</span><span class="c">     def mark_async_success_log_enqueued(self) -&gt; None:</span><span class="c">         self._async_success_enqueued = True</span><span class="c"> </span><span class="a">+    def mark_sync_success_log_scheduled(self) -&gt; None:</span><span class="a">+        &quot;&quot;&quot;The sync success log was handed to a background thread, so a router retry sharing this logging object</span><span class="a">+        treats it as this attempt&#39;s log even before it marks itself logged.&quot;&quot;&quot;</span><span class="a">+        self._sync_success_scheduled = True</span><span class="a">+</span><span class="c">     def claim_async_success_log(self) -&gt; bool:</span><span class="c">         &quot;&quot;&quot;One async success log per request. The innermost @client wrapper always exits first,</span><span class="c">         since the outer one is awaiting it, so it claims the log here and the outer wrapper gets</span><span class="h">@@ -2933,6 +2987,12 @@ class Logging(LiteLLMLoggingBaseClass):</span><span class="c">             Ignore check on stream, as there can be multiple chunks</span><span class="c">             &quot;&quot;&quot;</span><span class="c">             return</span><span class="a">+        if event_type == &quot;async_success&quot; and self._superseded_async_success_pending &gt; 0:</span><span class="a">+            self._superseded_async_success_pending -= 1</span><span class="a">+            return</span><span class="a">+        if event_type == &quot;sync_success&quot; and self._superseded_sync_success_pending &gt; 0:</span><span class="a">+            self._superseded_sync_success_pending -= 1</span><span class="a">+            return</span><span class="c">         self.model_call_details[f&quot;has_logged_{event_type}&quot;] = True</span><span class="c">         if event_type == &quot;async_failure&quot;:</span><span class="c">             self.model_call_details[&quot;async_failure_logged_attempt&quot;] = self.model_call_details.get(</span><span class="f">litellm/utils.py</span><span class="h">index 66b5b274f9..b0280c886d 100644</span><span class="h">@@ -2284,6 +2284,8 @@ def client(original_function):</span><span class="c">                 # This is essential for OpenTelemetry span context propagation</span><span class="c">                 ctx: Final = contextvars.copy_context()</span><span class="c">                 executor: Final[BoundedLoggingThreadPoolExecutor] = litellm_utils.executor</span><span class="a">+                if not logging_obj.stream:</span><span class="a">+                    logging_obj.mark_sync_success_log_scheduled()</span><span class="c">                 executor.submit(</span><span class="c">                     ctx.run,</span><span class="c">                     logging_obj.success_handler,</span><span class="f">tests/unit/proxy/test_superseded_attempt_accounting.py</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..53597eda0e</span><span class="h">@@ -0,0 +1,236 @@</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+A provider response the router discards for a retry or a fallback (a content-filtered chat choice, a</span><span class="a">+safeguard refusal, an error raised after the response was served) was billed by the provider. The</span><span class="a">+proxy parks the request&#39;s success log until its post-call hooks run, so the discarded attempt must</span><span class="a">+not take the success log from the response the client receives, nor drop out of its cost.</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+from __future__ import annotations</span><span class="a">+</span><span class="a">+import asyncio</span><span class="a">+from collections.abc import Callable, Iterator, Mapping</span><span class="a">+from typing import Final</span><span class="a">+</span><span class="a">+import httpx</span><span class="a">+import pytest</span><span class="a">+import respx</span><span class="a">+from fastapi.testclient import TestClient</span><span class="a">+</span><span class="a">+import litellm</span><span class="a">+from litellm import Router</span><span class="a">+from litellm.integrations.custom_logger import CustomLogger</span><span class="a">+from litellm.proxy import proxy_server</span><span class="a">+from litellm.proxy._types import UserAPIKeyAuth</span><span class="a">+from litellm.proxy.auth.user_api_key_auth import user_api_key_auth</span><span class="a">+</span><span class="a">+INPUT_RATE: Final = 0.001</span><span class="a">+OUTPUT_RATE: Final = 0.002</span><span class="a">+PROMPT_TOKENS: Final = 10</span><span class="a">+FIRST_COMPLETION_TOKENS: Final = 10</span><span class="a">+FINAL_COMPLETION_TOKENS: Final = 20</span><span class="a">+FIRST_COST: Final = PROMPT_TOKENS * INPUT_RATE + FIRST_COMPLETION_TOKENS * OUTPUT_RATE</span><span class="a">+FINAL_COST: Final = PROMPT_TOKENS * INPUT_RATE + FINAL_COMPLETION_TOKENS * OUTPUT_RATE</span><span class="a">+PRICING: Final = {&quot;input_cost_per_token&quot;: INPUT_RATE, &quot;output_cost_per_token&quot;: OUTPUT_RATE}</span><span class="a">+</span><span class="a">+</span><span class="a">+class _SuccessCosts(CustomLogger):</span><span class="a">+    def __init__(self) -&gt; None:</span><span class="a">+        self.costs: tuple[object, ...] = ()</span><span class="a">+</span><span class="a">+    async def async_log_success_event(self, kwargs, response_obj, start_time, end_time) -&gt; None:  # noqa: ANN001  # CustomLogger&#39;s untyped hook signature</span><span class="a">+        self.costs = (*self.costs, kwargs.get(&quot;response_cost&quot;))</span><span class="a">+</span><span class="a">+</span><span class="a">+def _chat_body(attempt: int, finish_reason: str) -&gt; dict[str, object]:  # mutable-ok: a JSON body</span><span class="a">+    completion_tokens: Final = FIRST_COMPLETION_TOKENS if attempt == 1 else FINAL_COMPLETION_TOKENS</span><span class="a">+    return {</span><span class="a">+        &quot;id&quot;: f&quot;chatcmpl-attempt-{attempt}&quot;,</span><span class="a">+        &quot;object&quot;: &quot;chat.completion&quot;,</span><span class="a">+        &quot;created&quot;: 1,</span><span class="a">+        &quot;model&quot;: &quot;gpt-4o&quot;,</span><span class="a">+        &quot;choices&quot;: [</span><span class="a">+            {</span><span class="a">+                &quot;index&quot;: 0,</span><span class="a">+                &quot;message&quot;: {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: f&quot;attempt {attempt}&quot;},</span><span class="a">+                &quot;finish_reason&quot;: finish_reason,</span><span class="a">+            }</span><span class="a">+        ],</span><span class="a">+        &quot;usage&quot;: {</span><span class="a">+            &quot;prompt_tokens&quot;: PROMPT_TOKENS,</span><span class="a">+            &quot;completion_tokens&quot;: completion_tokens,</span><span class="a">+            &quot;total_tokens&quot;: PROMPT_TOKENS + completion_tokens,</span><span class="a">+        },</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def _messages_body(attempt: int) -&gt; dict[str, object]:  # mutable-ok: a JSON body</span><span class="a">+    refused: Final = attempt == 1</span><span class="a">+    return {</span><span class="a">+        &quot;id&quot;: f&quot;msg_attempt_{attempt}&quot;,</span><span class="a">+        &quot;type&quot;: &quot;message&quot;,</span><span class="a">+        &quot;role&quot;: &quot;assistant&quot;,</span><span class="a">+        &quot;model&quot;: &quot;claude-test&quot;,</span><span class="a">+        &quot;content&quot;: [{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: f&quot;attempt {attempt}&quot;}],</span><span class="a">+        &quot;stop_reason&quot;: &quot;refusal&quot; if refused else &quot;end_turn&quot;,</span><span class="a">+        **({&quot;stop_details&quot;: {&quot;type&quot;: &quot;refusal&quot;, &quot;category&quot;: None, &quot;explanation&quot;: &quot;declined&quot;}} if refused else {}),</span><span class="a">+        &quot;stop_sequence&quot;: None,</span><span class="a">+        &quot;usage&quot;: {</span><span class="a">+            &quot;input_tokens&quot;: PROMPT_TOKENS,</span><span class="a">+            &quot;output_tokens&quot;: FIRST_COMPLETION_TOKENS if refused else FINAL_COMPLETION_TOKENS,</span><span class="a">+        },</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def _deployment(name: str, model: str) -&gt; dict[str, object]:  # mutable-ok: a model_list entry</span><span class="a">+    return {&quot;model_name&quot;: name, &quot;litellm_params&quot;: {&quot;model&quot;: model, &quot;api_key&quot;: &quot;test-key&quot;}, &quot;model_info&quot;: PRICING}</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.fixture</span><span class="a">+def success_costs(monkeypatch: pytest.MonkeyPatch) -&gt; _SuccessCosts:</span><span class="a">+    capture: Final = _SuccessCosts()</span><span class="a">+    monkeypatch.setattr(litellm, &quot;disable_aiohttp_transport&quot;, True)</span><span class="a">+    monkeypatch.setenv(&quot;LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY&quot;, &quot;true&quot;)</span><span class="a">+    monkeypatch.setattr(litellm, &quot;callbacks&quot;, [])</span><span class="a">+    monkeypatch.setattr(litellm, &quot;success_callback&quot;, [])</span><span class="a">+    monkeypatch.setattr(litellm, &quot;_async_success_callback&quot;, [capture])</span><span class="a">+    return capture</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.fixture</span><span class="a">+def proxy_post(</span><span class="a">+    monkeypatch: pytest.MonkeyPatch,</span><span class="a">+) -&gt; Iterator[Callable[[Router, str, Mapping[str, object]], httpx.Response]]:</span><span class="a">+    def post(router: Router, route: str, body: Mapping[str, object]) -&gt; httpx.Response:</span><span class="a">+        with TestClient(proxy_server.app) as client:</span><span class="a">+            monkeypatch.setattr(proxy_server, &quot;llm_router&quot;, router)</span><span class="a">+            monkeypatch.setattr(proxy_server, &quot;general_settings&quot;, {})</span><span class="a">+            monkeypatch.setattr(proxy_server, &quot;prisma_client&quot;, None)</span><span class="a">+            proxy_server.app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(api_key=&quot;hashed-key&quot;)</span><span class="a">+            return client.post(route, json=body)</span><span class="a">+</span><span class="a">+    yield post</span><span class="a">+    proxy_server.app.dependency_overrides.pop(user_api_key_auth, None)</span><span class="a">+</span><span class="a">+</span><span class="a">+async def _settled(capture: _SuccessCosts) -&gt; None:</span><span class="a">+    for _ in range(200):</span><span class="a">+        if capture.costs:</span><span class="a">+            return</span><span class="a">+        await asyncio.sleep(0.01)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_a_content_policy_fallback_bills_the_filtered_response_with_the_served_one(</span><span class="a">+    respx_mock: respx.MockRouter,</span><span class="a">+    success_costs: _SuccessCosts,</span><span class="a">+    proxy_post: Callable[[Router, str, Mapping[str, object]], httpx.Response],</span><span class="a">+) -&gt; None:</span><span class="a">+    hits: Final = [0]</span><span class="a">+</span><span class="a">+    def upstream(_: httpx.Request) -&gt; httpx.Response:</span><span class="a">+        hits[0] += 1</span><span class="a">+        return httpx.Response(200, json=_chat_body(hits[0], &quot;content_filter&quot; if hits[0] == 1 else &quot;stop&quot;))</span><span class="a">+</span><span class="a">+    respx_mock.post(&quot;https://api.openai.com/v1/chat/completions&quot;).mock(side_effect=upstream)</span><span class="a">+    router: Final = Router(</span><span class="a">+        model_list=[_deployment(&quot;primary&quot;, &quot;openai/gpt-4o&quot;), _deployment(&quot;backup&quot;, &quot;openai/gpt-4o&quot;)],</span><span class="a">+        content_policy_fallbacks=[{&quot;primary&quot;: [&quot;backup&quot;]}],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    response: Final = await asyncio.to_thread(</span><span class="a">+        proxy_post,</span><span class="a">+        router,</span><span class="a">+        &quot;/v1/chat/completions&quot;,</span><span class="a">+        {&quot;model&quot;: &quot;primary&quot;, &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}]},</span><span class="a">+    )</span><span class="a">+    await _settled(success_costs)</span><span class="a">+</span><span class="a">+    assert response.status_code == 200, response.text</span><span class="a">+    assert hits[0] == 2</span><span class="a">+    assert response.json()[&quot;choices&quot;][0][&quot;message&quot;][&quot;content&quot;] == &quot;attempt 2&quot;</span><span class="a">+    assert success_costs.costs == (pytest.approx(FIRST_COST + FINAL_COST),)</span><span class="a">+    assert float(response.headers[&quot;x-litellm-response-cost&quot;]) == pytest.approx(FIRST_COST + FINAL_COST)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_a_retry_after_a_served_response_bills_both_attempts(</span><span class="a">+    respx_mock: respx.MockRouter,</span><span class="a">+    success_costs: _SuccessCosts,</span><span class="a">+    proxy_post: Callable[[Router, str, Mapping[str, object]], httpx.Response],</span><span class="a">+    monkeypatch: pytest.MonkeyPatch,</span><span class="a">+) -&gt; None:</span><span class="a">+    hits: Final = [0]</span><span class="a">+</span><span class="a">+    def upstream(_: httpx.Request) -&gt; httpx.Response:</span><span class="a">+        hits[0] += 1</span><span class="a">+        return httpx.Response(200, json=_chat_body(hits[0], &quot;stop&quot;))</span><span class="a">+</span><span class="a">+    respx_mock.post(&quot;https://api.openai.com/v1/chat/completions&quot;).mock(side_effect=upstream)</span><span class="a">+    real_acompletion: Final = litellm.acompletion</span><span class="a">+</span><span class="a">+    async def refused_after_the_first_response(*args: object, **kwargs: object) -&gt; object:  # kwargs-ok: the attempt</span><span class="a">+        # The error a provider-side safeguard raises once the first response was served and priced.</span><span class="a">+        response: Final = await real_acompletion(*args, **kwargs)</span><span class="a">+        if hits[0] == 1:</span><span class="a">+            raise litellm.ContentPolicyViolationError(</span><span class="a">+                message=&quot;refused after the response was served&quot;, model=&quot;gpt-4o&quot;, llm_provider=&quot;openai&quot;</span><span class="a">+            )</span><span class="a">+        return response</span><span class="a">+</span><span class="a">+    monkeypatch.setattr(litellm, &quot;acompletion&quot;, refused_after_the_first_response)</span><span class="a">+    router: Final = Router(</span><span class="a">+        model_list=[_deployment(&quot;primary&quot;, &quot;openai/gpt-4o&quot;)],</span><span class="a">+        num_retries=1,</span><span class="a">+        retry_policy={&quot;ContentPolicyViolationErrorRetries&quot;: 1},</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    response: Final = await asyncio.to_thread(</span><span class="a">+        proxy_post,</span><span class="a">+        router,</span><span class="a">+        &quot;/v1/chat/completions&quot;,</span><span class="a">+        {&quot;model&quot;: &quot;primary&quot;, &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}]},</span><span class="a">+    )</span><span class="a">+    await _settled(success_costs)</span><span class="a">+</span><span class="a">+    assert response.status_code == 200, response.text</span><span class="a">+    assert hits[0] == 2</span><span class="a">+    assert response.headers[&quot;x-litellm-attempted-retries&quot;] == &quot;1&quot;</span><span class="a">+    assert response.json()[&quot;usage&quot;][&quot;completion_tokens&quot;] == FINAL_COMPLETION_TOKENS</span><span class="a">+    assert success_costs.costs == (pytest.approx(FIRST_COST + FINAL_COST),)</span><span class="a">+    assert float(response.headers[&quot;x-litellm-response-cost&quot;]) == pytest.approx(FIRST_COST + FINAL_COST)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_a_messages_refusal_fallback_bills_the_refused_response_with_the_served_one(</span><span class="a">+    respx_mock: respx.MockRouter,</span><span class="a">+    success_costs: _SuccessCosts,</span><span class="a">+    proxy_post: Callable[[Router, str, Mapping[str, object]], httpx.Response],</span><span class="a">+) -&gt; None:</span><span class="a">+    hits: Final = [0]</span><span class="a">+</span><span class="a">+    def upstream(_: httpx.Request) -&gt; httpx.Response:</span><span class="a">+        hits[0] += 1</span><span class="a">+        return httpx.Response(200, json=_messages_body(hits[0]))</span><span class="a">+</span><span class="a">+    respx_mock.post(&quot;https://api.anthropic.com/v1/messages&quot;).mock(side_effect=upstream)</span><span class="a">+    router: Final = Router(</span><span class="a">+        model_list=[</span><span class="a">+            _deployment(&quot;primary&quot;, &quot;anthropic/claude-test&quot;),</span><span class="a">+            _deployment(&quot;backup&quot;, &quot;anthropic/claude-test&quot;),</span><span class="a">+        ],</span><span class="a">+        content_policy_fallbacks=[{&quot;primary&quot;: [&quot;backup&quot;]}],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    response: Final = await asyncio.to_thread(</span><span class="a">+        proxy_post,</span><span class="a">+        router,</span><span class="a">+        &quot;/v1/messages&quot;,</span><span class="a">+        {&quot;model&quot;: &quot;primary&quot;, &quot;max_tokens&quot;: 32, &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}]},</span><span class="a">+    )</span><span class="a">+    await _settled(success_costs)</span><span class="a">+</span><span class="a">+    assert response.status_code == 200, response.text</span><span class="a">+    assert hits[0] == 2</span><span class="a">+    assert response.json()[&quot;usage&quot;][&quot;output_tokens&quot;] == FINAL_COMPLETION_TOKENS</span><span class="a">+    assert success_costs.costs == (pytest.approx(FIRST_COST + FINAL_COST),)</span><span class="a">+    assert float(response.headers[&quot;x-litellm-response-cost&quot;]) == pytest.approx(FIRST_COST + FINAL_COST)</span><span class="f">tests/unit/test_router/test_router_superseded_attempt_logging.py</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..9cc4a7ff15</span><span class="h">@@ -0,0 +1,210 @@</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+A router call that shares one logging object across its attempts (``litellm_logging_obj``) and does not</span><span class="a">+defer its success log: an attempt the router discards after its success log was scheduled is billed by</span><span class="a">+that log, and the attempt that replaces it still logs and prices its own response.</span><span class="a">+&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+from __future__ import annotations</span><span class="a">+</span><span class="a">+import asyncio</span><span class="a">+import datetime</span><span class="a">+import time</span><span class="a">+from typing import Final</span><span class="a">+</span><span class="a">+import httpx</span><span class="a">+import pytest</span><span class="a">+import respx</span><span class="a">+</span><span class="a">+import litellm</span><span class="a">+from litellm import Router</span><span class="a">+from litellm.integrations.custom_logger import CustomLogger</span><span class="a">+from litellm.litellm_core_utils.litellm_logging import Logging</span><span class="a">+</span><span class="a">+INPUT_RATE: Final = 0.001</span><span class="a">+OUTPUT_RATE: Final = 0.002</span><span class="a">+PROMPT_TOKENS: Final = 10</span><span class="a">+MESSAGES: Final = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}]</span><span class="a">+PRICING: Final = {&quot;input_cost_per_token&quot;: INPUT_RATE, &quot;output_cost_per_token&quot;: OUTPUT_RATE}</span><span class="a">+</span><span class="a">+</span><span class="a">+def _cost(attempt: int) -&gt; float:</span><span class="a">+    return PROMPT_TOKENS * INPUT_RATE + 10 * attempt * OUTPUT_RATE</span><span class="a">+</span><span class="a">+</span><span class="a">+class _SuccessCosts(CustomLogger):</span><span class="a">+    def __init__(self) -&gt; None:</span><span class="a">+        self.costs: tuple[object, ...] = ()</span><span class="a">+</span><span class="a">+    async def async_log_success_event(self, kwargs, response_obj, start_time, end_time) -&gt; None:  # noqa: ANN001  # CustomLogger&#39;s untyped hook signature</span><span class="a">+        self.costs = (*self.costs, kwargs.get(&quot;response_cost&quot;))</span><span class="a">+</span><span class="a">+</span><span class="a">+def _chat_body(attempt: int, finish_reason: str) -&gt; dict[str, object]:  # mutable-ok: a JSON body</span><span class="a">+    return {</span><span class="a">+        &quot;id&quot;: f&quot;chatcmpl-attempt-{attempt}&quot;,</span><span class="a">+        &quot;object&quot;: &quot;chat.completion&quot;,</span><span class="a">+        &quot;created&quot;: 1,</span><span class="a">+        &quot;model&quot;: &quot;gpt-4o&quot;,</span><span class="a">+        &quot;choices&quot;: [</span><span class="a">+            {</span><span class="a">+                &quot;index&quot;: 0,</span><span class="a">+                &quot;message&quot;: {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: f&quot;attempt {attempt}&quot;},</span><span class="a">+                &quot;finish_reason&quot;: finish_reason,</span><span class="a">+            }</span><span class="a">+        ],</span><span class="a">+        &quot;usage&quot;: {</span><span class="a">+            &quot;prompt_tokens&quot;: PROMPT_TOKENS,</span><span class="a">+            &quot;completion_tokens&quot;: 10 * attempt,</span><span class="a">+            &quot;total_tokens&quot;: PROMPT_TOKENS + 10 * attempt,</span><span class="a">+        },</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def _deployment(name: str) -&gt; dict[str, object]:  # mutable-ok: a model_list entry</span><span class="a">+    return {</span><span class="a">+        &quot;model_name&quot;: name,</span><span class="a">+        &quot;litellm_params&quot;: {&quot;model&quot;: &quot;openai/gpt-4o&quot;, &quot;api_key&quot;: &quot;test-key&quot;},</span><span class="a">+        &quot;model_info&quot;: PRICING,</span><span class="a">+    }</span><span class="a">+</span><span class="a">+</span><span class="a">+def _shared_logging(call_id: str) -&gt; Logging:</span><span class="a">+    logging_obj, _ = litellm.utils.function_setup(</span><span class="a">+        original_function=&quot;acompletion&quot;,</span><span class="a">+        rules_obj=litellm.utils.Rules(),</span><span class="a">+        start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),</span><span class="a">+        model=&quot;primary&quot;,</span><span class="a">+        messages=MESSAGES,</span><span class="a">+        litellm_call_id=call_id,</span><span class="a">+    )</span><span class="a">+    assert isinstance(logging_obj, Logging)</span><span class="a">+    return logging_obj</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.fixture</span><span class="a">+def success_costs(monkeypatch: pytest.MonkeyPatch) -&gt; _SuccessCosts:</span><span class="a">+    capture: Final = _SuccessCosts()</span><span class="a">+    monkeypatch.setattr(litellm, &quot;disable_aiohttp_transport&quot;, True)</span><span class="a">+    monkeypatch.setattr(litellm, &quot;callbacks&quot;, [capture])</span><span class="a">+    return capture</span><span class="a">+</span><span class="a">+</span><span class="a">+async def _logged(capture: _SuccessCosts, count: int) -&gt; None:</span><span class="a">+    for _ in range(200):</span><span class="a">+        if len(capture.costs) &gt;= count:</span><span class="a">+            return</span><span class="a">+        await asyncio.sleep(0.01)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_a_content_policy_fallback_logs_the_served_response_after_the_filtered_one(</span><span class="a">+    respx_mock: respx.MockRouter, success_costs: _SuccessCosts</span><span class="a">+) -&gt; None:</span><span class="a">+    hits: Final = [0]</span><span class="a">+</span><span class="a">+    def upstream(_: httpx.Request) -&gt; httpx.Response:</span><span class="a">+        hits[0] += 1</span><span class="a">+        return httpx.Response(200, json=_chat_body(hits[0], &quot;content_filter&quot; if hits[0] == 1 else &quot;stop&quot;))</span><span class="a">+</span><span class="a">+    respx_mock.post(&quot;https://api.openai.com/v1/chat/completions&quot;).mock(side_effect=upstream)</span><span class="a">+    router: Final = Router(</span><span class="a">+        model_list=[_deployment(&quot;primary&quot;), _deployment(&quot;backup&quot;)], content_policy_fallbacks=[{&quot;primary&quot;: [&quot;backup&quot;]}]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    response: Final = await router.acompletion(</span><span class="a">+        model=&quot;primary&quot;, messages=MESSAGES, litellm_logging_obj=_shared_logging(&quot;superseded-fallback&quot;)</span><span class="a">+    )</span><span class="a">+    await _logged(success_costs, 2)</span><span class="a">+</span><span class="a">+    assert hits[0] == 2</span><span class="a">+    assert response.choices[0].message.content == &quot;attempt 2&quot;</span><span class="a">+    assert success_costs.costs == (pytest.approx(_cost(1)), pytest.approx(_cost(2)))</span><span class="a">+    assert response._hidden_params[&quot;response_cost&quot;] == pytest.approx(_cost(2))</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_a_retry_after_a_logged_response_logs_the_retry_too(</span><span class="a">+    respx_mock: respx.MockRouter, success_costs: _SuccessCosts, monkeypatch: pytest.MonkeyPatch</span><span class="a">+) -&gt; None:</span><span class="a">+    hits: Final = [0]</span><span class="a">+</span><span class="a">+    def upstream(_: httpx.Request) -&gt; httpx.Response:</span><span class="a">+        hits[0] += 1</span><span class="a">+        return httpx.Response(200, json=_chat_body(hits[0], &quot;stop&quot;))</span><span class="a">+</span><span class="a">+    respx_mock.post(&quot;https://api.openai.com/v1/chat/completions&quot;).mock(side_effect=upstream)</span><span class="a">+    real_acompletion: Final = litellm.acompletion</span><span class="a">+</span><span class="a">+    async def refused_after_the_first_response(*args: object, **kwargs: object) -&gt; object:  # kwargs-ok: the attempt</span><span class="a">+        # The error a provider-side safeguard raises once the first response was served and logged.</span><span class="a">+        response: Final = await real_acompletion(*args, **kwargs)</span><span class="a">+        if hits[0] == 1:</span><span class="a">+            await _logged(success_costs, 1)</span><span class="a">+            raise litellm.ContentPolicyViolationError(</span><span class="a">+                message=&quot;refused after the response was served&quot;, model=&quot;gpt-4o&quot;, llm_provider=&quot;openai&quot;</span><span class="a">+            )</span><span class="a">+        return response</span><span class="a">+</span><span class="a">+    monkeypatch.setattr(litellm, &quot;acompletion&quot;, refused_after_the_first_response)</span><span class="a">+    router: Final = Router(</span><span class="a">+        model_list=[_deployment(&quot;primary&quot;)], num_retries=1, retry_policy={&quot;ContentPolicyViolationErrorRetries&quot;: 1}</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    response: Final = await router.acompletion(</span><span class="a">+        model=&quot;primary&quot;, messages=MESSAGES, litellm_logging_obj=_shared_logging(&quot;superseded-retry&quot;)</span><span class="a">+    )</span><span class="a">+    await _logged(success_costs, 2)</span><span class="a">+</span><span class="a">+    assert hits[0] == 2</span><span class="a">+    assert response.usage.completion_tokens == 20</span><span class="a">+    assert success_costs.costs == (pytest.approx(_cost(1)), pytest.approx(_cost(2)))</span><span class="a">+</span><span class="a">+</span><span class="a">+class _SyncSuccessLogs(CustomLogger):</span><span class="a">+    def __init__(self) -&gt; None:</span><span class="a">+        self.hooked = 0</span><span class="a">+        self.logged: tuple[str, ...] = ()</span><span class="a">+</span><span class="a">+    def logging_hook(self, kwargs, result, call_type):  # noqa: ANN001, ANN201  # CustomLogger&#39;s untyped hook signature</span><span class="a">+        self.hooked += 1</span><span class="a">+        if self.hooked == 1:</span><span class="a">+            # The discarded attempt&#39;s background log has not marked itself logged when the router falls back,</span><span class="a">+            # and does before the fallback&#39;s response arrives.</span><span class="a">+            time.sleep(0.1)</span><span class="a">+        return kwargs, result</span><span class="a">+</span><span class="a">+    def log_success_event(self, kwargs, response_obj, start_time, end_time) -&gt; None:  # noqa: ANN001  # CustomLogger&#39;s untyped hook signature</span><span class="a">+        self.logged = (*self.logged, response_obj.choices[0].message.content)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_a_sync_content_policy_fallback_logs_both_served_responses_while_the_first_log_is_in_flight(</span><span class="a">+    respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch</span><span class="a">+) -&gt; None:</span><span class="a">+    capture: Final = _SyncSuccessLogs()</span><span class="a">+    monkeypatch.setattr(litellm, &quot;disable_aiohttp_transport&quot;, True)</span><span class="a">+    monkeypatch.setattr(litellm, &quot;callbacks&quot;, [capture])</span><span class="a">+    hits: Final = [0]</span><span class="a">+</span><span class="a">+    def upstream(_: httpx.Request) -&gt; httpx.Response:</span><span class="a">+        hits[0] += 1</span><span class="a">+        if hits[0] == 2:</span><span class="a">+            time.sleep(0.4)</span><span class="a">+        return httpx.Response(200, json=_chat_body(hits[0], &quot;content_filter&quot; if hits[0] == 1 else &quot;stop&quot;))</span><span class="a">+</span><span class="a">+    respx_mock.post(&quot;https://api.openai.com/v1/chat/completions&quot;).mock(side_effect=upstream)</span><span class="a">+    router: Final = Router(</span><span class="a">+        model_list=[_deployment(&quot;primary&quot;), _deployment(&quot;backup&quot;)], content_policy_fallbacks=[{&quot;primary&quot;: [&quot;backup&quot;]}]</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    response: Final = router.completion(</span><span class="a">+        model=&quot;primary&quot;, messages=MESSAGES, litellm_logging_obj=_shared_logging(&quot;superseded-sync-fallback&quot;)</span><span class="a">+    )</span><span class="a">+    for _ in range(200):</span><span class="a">+        if len(capture.logged) &gt;= 2:</span><span class="a">+            break</span><span class="a">+        time.sleep(0.01)</span><span class="a">+    time.sleep(0.1)</span><span class="a">+</span><span class="a">+    assert hits[0] == 2</span><span class="a">+    assert response.choices[0].message.content == &quot;attempt 2&quot;</span><span class="a">+    assert sorted(capture.logged) == [&quot;attempt 1&quot;, &quot;attempt 2&quot;]</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/BerriAI/litellm/pull/50735" rel="noopener" target="_blank">PR #50735</a></span><span class="pm"><span class="a">+84</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">litellm/litellm_core_utils/litellm_logging.py</span><span class="h">index fcc521cf6cf..e9342a765bc 100644</span><span class="h">@@ -2761,6 +2761,8 @@ class Logging(LiteLLMLoggingBaseClass):</span><span class="c">     def carry_failed_attempt_usage(self) -&gt; None:</span><span class="c">         &quot;&quot;&quot;Move what a failed earlier attempt stashed off the retry sharing this logging object, so the retry logs its</span><span class="c">         own usage while the request&#39;s failure log still bills every attempt.&quot;&quot;&quot;</span><span class="a">+        if self._carry_parked_success():</span><span class="a">+            return</span><span class="c">         usage: Final = self._model_call_details_view.get(&quot;combined_usage_object&quot;)</span><span class="c">         response_cost: Final = self._model_call_details_view.get(&quot;response_cost&quot;)</span><span class="c">         billed_by_continuation: Final = self._stash_billed_by_continuation</span><span class="h">@@ -2783,6 +2785,25 @@ class Logging(LiteLLMLoggingBaseClass):</span><span class="c">             return</span><span class="c">         self._failed_attempts_owed_on_success = (*self._failed_attempts_owed_on_success, attempt)</span><span class="c"> </span><span class="a">+    def _carry_parked_success(self) -&gt; bool:</span><span class="a">+        &quot;&quot;&quot;A billed response the router discards after its success log was parked (a safeguard refusal it falls</span><span class="a">+        back from) is owed by whichever attempt ends the request, instead of being logged in its place.&quot;&quot;&quot;</span><span class="a">+        parked: Final = self.deferred_success_result</span><span class="a">+        if parked is None or self.enqueue_deferred_logging is None:</span><span class="a">+            return False</span><span class="a">+        self.deferred_success_result = None</span><span class="a">+        self.enqueue_deferred_logging = None</span><span class="a">+        self._async_success_scheduled = False</span><span class="a">+        served: Final = self.served_round(parked[0])</span><span class="a">+        if served is None:</span><span class="a">+            return True</span><span class="a">+        self.model_call_details[&quot;failed_attempts_usage&quot;] = (</span><span class="a">+            *self.model_call_details.get(&quot;failed_attempts_usage&quot;, ()),</span><span class="a">+            served,</span><span class="a">+        )</span><span class="a">+        self._failed_attempts_owed_on_success = (*self._failed_attempts_owed_on_success, served)</span><span class="a">+        return True</span><span class="a">+</span><span class="c">     def mark_stash_billed_by_continuation(self) -&gt; None:</span><span class="c">         self._stash_billed_by_continuation = True</span><span class="c"> </span><span class="f">tests/unit/litellm_core_utils/test_litellm_logging.py</span><span class="h">index 58fd03e0cbc..2f5edbd6350 100644</span><span class="h">@@ -14690,3 +14690,66 @@ def test_standard_logging_payload_reports_the_per_call_prices_the_request_was_bi</span><span class="c">     model_map_value: Final = payload[&quot;model_map_information&quot;][&quot;model_map_value&quot;]</span><span class="c">     assert model_map_value is not None</span><span class="c">     assert (model_map_value[&quot;input_cost_per_token&quot;], model_map_value[&quot;output_cost_per_token&quot;]) == (3e-06, 7e-06)</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_a_response_discarded_after_its_success_log_was_parked_is_billed_once_on_the_serving_attempt(</span><span class="a">+    monkeypatch: pytest.MonkeyPatch,</span><span class="a">+) -&gt; None:</span><span class="a">+    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER</span><span class="a">+    from litellm.responses.streaming_iterator import drain_logging_tasks</span><span class="a">+    from litellm.utils import _schedule_async_success_logging</span><span class="a">+</span><span class="a">+    class Recorder(CustomLogger):</span><span class="a">+        def __init__(self) -&gt; None:</span><span class="a">+            super().__init__()</span><span class="a">+            self.events: tuple[tuple[dict[str, object], object], ...] = ()</span><span class="a">+</span><span class="a">+        async def async_log_success_event(</span><span class="a">+            self, kwargs: dict[str, object], response_obj: object, start_time: object, end_time: object</span><span class="a">+        ) -&gt; None:</span><span class="a">+            self.events = (*self.events, (dict(kwargs), response_obj))</span><span class="a">+</span><span class="a">+    recorder: Final = Recorder()</span><span class="a">+    monkeypatch.setattr(litellm, &quot;_async_success_callback&quot;, [])</span><span class="a">+    monkeypatch.setattr(litellm, &quot;success_callback&quot;, [])</span><span class="a">+    logging_obj: Final = LitellmLogging(</span><span class="a">+        model=&quot;gpt-4o-mini&quot;,</span><span class="a">+        messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hi&quot;}],</span><span class="a">+        stream=False,</span><span class="a">+        call_type=&quot;acompletion&quot;,</span><span class="a">+        start_time=time.time(),</span><span class="a">+        litellm_call_id=&quot;refused-then-served&quot;,</span><span class="a">+        function_id=&quot;refused-then-served&quot;,</span><span class="a">+        dynamic_async_success_callbacks=[recorder],</span><span class="a">+    )</span><span class="a">+    logging_obj.update_environment_variables(</span><span class="a">+        model=&quot;gpt-4o-mini&quot;, user=&quot;&quot;, optional_params={}, litellm_params={&quot;metadata&quot;: {}}, custom_llm_provider=&quot;openai&quot;</span><span class="a">+    )</span><span class="a">+    logging_obj.defer_async_logging = True</span><span class="a">+    refused: Final = ModelResponse(</span><span class="a">+        id=&quot;refused&quot;, model=&quot;gpt-4o-mini&quot;, usage=Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)</span><span class="a">+    )</span><span class="a">+    served: Final = ModelResponse(</span><span class="a">+        id=&quot;served&quot;, model=&quot;gpt-4o-mini&quot;, usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)</span><span class="a">+    )</span><span class="a">+    now: Final = datetime.datetime.now()</span><span class="a">+</span><span class="a">+    _schedule_async_success_logging(logging_obj, refused, now, now, is_completion_with_fallbacks=False)</span><span class="a">+    logging_obj.carry_failed_attempt_usage()</span><span class="a">+    _schedule_async_success_logging(logging_obj, served, now, now, is_completion_with_fallbacks=False)</span><span class="a">+    prepared: Final = logging_obj.prepare_response_cost(served, now)</span><span class="a">+    enqueue: Final = logging_obj.enqueue_deferred_logging</span><span class="a">+    assert enqueue is not None</span><span class="a">+    enqueue()</span><span class="a">+    await drain_logging_tasks()</span><span class="a">+    await GLOBAL_LOGGING_WORKER.flush()</span><span class="a">+</span><span class="a">+    both_attempts: Final = litellm.completion_cost(refused, model=&quot;gpt-4o-mini&quot;) + litellm.completion_cost(</span><span class="a">+        served, model=&quot;gpt-4o-mini&quot;</span><span class="a">+    )</span><span class="a">+    ((kwargs, response_obj),) = recorder.events</span><span class="a">+    assert getattr(response_obj, &quot;id&quot;, None) == &quot;served&quot;</span><span class="a">+    assert kwargs[&quot;response_cost&quot;] == pytest.approx(both_attempts)</span><span class="a">+    assert prepared is not None</span><span class="a">+    assert prepared.amount == pytest.approx(both_attempts)</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/litellm/run-20261111-220245/48760/">Previous · #48760</a>
+  <a class="mid" href="/backtests/litellm/run-20261111-220245/">All tickets in this run</a>
+  <a href="/backtests/litellm/run-20261111-220245/49574/">Next · #49574</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
