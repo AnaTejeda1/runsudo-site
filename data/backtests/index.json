@@ -11,6 +11,23 @@
       "status": "active",
       "runs": [
         {
+          "date": "2026-11-21",
+          "id": "run-20261121-012216",
+          "source_runs": [
+            "run-20261121-012216"
+          ],
+          "tickets": 10,
+          "better": 10,
+          "par": 0,
+          "worse": 0,
+          "tie": 0,
+          "error": 0,
+          "notes": "Issues fixed by one maintainer, shared by link",
+          "footnote": "",
+          "judge": "panel",
+          "unlisted": true
+        },
+        {
           "date": "2026-10-27",
           "id": "run-20261027-165153",
           "source_runs": [

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#14289 `make test-examples` does not discover current Markdown examples — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #14289 in pydantic/pydantic, run 21 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261121-012216/14289/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261121-012216/">run-20261121-012216</a><span aria-hidden="true">/</span><span aria-current="page">#14289</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/14289" rel="noopener" target="_blank">#14289</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/14294" rel="noopener" target="_blank">PR #14294</a></span>
+  <span>Run 21 Nov 2026 · <span class="runid">run-20261121-012216</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title"><code>make test-examples</code> does not discover current Markdown examples</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Patch A removes the `test-examples` target entirely. The issue&#39;s ask is that the target evaluate the Markdown documentation examples (and it explicitly suggests delegating to `tests/test_docs.py`); deleting the target leaves contributors following docs/contributing.md with `make: *** No rule to make target &#39;test-examples&#39;`, which is confirmed by both independent tests still failing on A. That does not resolve the issue, it removes the feature. Patch B replaces the dead `find *.py` recipe with `uv run pytest tests/test_docs.py`, exactly the fix the issue validated (detects the injected `&#39;val&#39; != &#39;wrong&#39;` assertion, exits non-zero), and both independent tests pass on B. On tests, B adds a Makefile-recipe check that fails on base and passes after the change, plus a check that every file in docs/examples/*.md is collected by the docs runner; the latter is guarded by the module&#39;s existing `skip_reason` (pytest-examples not installed), which would not hold in the issue&#39;s scenario where dev test deps are present. The recipe-parsing test is somewhat brittle/tautological, but it is still a real regression guard versus A&#39;s none. Scope and craft also favor B: a one-line recipe change plus targeted tests, no removal of a documented target.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 42s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">5,217 passed · 186 skipped · 5,403 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">28<small>vs 5 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/14289" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Initial Checks</h2>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2.</li></ul>
+<h2>Description</h2>
+<p>At commit <code>cd1d8be820a8036818d6e82603a3ab07e0f855b5</code>, <code>make help</code> describes <code>test-examples</code> as “Run only the tests from the documentation”, but <code>make test-examples</code> exits successfully without evaluating documentation examples on Linux.</p>
+<p>The recipe searches <code>docs/examples</code> for <code>*.py</code>. All eight files currently in that directory are Markdown, so the search has no matches. Contributors using this target to check an edited example receive no test results and can miss errors.</p>
+<p>The existing <code>tests/test_docs.py</code> suite discovers Markdown and docstring examples and handles their skip, Python-version, grouping and expected-failure settings. Could this target delegate to that suite? Normal pytest already covers these examples; the problem is the dedicated Makefile command.</p>
+<p>Source references:</p>
+<ul><li><a href="https://github.com/pydantic/pydantic/blob/cd1d8be820a8036818d6e82603a3ab07e0f855b5/Makefile#L94-L97" rel="noopener nofollow" target="_blank">Makefile recipe</a></li><li><a href="https://github.com/pydantic/pydantic/blob/cd1d8be820a8036818d6e82603a3ab07e0f855b5/tests/test_docs.py#L88-L227" rel="noopener nofollow" target="_blank">Current documentation runner</a></li><li><a href="https://github.com/pydantic/pydantic/blob/cd1d8be820a8036818d6e82603a3ab07e0f855b5/docs/contributing.md#L238-L243" rel="noopener nofollow" target="_blank">Contributor instructions for example testing</a></li></ul>
+<h2>Example Code</h2>
+<p>With the development testing dependencies available, run these commands from that checkout:</p>
+<pre><code class="lang-sh">find docs/examples -type f -name &#39;*.py&#39;
+make test-examples</code></pre>
+<p>The search produces no output. The target prints the uv version and <code>running examples</code>, then exits 0.</p>
+<p>For a failure control, temporarily add this assertion after <code>pydantic_model = MyModel.model_validate(sql_model)</code> in the Python code block in <code>docs/examples/orms.md</code>:</p>
+<pre><code class="lang-python">assert pydantic_model.model_dump() == {&#39;metadata&#39;: {&#39;key&#39;: &#39;wrong&#39;}}</code></pre>
+<p>The original target still exits 0. Replacing its recipe with <code>uv run pytest tests/test_docs.py</code> detects the assertion (<code>&#39;val&#39; != &#39;wrong&#39;</code>): 730 collected, 625 passed, 104 skipped, 1 failed; make exits 2. Removing the temporary assertion gives 626 passed and 104 skipped with make exiting 0.</p>
+<h2>Python, Pydantic &amp; OS Version</h2>
+<pre><code class="lang-text">             pydantic version: 2.15.0a0+dev
+        pydantic-core version: 2.50.0
+          pydantic-core build: profile=debug pgo=false
+               python version: 3.12.16 (main, Nov  5 2026, 09:50:02) [GCC 12.2.0]
+                     platform: Linux-6.8.0-117-generic-aarch64-with-glibc2.36
+             related packages: typing_extensions-4.16.0 pyright-1.1.411
+                       commit: unknown</code></pre>
+<p>The source archive is pinned to the commit above; it has no Git metadata. Validation used pytest 9.1.1, pytest-examples 0.0.15 and uv 0.13.8. Other platforms were not tested.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+26</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">Makefile</span><span class="h">index 28d68579..bccf9fe5 100644</span><span class="h">@@ -93,8 +93,7 @@ testcov: test</span><span class="c"> </span><span class="c"> .PHONY: test-examples  ## Run only the tests from the documentation</span><span class="c"> test-examples: .uv</span><span class="r">-	@echo &quot;running examples&quot;</span><span class="r">-	@find docs/examples -type f -name &#39;*.py&#39; | xargs -I&#39;{}&#39; sh -c &#39;uv run python {} &gt;/dev/null 2&gt;&amp;1 || (echo &quot;{} failed&quot;)&#39;</span><span class="a">+	uv run pytest tests/test_docs.py</span><span class="c"> </span><span class="c"> .PHONY: test-pydantic-settings  ## Run the pydantic-settings tests with this version of pydantic</span><span class="c"> test-pydantic-settings: .uv</span><span class="f">tests/test_docs.py</span><span class="h">index 92526902..14e0771a 100644</span><span class="h">@@ -286,3 +286,28 @@ def test_validation_error_codes():</span><span class="c"> </span><span class="c">     code_validation_error_codes = sorted(expected_validation_error_codes)</span><span class="c">     assert code_validation_error_codes == documented_validation_error_codes, &#39;Error codes in code and docs do not match&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+def _makefile_recipe(target: str) -&gt; list[str]:</span><span class="a">+    lines = (DOCS_ROOT.parent / &#39;Makefile&#39;).read_text().splitlines()</span><span class="a">+    start = lines.index(f&#39;{target}: .uv&#39;) + 1</span><span class="a">+    recipe = []</span><span class="a">+    for line in lines[start:]:</span><span class="a">+        if not line.startswith(&#39;\t&#39;):</span><span class="a">+            break</span><span class="a">+        recipe.append(line.strip().lstrip(&#39;@&#39;))</span><span class="a">+    return recipe</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_make_test_examples_runs_docs_tests():</span><span class="a">+    # `make test-examples` must delegate to this module, which discovers the Markdown and docstring examples</span><span class="a">+    recipe = _makefile_recipe(&#39;test-examples&#39;)</span><span class="a">+    assert any(re.fullmatch(r&#39;uv run pytest tests/test_docs\.py\b.*&#39;, line) for line in recipe), recipe</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.skipif(bool(skip_reason), reason=skip_reason or &#39;not skipping&#39;)</span><span class="a">+def test_docs_examples_dir_collected():</span><span class="a">+    example_files = sorted((DOCS_ROOT / &#39;examples&#39;).glob(&#39;*.md&#39;))</span><span class="a">+    assert example_files</span><span class="a">+    collected = {example.path for example in find_examples(str(DOCS_ROOT), skip=sys.platform == &#39;win32&#39;)}</span><span class="a">+    assert [f for f in example_files if f not in collected] == []</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/14294" rel="noopener" target="_blank">PR #14294</a></span><span class="pm"><span class="a">+0</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">Makefile</span><span class="h">index 28d685796..b8042c3af 100644</span><span class="h">@@ -91,11 +91,6 @@ testcov: test</span><span class="c"> 	@echo &quot;building coverage lcov&quot;</span><span class="c"> 	@uv run coverage lcov</span><span class="c"> </span><span class="r">-.PHONY: test-examples  ## Run only the tests from the documentation</span><span class="r">-test-examples: .uv</span><span class="r">-	@echo &quot;running examples&quot;</span><span class="r">-	@find docs/examples -type f -name &#39;*.py&#39; | xargs -I&#39;{}&#39; sh -c &#39;uv run python {} &gt;/dev/null 2&gt;&amp;1 || (echo &quot;{} failed&quot;)&#39;</span><span class="r">-</span><span class="c"> .PHONY: test-pydantic-settings  ## Run the pydantic-settings tests with this version of pydantic</span><span class="c"> test-pydantic-settings: .uv</span><span class="c"> 	git clone https://github.com/pydantic/pydantic-settings.git --single-branch</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261121-012216/14237/">Previous · #14237</a>
+  <a class="mid" href="/backtests/pydantic/run-20261121-012216/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261121-012216/14291/">Next · #14291</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

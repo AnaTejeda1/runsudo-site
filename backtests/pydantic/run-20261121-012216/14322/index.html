@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#14322 Subclass of a `@deprecated` model is marked `deprecated` in its JSON Schema, and `json_schema_extra` can&#39;t opt out — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #14322 in pydantic/pydantic, run 21 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261121-012216/14322/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261121-012216/">run-20261121-012216</a><span aria-hidden="true">/</span><span aria-current="page">#14322</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/14322" rel="noopener" target="_blank">#14322</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/14325" rel="noopener" target="_blank">PR #14325</a></span>
+  <span>Run 21 Nov 2026 · <span class="runid">run-20261121-012216</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Subclass of a <code>@deprecated</code> model is marked <code>deprecated</code> in its JSON Schema, and <code>json_schema_extra</code> can&#39;t opt out</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the same core change: check `&#39;__deprecated__&#39; in cls.__dict__` instead of `hasattr`, and let an explicit `deprecated` key from `json_schema_extra` take priority (Patch A via `&#39;deprecated&#39; not in json_schema`, Patch B via `setdefault`). Both pass all six independent tests. The meaningful difference is parametrized generic models. Pydantic creates `Old[int]` as a dynamically generated subclass of `Old` whose namespace does not include `__deprecated__`, so with Patch B&#39;s bare `cls.__dict__` check a deprecated generic model loses its `deprecated` flag whenever it is parametrized, a regression from base behaviour that users of deprecated generic models would hit silently. Patch A anticipates this by resolving to `__pydantic_generic_metadata__[&#39;origin&#39;]` when present, keeping `Old[int]` deprecated while still treating `class Child(Old[int])` as non-deprecated, and it tests exactly these cases. The fallback expression `(generic_metadata and generic_metadata[&#39;origin&#39;]) or cls` is slightly terse but correct for non-generic models (origin is None), dataclasses, and TypedDicts (no attribute). On tests, Patch A is also stronger: it covers inheritors across all deprecated class kinds including TypedDict, both directions of `json_schema_extra` override (opt-out on a deprecated class and on a subclass, opt-in on a non-deprecated class), and generics. Patch B&#39;s tests are sound and additionally assert the runtime DeprecationWarning on subclass definition, but skip TypedDict and omit the generic case. Patch B&#39;s comment that the runtime &#39;only warns on instantiation of the decorated class&#39; is also slightly inaccurate since subclass definition warns too. Patch A is the better fix.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 25s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">5,784 passed · 16 skipped · 5,800 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">85<small>vs 35 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/14322" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h2>Initial Checks</h2>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h2>Description</h2>
+<p><code>GenerateJsonSchema._update_class_schema</code> marks a model deprecated with <code>hasattr(cls, &#39;__deprecated__&#39;)</code>. <code>hasattr</code> walks the MRO, so every subclass of a <code>@deprecated</code> model gets <code>&quot;deprecated&quot;: true</code> too.</p>
+<p>That doesn&#39;t match runtime behaviour. Under PEP 702 a subclass warns once, when it&#39;s defined; instantiating or validating it doesn&#39;t warn. Only the decorated class is treated as deprecated.</p>
+<p>The flag is also set after <code>json_schema_extra</code> is applied, so a subclass can&#39;t clear it with <code>json_schema_extra={&quot;deprecated&quot;: False}</code>.</p>
+<p>We hit this in <a href="https://github.com/OvertureMaps/schema/pull/757" rel="noopener nofollow" target="_blank">OvertureMaps/schema#757</a>, where we now strip the inherited flag in a <code>GenerateJsonSchema</code> subclass. That workaround also erases a <code>deprecated</code> a subclass sets on purpose through <code>json_schema_extra</code>, so we&#39;d rather it were fixed here.</p>
+<p>Checking <code>&#39;__deprecated__&#39; in cls.__dict__</code> and setting the key only if <code>json_schema_extra</code> hasn&#39;t already set it would fix both.</p>
+<h2>Example Code</h2>
+<pre><code class="lang-python">import warnings
+
+from pydantic import BaseModel, ConfigDict
+from typing_extensions import deprecated
+
+
+@deprecated(&quot;Use NewModel instead.&quot;)
+class Old(BaseModel):
+    x: int
+
+
+with warnings.catch_warnings():
+    warnings.simplefilter(&quot;ignore&quot;)
+
+    class Child(Old):
+        pass
+
+    class ChildOptOut(Old):
+        model_config = ConfigDict(json_schema_extra={&quot;deprecated&quot;: False})
+
+
+for m in (Old, Child, ChildOptOut):
+    print(m.__name__, m.model_json_schema().get(&quot;deprecated&quot;))</code></pre>
+<p>Output:</p>
+<pre><code>Old True
+Child True
+ChildOptOut True</code></pre>
+<p>Expected: <code>Old True</code>, <code>Child None</code>, <code>ChildOptOut False</code>.</p>
+<p>For runtime: defining <code>Child</code> emits one <code>DeprecationWarning</code>, while <code>Child(x=1)</code> and <code>Child.model_validate({&quot;x&quot;: 1})</code> emit none. <code>Old(x=1)</code> emits one.</p>
+<h2>Python, Pydantic &amp; OS Version</h2>
+<pre><code>             pydantic version: 2.14.3
+        pydantic-core version: 2.50.4
+          pydantic-core build: profile=release pgo=false
+               python version: 3.15.2 (main, Nov 11 2026, 00:12:23) [Clang 23.1.3 ]
+                     platform: macOS-27.2.1-arm64-arm-64bit-Mach-O
+             related packages: typing_extensions-4.16.0
+                       commit: unknown</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+84</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">pydantic/json_schema.py</span><span class="h">index 3d2c1180..e7478a2d 100644</span><span class="h">@@ -1833,7 +1833,12 @@ class GenerateJsonSchema:</span><span class="c">                 f&quot;model_config[&#39;json_schema_extra&#39;]={json_schema_extra} should be a dict, callable, or None&quot;</span><span class="c">             )</span><span class="c"> </span><span class="r">-        if hasattr(cls, &#39;__deprecated__&#39;):</span><span class="a">+        # Only the decorated class is deprecated (PEP 702), not its subclasses, so don&#39;t use `hasattr()`.</span><span class="a">+        # A parametrized generic model (e.g. `Model[int]`) is deprecated if its origin is.</span><span class="a">+        # An explicit `deprecated` key set through `json_schema_extra` takes priority:</span><span class="a">+        generic_metadata = getattr(cls, &#39;__pydantic_generic_metadata__&#39;, None)</span><span class="a">+        deprecated_cls = (generic_metadata and generic_metadata[&#39;origin&#39;]) or cls</span><span class="a">+        if &#39;__deprecated__&#39; in deprecated_cls.__dict__ and &#39;deprecated&#39; not in json_schema:</span><span class="c">             json_schema[&#39;deprecated&#39;] = True</span><span class="c"> </span><span class="c">     def resolve_ref_schema(self, json_schema: JsonSchemaValue) -&gt; JsonSchemaValue:</span><span class="f">tests/test_json_schema.py</span><span class="h">index ce97526c..c9ea640d 100644</span><span class="h">@@ -4,6 +4,7 @@ import math</span><span class="c"> import re</span><span class="c"> import sys</span><span class="c"> import typing</span><span class="a">+import warnings</span><span class="c"> from collections import deque</span><span class="c"> from collections.abc import Callable, Iterable, Sequence</span><span class="c"> from datetime import date, datetime, time, timedelta</span><span class="h">@@ -6777,6 +6778,83 @@ def test_deprecated_subclasses_json_schema(cls):</span><span class="c">     }</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&#39;cls&#39;, _generate_deprecated_classes())</span><span class="a">+def test_deprecated_class_inheritors_not_deprecated_json_schema(cls):</span><span class="a">+    &quot;&quot;&quot;Only the class decorated with `@deprecated` is deprecated, not classes inheriting from it.&quot;&quot;&quot;</span><span class="a">+    with warnings.catch_warnings():</span><span class="a">+        warnings.simplefilter(&#39;ignore&#39;, DeprecationWarning)</span><span class="a">+        if issubclass(cls, (BaseModel, dict)):</span><span class="a">+</span><span class="a">+            class Child(cls):</span><span class="a">+                pass</span><span class="a">+</span><span class="a">+        elif hasattr(cls, &#39;__pydantic_fields__&#39;):</span><span class="a">+</span><span class="a">+            @pydantic.dataclasses.dataclass</span><span class="a">+            class Child(cls):</span><span class="a">+                pass</span><span class="a">+</span><span class="a">+        else:</span><span class="a">+</span><span class="a">+            @dataclasses.dataclass</span><span class="a">+            class Child(cls):</span><span class="a">+                pass</span><span class="a">+</span><span class="a">+    assert &#39;deprecated&#39; in TypeAdapter(cls).json_schema()</span><span class="a">+    assert &#39;deprecated&#39; not in TypeAdapter(Child).json_schema()</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_deprecated_model_json_schema_extra_takes_priority():</span><span class="a">+    @deprecated(&#39;Old is deprecated&#39;)</span><span class="a">+    class Old(BaseModel):</span><span class="a">+        x: int</span><span class="a">+</span><span class="a">+    with warnings.catch_warnings():</span><span class="a">+        warnings.simplefilter(&#39;ignore&#39;, DeprecationWarning)</span><span class="a">+</span><span class="a">+        class Child(Old):</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+        class ChildOptOut(Old):</span><span class="a">+            model_config = ConfigDict(json_schema_extra={&#39;deprecated&#39;: False})</span><span class="a">+</span><span class="a">+        @deprecated(&#39;OldOptOut is deprecated&#39;)</span><span class="a">+        class OldOptOut(BaseModel):</span><span class="a">+            model_config = ConfigDict(json_schema_extra={&#39;deprecated&#39;: False})</span><span class="a">+</span><span class="a">+    class NotDeprecatedChild(BaseModel):</span><span class="a">+        model_config = ConfigDict(json_schema_extra={&#39;deprecated&#39;: True})</span><span class="a">+</span><span class="a">+    assert Old.model_json_schema()[&#39;deprecated&#39;] is True</span><span class="a">+    assert &#39;deprecated&#39; not in Child.model_json_schema()</span><span class="a">+    assert ChildOptOut.model_json_schema()[&#39;deprecated&#39;] is False</span><span class="a">+    assert OldOptOut.model_json_schema()[&#39;deprecated&#39;] is False</span><span class="a">+    assert NotDeprecatedChild.model_json_schema()[&#39;deprecated&#39;] is True</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_deprecated_generic_model_parametrization_json_schema():</span><span class="a">+    T = TypeVar(&#39;T&#39;)</span><span class="a">+</span><span class="a">+    with warnings.catch_warnings():</span><span class="a">+        warnings.simplefilter(&#39;ignore&#39;, DeprecationWarning)</span><span class="a">+</span><span class="a">+        @deprecated(&#39;Old is deprecated&#39;)</span><span class="a">+        class Old(BaseModel, Generic[T]):</span><span class="a">+            x: T</span><span class="a">+</span><span class="a">+        OldInt = Old[int]</span><span class="a">+</span><span class="a">+        class Child(Old[int]):</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+    class Model(BaseModel):</span><span class="a">+        old: Old[int]</span><span class="a">+</span><span class="a">+    assert OldInt.model_json_schema()[&#39;deprecated&#39;] is True</span><span class="a">+    assert Model.model_json_schema()[&#39;$defs&#39;][&#39;Old_int_&#39;][&#39;deprecated&#39;] is True</span><span class="a">+    assert &#39;deprecated&#39; not in Child.model_json_schema()</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(&#39;cls&#39;, _generate_deprecated_classes())</span><span class="c"> def test_deprecated_class_usage_warns(cls):</span><span class="c">     if issubclass(cls, dict):</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/14325" rel="noopener" target="_blank">PR #14325</a></span><span class="pm"><span class="a">+33</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pydantic/json_schema.py</span><span class="h">index 3d2c11802..ed2770ad8 100644</span><span class="h">@@ -1833,8 +1833,10 @@ class GenerateJsonSchema:</span><span class="c">                 f&quot;model_config[&#39;json_schema_extra&#39;]={json_schema_extra} should be a dict, callable, or None&quot;</span><span class="c">             )</span><span class="c"> </span><span class="r">-        if hasattr(cls, &#39;__deprecated__&#39;):</span><span class="r">-            json_schema[&#39;deprecated&#39;] = True</span><span class="a">+        # Only the class decorated with `@deprecated` is deprecated, not its subclasses (the attribute is</span><span class="a">+        # inherited, but the runtime only warns on instantiation of the decorated class).</span><span class="a">+        if &#39;__deprecated__&#39; in cls.__dict__:</span><span class="a">+            json_schema.setdefault(&#39;deprecated&#39;, True)</span><span class="c"> </span><span class="c">     def resolve_ref_schema(self, json_schema: JsonSchemaValue) -&gt; JsonSchemaValue:</span><span class="c">         &quot;&quot;&quot;Resolve a JsonSchemaValue to the non-ref schema if it is a $ref schema.</span><span class="f">tests/test_json_schema.py</span><span class="h">index ce97526c4..242355741 100644</span><span class="h">@@ -6777,6 +6777,35 @@ def test_deprecated_subclasses_json_schema(cls):</span><span class="c">     }</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&#39;cls&#39;, _generate_deprecated_classes())</span><span class="a">+def test_deprecated_class_inheritance_json_schema(cls) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;https://github.com/pydantic/pydantic/issues/14322&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    if issubclass(cls, dict):</span><span class="a">+        pytest.skip(&#39;TypedDict subclasses do not inherit `__deprecated__`&#39;)</span><span class="a">+</span><span class="a">+    with pytest.warns(DeprecationWarning):</span><span class="a">+</span><span class="a">+        class Sub(cls):</span><span class="a">+            pass</span><span class="a">+</span><span class="a">+    assert &#39;deprecated&#39; not in TypeAdapter(Sub).json_schema()</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_deprecated_class_json_schema_extra_override() -&gt; None:</span><span class="a">+    @deprecated(&#39;Old is deprecated&#39;)</span><span class="a">+    class Old(BaseModel):</span><span class="a">+        model_config = ConfigDict(json_schema_extra={&#39;deprecated&#39;: False})</span><span class="a">+</span><span class="a">+    with pytest.warns(DeprecationWarning):</span><span class="a">+</span><span class="a">+        class Sub(Old):</span><span class="a">+            model_config = ConfigDict(json_schema_extra={&#39;deprecated&#39;: True})</span><span class="a">+</span><span class="a">+    assert Old.model_json_schema()[&#39;deprecated&#39;] is False</span><span class="a">+    assert Sub.model_json_schema()[&#39;deprecated&#39;] is True</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(&#39;cls&#39;, _generate_deprecated_classes())</span><span class="c"> def test_deprecated_class_usage_warns(cls):</span><span class="c">     if issubclass(cls, dict):</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/pydantic/run-20261121-012216/14310/">Previous · #14310</a>
+  <a class="mid" href="/backtests/pydantic/run-20261121-012216/">All tickets in this run</a>
+  <span class="disabled">Next</span>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

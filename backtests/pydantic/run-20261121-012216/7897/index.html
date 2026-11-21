@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#7897 Performance issues with parsed datetime comparisons `pydantic_core.TzInfo` — pydantic/pydantic backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #7897 in pydantic/pydantic, run 21 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/pydantic/run-20261121-012216/7897/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/">pydantic</a><span aria-hidden="true">/</span><a href="/backtests/pydantic/run-20261121-012216/">run-20261121-012216</a><span aria-hidden="true">/</span><span aria-current="page">#7897</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/pydantic/pydantic/issues/7897" rel="noopener" target="_blank">#7897</a></span>
+  <span>Merged fix <a href="https://github.com/pydantic/pydantic/pull/14256" rel="noopener" target="_blank">PR #14256</a></span>
+  <span>Run 21 Nov 2026 · <span class="runid">run-20261121-012216</span></span>
+  <span>pydantic/pydantic</span>
+</div>
+<h1 class="ticket-title">Performance issues with parsed datetime comparisons <code>pydantic_core.TzInfo</code></h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Patch A fixes the root cause: it emits stdlib `datetime.timezone` objects (`timezone.utc` for zero offset, cached per-offset instances otherwise), so CPython&#39;s identity fast path applies to every parsed datetime with the same offset, not just UTC. Patch B only interns the zero-offset `TzInfo`; every non-UTC offset still gets a fresh `TzInfo` instance, so comparisons between datetimes with the same non-UTC offset still go through `utcoffset()` calls. The independent tests confirm this split: A passes all five, while B fails the same-non-UTC-offset sorting test with essentially base-level slowness (64.5x). The issue&#39;s stated expectation is that Pydantic &#39;use a performant tzinfo when parsing datetime objects&#39; and it explicitly contrasts with v1&#39;s `datetime.timezone.utc`, which A restores. A also updates the existing repr/type tests, adds identity and sort tests for both datetime and time validators, and fixes the docs to match the new output. A&#39;s downside is a visible behavioral change (tzinfo type and `tzname` format change from `TzInfo(...)` to stdlib timezone), which is a compatibility risk and a broader scope than strictly needed, and it adds an LRU cache with a mutex. But that change is exactly what the issue requests, the caching is bounded and race-safe (get_or_insert, lock released while calling into Python), and the Rust is clear. B is minimal and low-risk but leaves a clearly implied part of the problem unsolved. Correctness and test coverage favor A decisively.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">10m 51s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">4,589 passed · 82 skipped · 4,671 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">127<small>vs 43 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/pydantic/pydantic/issues/7897" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Initial Checks</h3>
+<ul><li><input type="checkbox" disabled checked> I confirm that I&#39;m using Pydantic V2</li></ul>
+<h3>Description</h3>
+<p>Compared to Pydantic v1, v2 performs much more slowly when doing comparisons between parsed <code>datetime</code> objects with time zone information. This is likely caused by the time zone information being parsed into a <code>pydantic_core.TzInfo</code> object rather than the vanilla <code>datetime.timezone</code> object.</p>
+<p>Example of the parsed <code>datetime</code> difference between the two versions:</p>
+<p>v1: <code>datetime.datetime(2023, 5, 24, 4, 0, tzinfo=datetime.timezone.utc)</code><br>v2: <code>datetime.datetime(2023, 5, 24, 4, 0, tzinfo=TzInfo(UTC))</code></p>
+<p>This performance degradation can be seen clearly when sorting a large number of parsed <code>datetime</code> objects. I suspect this is due to adjustments that need to be made for daylight savings time and UTC offsets, but when working in UTC those shouldn&#39;t come into play. In my example you can see that using my local time zone (EDT) has similar performance issues using <code>datetime.timezone</code>, although <code>pydantic_core.TzInfo</code> still has worse performance in UTC.</p>
+<p>For now a simple fix is to set the time zone to a <code>pytz</code> time zone as there is no performance degradation there (like in the example code), but I would expect that Pydantic would use a performant <code>tzinfo</code> when parsing datetime objects.</p>
+<p>For reference, here is the output of the example code when running on my machine:</p>
+<pre><code>10.41208 - pydantic_core.TzInfo
+6.05901 - datetime.astimezone()
+0.45409 - datetime.astimezone(timezone.utc)
+0.47059 - datetime.astimezone(pytz.utc)
+0.47961 - datetime.astimezone(pytz.timezone(&#39;US/Eastern&#39;))</code></pre>
+<h3>Example Code</h3>
+<pre><code class="lang-Python">import random
+import time
+from datetime import datetime, timedelta, timezone
+
+import pydantic_core
+import pytz
+
+n = 1000000
+now = datetime.today()
+
+offsets = [timedelta(hours=random.random() * 72) for _ in range(n)]
+
+dates_pydantic = [(now - offset).replace(tzinfo=pydantic_core.TzInfo(0)) for offset in offsets]
+dates_dt = [d.astimezone() for d in dates_pydantic]
+dates_dt_utc = [d.astimezone(timezone.utc) for d in dates_pydantic]
+dates_pytz = [d.astimezone(pytz.utc) for d in dates_pydantic]
+dates_pytz_est = [d.astimezone(pytz.timezone(&#39;US/Eastern&#39;)) for d in dates_pydantic]
+
+start = time.time()
+sorted(dates_pydantic)
+print(f&quot;{time.time() - start:0.5f} - pydantic_core.TzInfo&quot;)
+
+start = time.time()
+sorted(dates_dt)
+print(f&quot;{time.time() - start:0.5f} - datetime.astimezone()&quot;)
+
+start = time.time()
+sorted(dates_dt_utc)
+print(f&quot;{time.time() - start:0.5f} - datetime.astimezone(timezone.utc)&quot;)
+
+start = time.time()
+sorted(dates_pytz)
+print(f&quot;{time.time() - start:0.5f} - datetime.astimezone(pytz.utc)&quot;)
+
+start = time.time()
+sorted(dates_pytz_est)
+print(f&quot;{time.time() - start:0.5f} - datetime.astimezone(pytz.timezone(&#39;US/Eastern&#39;))&quot;)</code></pre>
+<h3>Python, Pydantic &amp; OS Version</h3>
+<pre><code class="lang-Text">pydantic version: 2.4.2
+pydantic-core version: 2.10.1
+  pydantic-core build: profile=release pgo=false
+         install path: C:\Users\{user}\venvs\{project}\Lib\site-packages\pydantic
+       python version: 3.10.4 (tags/v3.10.4:9d38120, Mar 23 2022, 23:13:41) [MSC v.1929 64 bit (AMD64)]
+             platform: Windows-10-10.0.22621-SP0
+     related packages: typing_extensions-4.8.0</code></pre></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+113</span> <span class="r">−14</span></span></div><pre class="diff"><span class="f">docs/api/standard_library_types.md</span><span class="h">index 5774c697..9b09c4d0 100644</span><span class="h">@@ -528,7 +528,18 @@ event = Event(dt=&#39;2032-04-23T10:20:30.400+02:30&#39;)</span><span class="c"> </span><span class="c"> print(event.model_dump())</span><span class="c"> &quot;&quot;&quot;</span><span class="r">-{&#39;dt&#39;: datetime.datetime(2032, 4, 23, 10, 20, 30, 400000, tzinfo=TzInfo(9000))}</span><span class="a">+{</span><span class="a">+    &#39;dt&#39;: datetime.datetime(</span><span class="a">+        2032,</span><span class="a">+        4,</span><span class="a">+        23,</span><span class="a">+        10,</span><span class="a">+        20,</span><span class="a">+        30,</span><span class="a">+        400000,</span><span class="a">+        tzinfo=datetime.timezone(datetime.timedelta(seconds=9000)),</span><span class="a">+    )</span><span class="a">+}</span><span class="c"> &quot;&quot;&quot;</span><span class="c"> print(event.model_dump_json())</span><span class="c"> #&gt; {&quot;dt&quot;:&quot;2032-04-23T10:20:30.400000+02:30&quot;}</span><span class="f">docs/why.md</span><span class="h">index 7421286c..81692034 100644</span><span class="h">@@ -363,7 +363,16 @@ Functional validators and serializers, as well as a powerful protocol for custom</span><span class="c"> </span><span class="c"> </span><span class="c">     print(Meeting(when=&#39;2020-01-01T12:00+01:00&#39;))</span><span class="r">-    #&gt; when=datetime.datetime(2020, 1, 1, 12, 0, tzinfo=TzInfo(3600))</span><span class="a">+    &quot;&quot;&quot;</span><span class="a">+    when = datetime.datetime(</span><span class="a">+        2020,</span><span class="a">+        1,</span><span class="a">+        1,</span><span class="a">+        12,</span><span class="a">+        0,</span><span class="a">+        tzinfo=datetime.timezone(datetime.timedelta(seconds=3600)),</span><span class="a">+    )</span><span class="a">+    &quot;&quot;&quot;</span><span class="c">     print(Meeting(when=&#39;now&#39;))</span><span class="c">     #&gt; when=datetime.datetime(2032, 1, 2, 3, 4, 5, 6)</span><span class="c">     print(Meeting(when=&#39;2020-01-01T12:00&#39;))</span><span class="f">pydantic-core/src/input/datetime.rs</span><span class="h">index ebf2f2ad..56be3ce1 100644</span><span class="h">@@ -18,6 +18,11 @@ use std::collections::hash_map::DefaultHasher;</span><span class="c"> use std::fmt::Write;</span><span class="c"> use std::hash::Hash;</span><span class="c"> use std::hash::Hasher;</span><span class="a">+use std::num::NonZeroUsize;</span><span class="a">+use std::sync::{LazyLock, Mutex, PoisonError};</span><span class="a">+</span><span class="a">+use lru::LruCache;</span><span class="a">+use pyo3::sync::MutexExt;</span><span class="c"> </span><span class="c"> use strum::EnumMessage;</span><span class="c"> </span><span class="h">@@ -399,16 +404,40 @@ impl EitherTime&lt;&#39;_&gt; {</span><span class="c">     }</span><span class="c"> }</span><span class="c"> </span><span class="a">+/// Cache of stdlib `datetime.timezone` instances keyed by UTC offset in seconds.</span><span class="a">+///</span><span class="a">+/// Reusing the same tzinfo object for equal offsets lets CPython compare aware datetimes</span><span class="a">+/// with the same offset via its fast path (tzinfo identity), without calling `utcoffset()`.</span><span class="a">+static FIXED_OFFSET_TZ_CACHE: LazyLock&lt;Mutex&lt;LruCache&lt;i32, Py&lt;PyTzInfo&gt;&gt;&gt;&gt; =</span><span class="a">+    LazyLock::new(|| Mutex::new(LruCache::new(NonZeroUsize::new(128).unwrap())));</span><span class="a">+</span><span class="c"> fn time_as_tzinfo&lt;&#39;py&gt;(py: Python&lt;&#39;py&gt;, time: &amp;Time) -&gt; PyResult&lt;Option&lt;Bound&lt;&#39;py, PyTzInfo&gt;&gt;&gt; {</span><span class="c">     match time.tz_offset {</span><span class="r">-        Some(offset) =&gt; {</span><span class="r">-            let tz_info: TzInfo = offset.try_into()?;</span><span class="r">-            Ok(Some(Bound::new(py, tz_info)?.into_any().cast_into()?))</span><span class="r">-        }</span><span class="a">+        Some(offset) =&gt; fixed_offset_tzinfo(py, offset).map(Some),</span><span class="c">         None =&gt; Ok(None),</span><span class="c">     }</span><span class="c"> }</span><span class="c"> </span><span class="a">+/// Get a stdlib `datetime.timezone` for the given UTC offset (in seconds),</span><span class="a">+/// `datetime.timezone.utc` for a zero offset.</span><span class="a">+fn fixed_offset_tzinfo(py: Python&lt;&#39;_&gt;, offset: i32) -&gt; PyResult&lt;Bound&lt;&#39;_, PyTzInfo&gt;&gt; {</span><span class="a">+    if offset == 0 {</span><span class="a">+        return Ok(PyTzInfo::utc(py)?.to_owned());</span><span class="a">+    }</span><span class="a">+    // validate the offset is within the range accepted by `datetime.timezone`</span><span class="a">+    let TzInfo { seconds } = offset.try_into()?;</span><span class="a">+</span><span class="a">+    let lock_cache = || FIXED_OFFSET_TZ_CACHE.lock_py_attached(py).unwrap_or_else(PoisonError::into_inner);</span><span class="a">+    if let Some(tz) = lock_cache().get(&amp;seconds) {</span><span class="a">+        return Ok(tz.bind(py).clone());</span><span class="a">+    }</span><span class="a">+    // create the timezone outside of the lock, since it calls into Python</span><span class="a">+    let tz = PyTzInfo::fixed_offset(py, PyDelta::new(py, 0, seconds, 0, true)?)?;</span><span class="a">+    // use get_or_insert to allow for another thread having raced to create the same timezone</span><span class="a">+    let cached = lock_cache().get_or_insert(seconds, || tz.clone().unbind()).clone_ref(py);</span><span class="a">+    Ok(cached.into_bound(py))</span><span class="a">+}</span><span class="a">+</span><span class="c"> #[cfg_attr(debug_assertions, derive(Debug))]</span><span class="c"> pub enum EitherDateTime&lt;&#39;a&gt; {</span><span class="c">     Raw(DateTime),</span><span class="f">pydantic-core/tests/validators/test_datetime.py</span><span class="h">index dfe38c59..2db3b5cf 100644</span><span class="h">@@ -199,9 +199,10 @@ def test_custom_timezone_repr():</span><span class="c">     assert output == datetime(2022, 6, 8, 12, 13, 14, tzinfo=timezone(timedelta(hours=-12, minutes=-15)))</span><span class="c">     assert output.tzinfo.utcoffset(output) == timedelta(hours=-12, minutes=-15)</span><span class="c">     assert output.tzinfo.dst(output) is None</span><span class="r">-    assert output.tzinfo.tzname(output) == &#39;-12:15&#39;</span><span class="r">-    assert str(output.tzinfo) == &#39;-12:15&#39;</span><span class="r">-    assert repr(output.tzinfo) == &#39;TzInfo(-44100)&#39;</span><span class="a">+    assert output.tzinfo.tzname(output) == &#39;UTC-12:15&#39;</span><span class="a">+    assert str(output.tzinfo) == &#39;UTC-12:15&#39;</span><span class="a">+    assert type(output.tzinfo) is timezone</span><span class="a">+    assert repr(output.tzinfo) == &#39;datetime.timezone(datetime.timedelta(days=-1, seconds=42300))&#39;</span><span class="c"> </span><span class="c"> </span><span class="c"> def test_custom_timezone_utc_repr():</span><span class="h">@@ -211,7 +212,40 @@ def test_custom_timezone_utc_repr():</span><span class="c">     assert output.tzinfo.dst(output) is None</span><span class="c">     assert output.tzinfo.tzname(output) == &#39;UTC&#39;</span><span class="c">     assert str(output.tzinfo) == &#39;UTC&#39;</span><span class="r">-    assert repr(output.tzinfo) == &#39;TzInfo(0)&#39;</span><span class="a">+    assert output.tzinfo is timezone.utc</span><span class="a">+    assert repr(output.tzinfo) == &#39;datetime.timezone.utc&#39;</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;input_value,expected_tz&#39;,</span><span class="a">+    [</span><span class="a">+        (&#39;2022-06-08T12:13:14Z&#39;, timezone.utc),</span><span class="a">+        (&#39;2022-06-08T12:13:14+00:00&#39;, timezone.utc),</span><span class="a">+        (&#39;2022-06-08T12:13:14+02:30&#39;, timezone(timedelta(hours=2, minutes=30))),</span><span class="a">+        (&#39;2022-06-08T12:13:14-05:00&#39;, timezone(timedelta(hours=-5))),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_parsed_tzinfo_is_stdlib_timezone(input_value, expected_tz):</span><span class="a">+    &quot;&quot;&quot;Parsed offsets use (shared) stdlib `datetime.timezone` instances, so comparisons take CPython&#39;s fast path.&quot;&quot;&quot;</span><span class="a">+    v = SchemaValidator(cs.datetime_schema())</span><span class="a">+    for output in (v.validate_python(input_value), v.validate_json(json.dumps(input_value))):</span><span class="a">+        assert type(output.tzinfo) is timezone</span><span class="a">+        assert output.tzinfo == expected_tz</span><span class="a">+    # the same offset gives the same tzinfo instance</span><span class="a">+    assert v.validate_python(input_value).tzinfo is v.validate_python(input_value).tzinfo</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.parametrize(&#39;input_value&#39;, [1654646400, 1654646400.5])</span><span class="a">+def test_parsed_timestamp_tzinfo_is_stdlib_utc(input_value):</span><span class="a">+    output = SchemaValidator(cs.datetime_schema()).validate_python(input_value)</span><span class="a">+    assert output.tzinfo is timezone.utc</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_parsed_datetimes_sort():</span><span class="a">+    v = SchemaValidator(cs.datetime_schema())</span><span class="a">+    values = [&#39;2022-06-08T12:00:00+01:00&#39;, &#39;2022-06-08T10:30:00Z&#39;, &#39;2022-06-08T11:15:00+01:00&#39;, &#39;2022-06-08T09:00:00Z&#39;]</span><span class="a">+    outputs = [v.validate_python(value) for value in values]</span><span class="a">+    assert sorted(outputs) == [outputs[3], outputs[2], outputs[1], outputs[0]]</span><span class="c"> </span><span class="c"> </span><span class="c"> def test_tz_comparison():</span><span class="h">@@ -233,16 +267,16 @@ def test_tz_comparison():</span><span class="c"> def test_tz_info_deepcopy():</span><span class="c">     output = SchemaValidator(cs.datetime_schema()).validate_python(&#39;2023-02-15T16:23:44.037Z&#39;)</span><span class="c">     c = copy.deepcopy(output)</span><span class="r">-    assert repr(output.tzinfo) == &#39;TzInfo(0)&#39;</span><span class="r">-    assert repr(c.tzinfo) == &#39;TzInfo(0)&#39;</span><span class="a">+    assert repr(output.tzinfo) == &#39;datetime.timezone.utc&#39;</span><span class="a">+    assert repr(c.tzinfo) == &#39;datetime.timezone.utc&#39;</span><span class="c">     assert c == output</span><span class="c"> </span><span class="c"> </span><span class="c"> def test_tz_info_copy():</span><span class="c">     output = SchemaValidator(cs.datetime_schema()).validate_python(&#39;2023-02-15T16:23:44.037Z&#39;)</span><span class="c">     c = copy.copy(output)</span><span class="r">-    assert repr(output.tzinfo) == &#39;TzInfo(0)&#39;</span><span class="r">-    assert repr(c.tzinfo) == &#39;TzInfo(0)&#39;</span><span class="a">+    assert repr(output.tzinfo) == &#39;datetime.timezone.utc&#39;</span><span class="a">+    assert repr(c.tzinfo) == &#39;datetime.timezone.utc&#39;</span><span class="c">     assert c == output</span><span class="c"> </span><span class="c"> </span><span class="f">pydantic-core/tests/validators/test_time.py</span><span class="h">index 06655f29..58748dc4 100644</span><span class="h">@@ -275,6 +275,22 @@ def test_aware_specific():</span><span class="c">         v.validate_python(&#39;12:13:14+01:00&#39;)</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(</span><span class="a">+    &#39;input_value,expected_tz&#39;,</span><span class="a">+    [</span><span class="a">+        (&#39;12:13:14Z&#39;, timezone.utc),</span><span class="a">+        (&#39;12:13:14+02:30&#39;, timezone(timedelta(hours=2, minutes=30))),</span><span class="a">+        (&#39;12:13:14-05:00&#39;, timezone(timedelta(hours=-5))),</span><span class="a">+    ],</span><span class="a">+)</span><span class="a">+def test_parsed_tzinfo_is_stdlib_timezone(input_value, expected_tz):</span><span class="a">+    v = SchemaValidator(core_schema.time_schema())</span><span class="a">+    output = v.validate_python(input_value)</span><span class="a">+    assert type(output.tzinfo) is timezone</span><span class="a">+    assert output.tzinfo == expected_tz</span><span class="a">+    assert v.validate_python(input_value).tzinfo is output.tzinfo</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_neg_7200():</span><span class="c">     v = SchemaValidator(core_schema.time_schema(tz_constraint=-7200))</span><span class="c">     value = time(12, 13, 15, tzinfo=timezone(timedelta(hours=-2)))</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/pydantic/pydantic/pull/14256" rel="noopener" target="_blank">PR #14256</a></span><span class="pm"><span class="a">+35</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">pydantic-core/src/input/datetime.rs</span><span class="h">index ebf2f2ad4..b4a0b569a 100644</span><span class="h">@@ -4,6 +4,7 @@ use pyo3::prelude::*;</span><span class="c"> use pyo3::IntoPyObjectExt;</span><span class="c"> use pyo3::exceptions::PyValueError;</span><span class="c"> use pyo3::pyclass::CompareOp;</span><span class="a">+use pyo3::sync::PyOnceLock;</span><span class="c"> use pyo3::types::PyDateAccess;</span><span class="c"> use pyo3::types::PyTimeAccess;</span><span class="c"> use pyo3::types::PyTuple;</span><span class="h">@@ -401,10 +402,7 @@ impl EitherTime&lt;&#39;_&gt; {</span><span class="c"> </span><span class="c"> fn time_as_tzinfo&lt;&#39;py&gt;(py: Python&lt;&#39;py&gt;, time: &amp;Time) -&gt; PyResult&lt;Option&lt;Bound&lt;&#39;py, PyTzInfo&gt;&gt;&gt; {</span><span class="c">     match time.tz_offset {</span><span class="r">-        Some(offset) =&gt; {</span><span class="r">-            let tz_info: TzInfo = offset.try_into()?;</span><span class="r">-            Ok(Some(Bound::new(py, tz_info)?.into_any().cast_into()?))</span><span class="r">-        }</span><span class="a">+        Some(offset) =&gt; Ok(Some(TzInfo::new(py, offset)?.into_bound(py).into_any().cast_into()?)),</span><span class="c">         None =&gt; Ok(None),</span><span class="c">     }</span><span class="c"> }</span><span class="h">@@ -729,18 +727,32 @@ pub fn float_as_duration(input: impl ToErrorValue, total_seconds: f64) -&gt; ValRes</span><span class="c"> }</span><span class="c"> </span><span class="c"> #[pyclass(module = &quot;pydantic_core._pydantic_core&quot;, extends = PyTzInfo, frozen)]</span><span class="r">-#[derive(Clone)]</span><span class="c"> #[cfg_attr(debug_assertions, derive(Debug))]</span><span class="c"> pub struct TzInfo {</span><span class="c">     seconds: i32,</span><span class="c"> }</span><span class="c"> </span><span class="a">+static UTC_TZINFO: PyOnceLock&lt;Py&lt;TzInfo&gt;&gt; = PyOnceLock::new();</span><span class="a">+</span><span class="a">+impl TzInfo {</span><span class="a">+    /// Create a `TzInfo` for the given offset in seconds.</span><span class="a">+    pub fn new(py: Python&lt;&#39;_&gt;, seconds: i32) -&gt; PyResult&lt;Py&lt;Self&gt;&gt; {</span><span class="a">+        if seconds == 0 {</span><span class="a">+            Ok(UTC_TZINFO</span><span class="a">+                .get_or_try_init(py, || Py::new(py, Self { seconds: 0 }))?</span><span class="a">+                .clone_ref(py))</span><span class="a">+        } else {</span><span class="a">+            Py::new(py, Self::try_from(seconds)?)</span><span class="a">+        }</span><span class="a">+    }</span><span class="a">+}</span><span class="a">+</span><span class="c"> #[pymethods]</span><span class="c"> impl TzInfo {</span><span class="c">     #[new]</span><span class="c">     #[pyo3(signature = (seconds = 0.0))]</span><span class="r">-    fn py_new(seconds: f32) -&gt; PyResult&lt;Self&gt; {</span><span class="r">-        Self::try_from(seconds.trunc() as i32)</span><span class="a">+    fn py_new(py: Python&lt;&#39;_&gt;, seconds: f32) -&gt; PyResult&lt;Py&lt;Self&gt;&gt; {</span><span class="a">+        Self::new(py, seconds.trunc() as i32)</span><span class="c">     }</span><span class="c"> </span><span class="c">     #[allow(unused_variables)]</span><span class="h">@@ -809,7 +821,7 @@ impl TzInfo {</span><span class="c">     }</span><span class="c"> </span><span class="c">     fn __deepcopy__(&amp;self, py: Python, _memo: &amp;Bound&lt;&#39;_, PyDict&gt;) -&gt; PyResult&lt;Py&lt;Self&gt;&gt; {</span><span class="r">-        Py::new(py, self.clone())</span><span class="a">+        Self::new(py, self.seconds)</span><span class="c">     }</span><span class="c"> </span><span class="c">     pub fn __reduce__&lt;&#39;py&gt;(slf: &amp;Bound&lt;&#39;py, Self&gt;) -&gt; PyResult&lt;Bound&lt;&#39;py, PyTuple&gt;&gt; {</span><span class="f">pydantic-core/tests/test_tzinfo.py</span><span class="h">index 9c59a8644..27098809b 100644</span><span class="h">@@ -239,6 +239,21 @@ def test_pickle(tz, pickler, unpickler, proto):</span><span class="c">     assert tz.utcoffset(None) == unpickled.utcoffset(None)</span><span class="c"> </span><span class="c"> </span><span class="a">+def test_utc_instance_is_shared() -&gt; None:</span><span class="a">+    utc = TzInfo(0)</span><span class="a">+    assert TzInfo(0) is utc</span><span class="a">+    assert TzInfo() is utc</span><span class="a">+    assert copy.copy(utc) is utc</span><span class="a">+    assert copy.deepcopy(utc) is utc</span><span class="a">+    assert pickle.loads(pickle.dumps(utc)) is utc</span><span class="a">+</span><span class="a">+    v = SchemaValidator(core_schema.datetime_schema())</span><span class="a">+    assert v.validate_python(&#39;2015-10-21T15:28:00Z&#39;).tzinfo is utc</span><span class="a">+    assert v.validate_python(&#39;2015-10-21T15:28:00+00:00&#39;).tzinfo is utc</span><span class="a">+    assert v.validate_json(&#39;&quot;2015-10-21T15:28:00Z&quot;&#39;).tzinfo is utc</span><span class="a">+    assert SchemaValidator(core_schema.time_schema()).validate_python(&#39;15:28:00Z&#39;).tzinfo is utc</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_tzinfo_could_be_reused():</span><span class="c">     value = SchemaValidator(core_schema.datetime_schema()).validate_python(&#39;2015-10-21T15:28:00.000000+01:00&#39;)</span><span class="c"> </span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <span class="disabled">Previous</span>
+  <a class="mid" href="/backtests/pydantic/run-20261121-012216/">All tickets in this run</a>
+  <a href="/backtests/pydantic/run-20261121-012216/13938/">Next · #13938</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
