@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>anomalyco/opencode · 21 Nov 2026 — sudo backtests</title>
+<meta name="description" content="27 of 30 tickets judged better than the merged fix on anomalyco/opencode, run 21 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/opencode/run-20261121-184931/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><span aria-current="page">opencode</span></p>
+<h1>anomalyco/opencode</h1>
+<p class="lead">Open-source AI coding agent built for the terminal.</p>
+<div class="card summary">
+  <p class="k">Latest run · 21 Nov 2026 · <span class="runid">run-20261121-184931</span></p>
+  <p class="big">90%<small>judged better than the merged fix</small></p>
+  <p class="sub">27 of 30 tickets. First opencode run; one sample split across three harness runs (two tickets re-run separately); judged by the four-judge panel.</p>
+  <div class="bar" role="img" aria-label="27 better, 0 par, 1 tie, 2 worse, 0 error"><span class="b-better" style="width:90%"></span><span class="b-tie" style="width:3.3333333333333335%"></span><span class="b-worse" style="width:6.666666666666667%"></span></div>
+  <div class="counts"><span class="better"><i></i>27 better</span><span class="par"><i></i>0 par</span><span class="tie"><i></i>1 tie</span><span class="worse"><i></i>2 worse</span><span class="error"><i></i>0 error</span></div>
+</div>
+<section>
+  <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
+  <div class="runs">
+<details class="run" id="run-20261121-184931" open>
+  <summary>
+    <span class="date">21 Nov 2026<span class="runid">run-20261121-184931</span></span>
+    <span class="bars"><div class="bar thin" role="img" aria-label="27 better, 0 par, 1 tie, 2 worse, 0 error"><span class="b-better" style="width:90%"></span><span class="b-tie" style="width:3.3333333333333335%"></span><span class="b-worse" style="width:6.666666666666667%"></span></div><span class="counts"><span class="better">27 better</span><span class="par">0 par</span><span class="tie">1 tie</span><span class="worse">2 worse</span><span class="error">0 error</span></span></span>
+    <span class="notes">First opencode run; one sample split across three harness runs (two tickets re-run separately); judged by the four-judge panel</span>
+    <span class="meta">30 tickets · <a href="/backtests/opencode/run-20261121-184931/">permalink</a></span>
+  </summary>
+  <div class="runbody">
+<div class="filters" role="group" aria-label="Filter tickets by verdict"><button type="button" data-filter="all" aria-pressed="true">All 30</button><button type="button" class="better" data-filter="better" aria-pressed="false">Better 27</button><button type="button" class="par" data-filter="par" aria-pressed="false">Par 0</button><button type="button" class="tie" data-filter="tie" aria-pressed="false">Tie 1</button><button type="button" class="worse" data-filter="worse" aria-pressed="false">Worse 2</button></div>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Issue</th><th>Title</th><th>Verdict</th><th class="num">Lines ours / merged</th><th>Test suite</th></tr></thead>
+    <tbody>
+<tr class="link" data-verdict="better"><td class="id">#9387</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/9387/">[FEATURE]: <code>opencode session export</code> to markdown or json</a></td><td><span class="pill better">Better</span></td><td class="num">279 / 94</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#21330</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/21330/">fix(opencode): log timestamps use local datetime instead of UTC ISO string</a></td><td><span class="pill worse">Worse</span></td><td class="num">2 / 19</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#22225</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/22225/">[FEATURE]: Add skill usage tracking to CLI</a></td><td><span class="pill better">Better</span></td><td class="num">285 / 41</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#32704</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/32704/">Bug: Bash tool description references Edit/Write even when those tools are unavailable</a></td><td><span class="pill better">Better</span></td><td class="num">232 / 118</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#37675</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/37675/">Global tools globs don&#39;t exclude MCP tools from provider requests</a></td><td><span class="pill worse">Worse</span></td><td class="num">331 / 106</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#41549</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/41549/">Question tool accepts empty questions array</a></td><td><span class="pill better">Better</span></td><td class="num">67 / 71</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#49330</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/49330/">@ai-sdk/openai connector does not use mandatory status field in request</a></td><td><span class="pill better">Better</span></td><td class="num">146 / 104</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#50119</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/50119/">fix(app): Review pane stays on loading for file tree and changes</a></td><td><span class="pill better">Better</span></td><td class="num">523 / 1,003</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#50847</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/50847/">tui: all pastes hang after one clipboard read timeout (Linux/Wayland)</a></td><td><span class="pill better">Better</span></td><td class="num">396 / 290</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#51092</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/51092/">mcp: large stdio tool response (~11 MB) closes the connection with &quot;Connection closed&quot;</a></td><td><span class="pill better">Better</span></td><td class="num">533 / 208</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#51342</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/51342/">[v2] Fresh databases skip legacy auth.json credential import</a></td><td><span class="pill better">Better</span></td><td class="num">283 / 41</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#51770</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/51770/">fix(app): question options and submit controls are cut off on mobile</a></td><td><span class="pill better">Better</span></td><td class="num">502 / 364</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#51912</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/51912/">core: grep fails entirely when a matching line is not valid UTF-8</a></td><td><span class="pill better">Better</span></td><td class="num">298 / 60</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#52263</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/52263/">Desktop 2.0.20 (macOS): file diff view throws on partial diffs — &quot;loadDiffFiles is required&quot;</a></td><td><span class="pill better">Better</span></td><td class="num">327 / 2</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#53025</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/53025/">V2: tool input repair uses the live schema instead of the request snapshot</a></td><td><span class="pill better">Better</span></td><td class="num">324 / 1,486</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#53207</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/53207/">cli: opencode run --format json drops the final step_finish event</a></td><td><span class="pill better">Better</span></td><td class="num">346 / 78</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#54245</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/54245/">mcp: OAuth on *.localhost regressed after the MCP client upgrade in 2.0.4</a></td><td><span class="pill better">Better</span></td><td class="num">136 / 22</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#55256</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/55256/">tui: compact number formatter shows &quot;1000.0K&quot; instead of &quot;1.0M&quot; between 999,950 and 999,999</a></td><td><span class="pill better">Better</span></td><td class="num">17 / 9</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#55491</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/55491/">nix build fails at v2.0.28: the CLI build imports script/native-arch, which the flake&#39;s src fileset omits</a></td><td><span class="pill better">Better</span></td><td class="num">40 / 1</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="tie"><td class="id">#55529</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/55529/">codemode: &quot;Instructions updated&quot; re-injects the full tool catalog on every tool-tree change (browser attach/detach, MCP reconnect), polluting context</a></td><td><span class="pill tie">Tie</span></td><td class="num">530 / 542</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#55912</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/55912/">Right-click context menu in the prompt input is not localized on Linux</a></td><td><span class="pill better">Better</span></td><td class="num">399 / 16</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#56783</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/56783/">V2: compaction fires on first request / loops when compaction.buffer &gt;= model context limit</a></td><td><span class="pill better">Better</span></td><td class="num">827 / 14</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#57152</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/57152/">DigitalOcean provider plugin rebuilds and republishes every location&#39;s provider/model catalog every five minutes, even without a connection</a></td><td><span class="pill better">Better</span></td><td class="num">72 / 58</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#57829</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/57829/">[FEATURE]: regression test for agent files created after startup</a></td><td><span class="pill better">Better</span></td><td class="num">121 / 37</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#58364</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/58364/">tui: archived sessions still appear in the session picker (Ctrl+O)</a></td><td><span class="pill better">Better</span></td><td class="num">336 / 127</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#60681</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/60681/">TUI: each prompt keystroke re-registers keymap layers (~15 ms JS per key)</a></td><td><span class="pill better">Better</span></td><td class="num">305 / 42</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#60877</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/60877/">[FEATURE]: Expose Claude Agent plan usage (rate_limit_event) to plugins</a></td><td><span class="pill better">Better</span></td><td class="num">205 / 24</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#61187</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/61187/">[FEATURE]: Extensible Markdown code-block actions for GUI plugins</a></td><td><span class="pill better">Better</span></td><td class="num">1,249 / 972</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#61897</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/61897/">[FEATURE]: Make the active session ID easy to copy in Desktop</a></td><td><span class="pill better">Better</span></td><td class="num">447 / 784</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#63126</td><td class="title"><a href="/backtests/opencode/run-20261121-184931/63126/">patch: case-only rename deletes the file on case-insensitive filesystems</a></td><td><span class="pill better">Better</span></td><td class="num">351 / 59</td><td class="tests">No new failures</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+</details>
+  </div>
+</section>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.runbody').forEach(function(panel){
+    var f=panel.querySelector('.filters');if(!f)return;
+    var rows=panel.querySelectorAll('tr[data-verdict]');
+    f.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-filter]');if(!b)return;
+      var v=b.getAttribute('data-filter');
+      f.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+      rows.forEach(function(r){r.hidden=v!=='all'&&r.getAttribute('data-verdict')!==v});
+    });
+  });
+})();
+</script>
+</body>
+</html>

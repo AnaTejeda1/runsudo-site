@@ -745,8 +745,10 @@
     {
       "slug": "opencode",
       "name": "anomalyco/opencode",
-      "description": "",
-      "languages": [],
+      "description": "Open-source AI coding agent built for the terminal.",
+      "languages": [
+        "TypeScript"
+      ],
       "status": "active",
       "runs": [
         {
@@ -763,10 +765,9 @@
           "worse": 2,
           "tie": 1,
           "error": 0,
-          "notes": "Issues the team closed in the last 90 days, shared by link",
+          "notes": "First opencode run; one sample split across three harness runs (two tickets re-run separately); judged by the four-judge panel",
           "footnote": "",
-          "judge": "panel",
-          "unlisted": true
+          "judge": "panel"
         }
       ]
     }
