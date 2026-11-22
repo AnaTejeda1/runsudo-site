@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#55256 tui: compact number formatter shows &quot;1000.0K&quot; instead of &quot;1.0M&quot; between 999,950 and 999,999 — anomalyco/opencode backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #55256 in anomalyco/opencode, run 21 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/opencode/run-20261121-184931/55256/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/opencode/">opencode</a><span aria-hidden="true">/</span><a href="/backtests/opencode/run-20261121-184931/">run-20261121-184931</a><span aria-hidden="true">/</span><span aria-current="page">#55256</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/anomalyco/opencode/issues/55256" rel="noopener" target="_blank">#55256</a></span>
+  <span>Merged fix <a href="https://github.com/anomalyco/opencode/pull/55871" rel="noopener" target="_blank">PR #55871</a></span>
+  <span>Run 21 Nov 2026 · <span class="runid">run-20261121-184931</span></span>
+  <span>anomalyco/opencode</span>
+</div>
+<h1 class="ticket-title">tui: compact number formatter shows &quot;1000.0K&quot; instead of &quot;1.0M&quot; between 999,950 and 999,999</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make 999,950 through 999,999 render as &quot;1.0M&quot; and keep 999,949 at &quot;999.9K&quot; and 1,000,000 at &quot;1.0M&quot;. The independent tests are MISSING on every tree, so they provide no signal; the verdict rests on the diffs. Patch A fixes the root cause the issue names: it derives the suffix from the rounded value, computing the K form first and promoting to M only when that rounded value reaches 1000. That stays correct regardless of where the rounding boundary lands and would survive a change to the decimal precision. I checked the floating-point edge: 999.95 as a double sits slightly above 999.95, so toFixed(1) yields &quot;1000.0&quot;, matching the issue&#39;s own report of the current behavior, so A&#39;s comparison works at the exact boundary. Patch B hardcodes the threshold 999950, which is correct for the current toFixed(1) but encodes the rounding artifact as a magic number tied to that precision; it masks the symptom rather than fixing the ordering of rounding versus suffix selection. On tests, A covers the sub-1000 passthrough, the 1000 boundary, both ends of the affected range, 1,000,000, and a mid-range M value (1,250,000 to &quot;1.3M&quot; is correct under JS toFixed tie handling). B covers only the three boundary points. Both are in scope with no churn. A&#39;s comment explains the rationale clearly; B&#39;s comment just restates the number. A wins on correctness-at-root-cause, tests, and craft.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">5m 19s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">402 passed · 0 skipped · 403 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">17<small>vs 9 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/anomalyco/opencode/issues/55256" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse">
+    <div class="md"><p><strong>Version:</strong> OpenCode 2.0.26 (checked against <code>v2</code> @ 4617210822)</p>
+<p><strong>Description</strong><br><code>Locale.number</code> formats values from 999,950 to 999,999 as <code>1000.0K</code>. The <code>&gt;= 1000000</code> check runs before rounding, so these values go to the K branch, where <code>toFixed(1)</code> rounds them up to 1000.0.</p>
+<p><strong>Evidence (v2 source)</strong><br><code>packages/tui/src/util/locale.ts:19-26</code>: <code>num &gt;= 1000000</code> → M; otherwise <code>(num / 1000).toFixed(1) + &quot;K&quot;</code>.</p>
+<p><strong>Repro</strong><br><code>Locale.number(999_950)</code> returns <code>&quot;1000.0K&quot;</code>; the expected value is <code>&quot;1.0M&quot;</code>. In the UI, this shows up in the token/context counters when a session is about 1M tokens in.</p>
+<p>Fix: #48969</p></div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+14</span> <span class="r">−3</span></span></div><pre class="diff"><span class="f">packages/tui/src/util/locale.ts</span><span class="h">index 569484e373..731fcc196e 100644</span><span class="h">@@ -17,10 +17,11 @@ export function datetime(input: number): string {</span><span class="c"> }</span><span class="c"> </span><span class="c"> export function number(num: number): string {</span><span class="r">-  if (num &gt;= 1000000) {</span><span class="a">+  if (num &gt;= 1000) {</span><span class="a">+    // Pick the suffix from the rounded value so 999,950 becomes &quot;1.0M&quot;, not &quot;1000.0K&quot;</span><span class="a">+    const thousands = (num / 1000).toFixed(1)</span><span class="a">+    if (Number(thousands) &lt; 1000) return thousands + &quot;K&quot;</span><span class="c">     return (num / 1000000).toFixed(1) + &quot;M&quot;</span><span class="r">-  } else if (num &gt;= 1000) {</span><span class="r">-    return (num / 1000).toFixed(1) + &quot;K&quot;</span><span class="c">   }</span><span class="c">   return num.toString()</span><span class="c"> }</span><span class="f">packages/tui/test/util/locale.test.ts</span><span class="h">index e3d3396884..ca20666903 100644</span><span class="h">@@ -12,3 +12,13 @@ test(&quot;takes whole graphemes within terminal width&quot;, () =&gt; {</span><span class="c">   expect(Locale.takeWidth(&quot;ab界cd&quot;, 4)).toBe(&quot;ab界&quot;)</span><span class="c">   expect(Locale.graphemes(&quot;a👨‍👩‍👧‍👦b&quot;)).toEqual([&quot;a&quot;, &quot;👨‍👩‍👧‍👦&quot;, &quot;b&quot;])</span><span class="c"> })</span><span class="a">+</span><span class="a">+test(&quot;formats compact numbers with the suffix of the rounded value&quot;, () =&gt; {</span><span class="a">+  expect(Locale.number(999)).toBe(&quot;999&quot;)</span><span class="a">+  expect(Locale.number(1000)).toBe(&quot;1.0K&quot;)</span><span class="a">+  expect(Locale.number(999_949)).toBe(&quot;999.9K&quot;)</span><span class="a">+  expect(Locale.number(999_950)).toBe(&quot;1.0M&quot;)</span><span class="a">+  expect(Locale.number(999_999)).toBe(&quot;1.0M&quot;)</span><span class="a">+  expect(Locale.number(1_000_000)).toBe(&quot;1.0M&quot;)</span><span class="a">+  expect(Locale.number(1_250_000)).toBe(&quot;1.3M&quot;)</span><span class="a">+})</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/anomalyco/opencode/pull/55871" rel="noopener" target="_blank">PR #55871</a></span><span class="pm"><span class="a">+8</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/tui/src/util/locale.ts</span><span class="h">index 569484e3730..ac3371eb079 100644</span><span class="h">@@ -17,7 +17,8 @@ export function datetime(input: number): string {</span><span class="c"> }</span><span class="c"> </span><span class="c"> export function number(num: number): string {</span><span class="r">-  if (num &gt;= 1000000) {</span><span class="a">+  // 999950+ would round to &quot;1000.0K&quot;</span><span class="a">+  if (num &gt;= 999950) {</span><span class="c">     return (num / 1000000).toFixed(1) + &quot;M&quot;</span><span class="c">   } else if (num &gt;= 1000) {</span><span class="c">     return (num / 1000).toFixed(1) + &quot;K&quot;</span><span class="f">packages/tui/test/util/locale.test.ts</span><span class="h">index e3d3396884b..2d5a008f0ae 100644</span><span class="h">@@ -12,3 +12,9 @@ test(&quot;takes whole graphemes within terminal width&quot;, () =&gt; {</span><span class="c">   expect(Locale.takeWidth(&quot;ab界cd&quot;, 4)).toBe(&quot;ab界&quot;)</span><span class="c">   expect(Locale.graphemes(&quot;a👨‍👩‍👧‍👦b&quot;)).toEqual([&quot;a&quot;, &quot;👨‍👩‍👧‍👦&quot;, &quot;b&quot;])</span><span class="c"> })</span><span class="a">+</span><span class="a">+test(&quot;rolls the compact form over at the rounding boundary&quot;, () =&gt; {</span><span class="a">+  expect(Locale.number(999949)).toBe(&quot;999.9K&quot;)</span><span class="a">+  expect(Locale.number(999950)).toBe(&quot;1.0M&quot;)</span><span class="a">+  expect(Locale.number(1000000)).toBe(&quot;1.0M&quot;)</span><span class="a">+})</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/opencode/run-20261121-184931/54245/">Previous · #54245</a>
+  <a class="mid" href="/backtests/opencode/run-20261121-184931/">All tickets in this run</a>
+  <a href="/backtests/opencode/run-20261121-184931/55491/">Next · #55491</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

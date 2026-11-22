@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#55491 nix build fails at v2.0.28: the CLI build imports script/native-arch, which the flake&#39;s src fileset omits — anomalyco/opencode backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #55491 in anomalyco/opencode, run 21 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/opencode/run-20261121-184931/55491/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/opencode/">opencode</a><span aria-hidden="true">/</span><a href="/backtests/opencode/run-20261121-184931/">run-20261121-184931</a><span aria-hidden="true">/</span><span aria-current="page">#55491</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/anomalyco/opencode/issues/55491" rel="noopener" target="_blank">#55491</a></span>
+  <span>Merged fix <a href="https://github.com/anomalyco/opencode/pull/55494" rel="noopener" target="_blank">PR #55494</a></span>
+  <span>Run 21 Nov 2026 · <span class="runid">run-20261121-184931</span></span>
+  <span>anomalyco/opencode</span>
+</div>
+<h1 class="ticket-title">nix build fails at v2.0.28: the CLI build imports script/native-arch, which the flake&#39;s src fileset omits</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical one-line fix the issue asks for: adding `../script` to the `lib.fileset.unions` list in nix/node_modules.nix so the CLI build tree contains script/native-arch. Correctness and scope are therefore equal; the comment wording and list position differ trivially. The independent tests were MISSING on every tree, so they do not separate the patches. The difference is tests. Patch B adds none. Patch A adds packages/cli/test/nix-src.test.ts, which parses the fileset union from the nix file and asserts that every relative import of the two nix buildPhase entry points (packages/cli/script/build.ts and packages/desktop/electron-builder.config.ts) resolves inside the fileset, plus a direct check for script/native-arch. That test would fail on base (native-arch is outside the fileset) and pass after the fix, and it guards against the same class of regression when either build script gains a new root-level import. It is regex-based and only checks direct (not transitive) imports, and its `imports.length &gt; 0` assertion for the desktop config cannot be verified from the diff, which slightly lowers confidence, but it is a real, non-tautological regression test. Given equal correctness and scope, the meaningful test tips the comparison to A.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">6m 27s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">402 passed · 0 skipped · 403 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">40<small>vs 1 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/anomalyco/opencode/issues/55491" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Steps to reproduce</h3>
+<p>nix build github:anomalyco/opencode/v2.0.28#opencode</p>
+<p>The build fails in the CLI&#39;s buildPhase:</p>
+<p>error: Cannot find module &#39;../../../script/native-arch&#39; from &#39;/build/source/packages/cli/script/build.ts&#39;</p>
+<h3>What you expected</h3>
+<p>The flake at a release tag builds <code>packages.opencode</code>.</p>
+<h3>What happened instead</h3>
+<p><code>packages/cli/script/build.ts</code> (new at 2.0.28) imports <code>NativeArch</code> from the monorepo root:</p>
+<p>import { NativeArch } from &quot;../../../script/native-arch&quot;</p>
+<p>but <code>nix/node_modules.nix</code>&#39;s <code>src</code> fileset union — which the CLI inherits via <code>inherit (node_modules) version src</code> — omits the root <code>script/</code> directory, so the file isn&#39;t in the build tree.</p>
+<h3>Fix</h3>
+<p>Add <code>../script</code> to the fileset union (one line). <code>script/</code> is not a bun workspace, so the installed <code>node_modules</code> tree — and therefore the node_modules hash — is unchanged; only the CLI build gains the file it imports.</p>
+<h3>Context</h3>
+<p>Hit while packaging OpenChamber for Nix (openchamber/openchamber#4529 pins opencode at the release tags via this flake).</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+40</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">nix/node_modules.nix</span><span class="h">index 00a6d1a149..d02c1528a0 100644</span><span class="h">@@ -32,6 +32,7 @@ stdenvNoCC.mkDerivation {</span><span class="c">         ../package.json</span><span class="c">         ../patches</span><span class="c">         ../install # required by desktop build (cli.rs include_str!)</span><span class="a">+        ../script # required by cli build and desktop electron-builder config (script/native-arch.ts)</span><span class="c">         ../.github/TEAM_MEMBERS # required by @opencode/script</span><span class="c">       ]</span><span class="c">     );</span><span class="f">packages/cli/test/nix-src.test.ts</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..8c02b4f2a7</span><span class="h">@@ -0,0 +1,39 @@</span><span class="a">+import { expect, test } from &quot;bun:test&quot;</span><span class="a">+import { readFile } from &quot;node:fs/promises&quot;</span><span class="a">+import path from &quot;node:path&quot;</span><span class="a">+</span><span class="a">+const root = path.resolve(import.meta.dir, &quot;../../..&quot;)</span><span class="a">+</span><span class="a">+// The paths nix/node_modules.nix copies into the build tree. The CLI and desktop builds inherit this `src`.</span><span class="a">+async function fileset() {</span><span class="a">+  const nix = await readFile(path.join(root, &quot;nix/node_modules.nix&quot;), &quot;utf8&quot;)</span><span class="a">+  const unions = nix.match(/lib\.fileset\.unions\s*\[([\s\S]*?)\]/)?.[1]</span><span class="a">+  if (!unions) throw new Error(&quot;nix/node_modules.nix has no lib.fileset.unions list&quot;)</span><span class="a">+  return [...unions.matchAll(/^\s*(\.\.\/\S+)/gm)].map((match) =&gt; path.resolve(root, &quot;nix&quot;, match[1]))</span><span class="a">+}</span><span class="a">+</span><span class="a">+async function relativeImports(file: string) {</span><span class="a">+  const source = await readFile(path.join(root, file), &quot;utf8&quot;)</span><span class="a">+  return [...source.matchAll(/from\s+[&quot;&#39;](\.{1,2}\/[^&quot;&#39;]+)[&quot;&#39;]/g)].map((match) =&gt;</span><span class="a">+    path.resolve(path.dirname(path.join(root, file)), match[1]),</span><span class="a">+  )</span><span class="a">+}</span><span class="a">+</span><span class="a">+// Entry points that nix/opencode.nix and nix/desktop.nix run during their buildPhase.</span><span class="a">+for (const entry of [&quot;packages/cli/script/build.ts&quot;, &quot;packages/desktop/electron-builder.config.ts&quot;]) {</span><span class="a">+  test(`nix src fileset contains every relative import of ${entry}`, async () =&gt; {</span><span class="a">+    const included = await fileset()</span><span class="a">+    const imports = await relativeImports(entry)</span><span class="a">+    expect(imports.length).toBeGreaterThan(0)</span><span class="a">+    const missing = imports</span><span class="a">+      .filter((target) =&gt; !included.some((dir) =&gt; target === dir || target.startsWith(dir + path.sep)))</span><span class="a">+      .map((target) =&gt; path.relative(root, target))</span><span class="a">+    expect(missing).toEqual([])</span><span class="a">+  })</span><span class="a">+}</span><span class="a">+</span><span class="a">+test(&quot;nix src fileset contains script/native-arch imported by the CLI build&quot;, async () =&gt; {</span><span class="a">+  const included = await fileset()</span><span class="a">+  const target = path.join(root, &quot;script/native-arch&quot;)</span><span class="a">+  expect(included.some((dir) =&gt; target.startsWith(dir + path.sep))).toBe(true)</span><span class="a">+})</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/anomalyco/opencode/pull/55494" rel="noopener" target="_blank">PR #55494</a></span><span class="pm"><span class="a">+1</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">nix/node_modules.nix</span><span class="h">index 00a6d1a149c..79b2641f06d 100644</span><span class="h">@@ -33,6 +33,7 @@ stdenvNoCC.mkDerivation {</span><span class="c">         ../patches</span><span class="c">         ../install # required by desktop build (cli.rs include_str!)</span><span class="c">         ../.github/TEAM_MEMBERS # required by @opencode/script</span><span class="a">+        ../script # required by packages/cli build (native-arch)</span><span class="c">       ]</span><span class="c">     );</span><span class="c">   };</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/opencode/run-20261121-184931/55256/">Previous · #55256</a>
+  <a class="mid" href="/backtests/opencode/run-20261121-184931/">All tickets in this run</a>
+  <a href="/backtests/opencode/run-20261121-184931/55529/">Next · #55529</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

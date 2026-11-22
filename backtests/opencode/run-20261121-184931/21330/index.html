@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#21330 fix(opencode): log timestamps use local datetime instead of UTC ISO string — anomalyco/opencode backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #21330 in anomalyco/opencode, run 21 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/opencode/run-20261121-184931/21330/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/opencode/">opencode</a><span aria-hidden="true">/</span><a href="/backtests/opencode/run-20261121-184931/">run-20261121-184931</a><span aria-hidden="true">/</span><span aria-current="page">#21330</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/anomalyco/opencode/issues/21330" rel="noopener" target="_blank">#21330</a></span>
+  <span>Merged fix <a href="https://github.com/anomalyco/opencode/commit/f1403ef001577211601085afaeb34867c7902eee" rel="noopener" target="_blank">PR #</a></span>
+  <span>Run 21 Nov 2026 · <span class="runid">run-20261121-184931</span></span>
+  <span>anomalyco/opencode</span>
+</div>
+<h1 class="ticket-title">fix(opencode): log timestamps use local datetime instead of UTC ISO string</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Patch B modifies only bun.lock (a ghostty-web commit hash bump) and does not touch packages/opencode/src/util/log.ts at all, so it leaves both reported toISOString() usages unchanged and does nothing for the issue. Patch A adds Locale.localDatetime(), which builds a YYYY-MM-DDTHH:MM:SS string from getFullYear/getMonth/getDate/getHours/getMinutes/getSeconds (local-time accessors), and uses it in both places the issue names: the log filename (with colons stripped, preserving the prior filename shape) and the per-line timestamp (keeping the same seconds-precision format as the old split(&#39;.&#39;)[0] output). It fixes the root cause directly, keeps the existing format and diff/prefix/message layout, and places the helper in an existing Locale namespace, which is a reasonable home. Neither patch adds tests, and the independent test runs crashed on all three trees, so test evidence does not separate them; the diffs alone are decisive. Patch A wins on correctness and scope; Patch B is effectively a no-op for this issue.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2m 3s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">1,837 passed · 21 skipped · 1,864 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">2<small>vs 19 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/anomalyco/opencode/issues/21330" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Description</h3>
+<p>Two places in packages/opencode/src/util/log.ts use toISOString() which outputs UTC time, not local time:</p>
+<ol><li>Log filename (line 66): new Date().toISOString() — filename like 2026-04-07T02:30:00.log reflects UTC, not where the user is</li><li>Log entry timestamp (line 127): next.toISOString() — every log line shows UTC time, making it hard to correlate with local events</li></ol>
+<p>For users not in UTC, both are confusing. The fix is to format using local time methods instead.</p>
+<h3>Plugins</h3>
+<p>_No response_</p>
+<h3>OpenCode version</h3>
+<p>1.3.17</p>
+<h3>Steps to reproduce</h3>
+<ol><li>cd ~/.local/share/opencode/log</li><li>cat any log file</li></ol>
+<h3>Screenshot and/or share link</h3>
+<p>_No response_</p>
+<h3>Operating System</h3>
+<p>macOS 26.4</p>
+<h3>Terminal</h3>
+<p>ghostty</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+1</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">bun.lock</span><span class="h">index 1c6bcd471..022eb336e 100644</span><span class="h">@@ -3155,7 +3155,7 @@</span><span class="c"> </span><span class="c">     &quot;get-tsconfig&quot;: [&quot;get-tsconfig@4.13.7&quot;, &quot;&quot;, { &quot;dependencies&quot;: { &quot;resolve-pkg-maps&quot;: &quot;^1.0.0&quot; } }, &quot;sha512-7tN6rFgBlMgpBML5j8typ92BKFi2sFQvIdpAqLA2beia5avZDrMs0FLZiM5etShWq5irVyGcGMEA1jcDaK7A/Q==&quot;],</span><span class="c"> </span><span class="r">-    &quot;ghostty-web&quot;: [&quot;ghostty-web@github:anomalyco/ghostty-web#4af877d&quot;, {}, &quot;anomalyco-ghostty-web-4af877d&quot;, &quot;sha512-fbEK8mtr7ar4ySsF+JUGjhaZrane7dKphanN+SxHt5XXI6yLMAh/Hpf6sNCOyyVa2UlGCd7YpXG/T2v2RUAX+A==&quot;],</span><span class="a">+    &quot;ghostty-web&quot;: [&quot;ghostty-web@github:anomalyco/ghostty-web#6e24d04&quot;, {}, &quot;anomalyco-ghostty-web-6e24d04&quot;, &quot;sha512-svnTv7Djx1QbZHr2H2Fxqp/LqkMwZB19x7ln4IOSYxlCs2wN1fTC3QRrknxtuPxDznfjV7eVBGps+Foa2v2YnQ==&quot;],</span><span class="c"> </span><span class="c">     &quot;gifwrap&quot;: [&quot;gifwrap@0.10.1&quot;, &quot;&quot;, { &quot;dependencies&quot;: { &quot;image-q&quot;: &quot;^4.0.0&quot;, &quot;omggif&quot;: &quot;^1.0.10&quot; } }, &quot;sha512-2760b1vpJHNmLzZ/ubTtNnEx5WApN/PYWJvXvgS+tL1egTTthayFYIQQNi136FLEDcN/IyEY2EcGpIITD6eYUw==&quot;],</span><span class="c"> </span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/anomalyco/opencode/commit/f1403ef001577211601085afaeb34867c7902eee" rel="noopener" target="_blank">PR #</a></span><span class="pm"><span class="a">+14</span> <span class="r">−5</span></span></div><pre class="diff"><span class="f">packages/opencode/src/util/locale.ts</span><span class="h">index 653da09a0b7..433e3c24126 100644</span><span class="h">@@ -28,6 +28,17 @@ export namespace Locale {</span><span class="c">     }</span><span class="c">   }</span><span class="c"> </span><span class="a">+  export function localDatetime(input?: number): string {</span><span class="a">+    const date = input !== undefined ? new Date(input) : new Date()</span><span class="a">+    const year = date.getFullYear()</span><span class="a">+    const month = String(date.getMonth() + 1).padStart(2, &quot;0&quot;)</span><span class="a">+    const day = String(date.getDate()).padStart(2, &quot;0&quot;)</span><span class="a">+    const hour = String(date.getHours()).padStart(2, &quot;0&quot;)</span><span class="a">+    const minute = String(date.getMinutes()).padStart(2, &quot;0&quot;)</span><span class="a">+    const second = String(date.getSeconds()).padStart(2, &quot;0&quot;)</span><span class="a">+    return `${year}-${month}-${day}T${hour}:${minute}:${second}`</span><span class="a">+  }</span><span class="a">+</span><span class="c">   export function number(num: number): string {</span><span class="c">     if (num &gt;= 1000000) {</span><span class="c">       return (num / 1000000).toFixed(1) + &quot;M&quot;</span><span class="f">packages/opencode/src/util/log.ts</span><span class="h">index 2ca4c0a3de3..fcce62c5ff7 100644</span><span class="h">@@ -4,6 +4,7 @@ import { createWriteStream } from &quot;fs&quot;</span><span class="c"> import { Global } from &quot;../global&quot;</span><span class="c"> import z from &quot;zod&quot;</span><span class="c"> import { Glob } from &quot;./glob&quot;</span><span class="a">+import { Locale } from &quot;./locale&quot;</span><span class="c"> </span><span class="c"> export namespace Log {</span><span class="c">   export const Level = z.enum([&quot;DEBUG&quot;, &quot;INFO&quot;, &quot;WARN&quot;, &quot;ERROR&quot;]).meta({ ref: &quot;LogLevel&quot;, description: &quot;Log level&quot; })</span><span class="h">@@ -61,10 +62,7 @@ export namespace Log {</span><span class="c">     if (options.level) level = options.level</span><span class="c">     cleanup(Global.Path.log)</span><span class="c">     if (options.print) return</span><span class="r">-    logpath = path.join(</span><span class="r">-      Global.Path.log,</span><span class="r">-      options.dev ? &quot;dev.log&quot; : new Date().toISOString().split(&quot;.&quot;)[0].replace(/:/g, &quot;&quot;) + &quot;.log&quot;,</span><span class="r">-    )</span><span class="a">+    logpath = path.join(Global.Path.log, options.dev ? &quot;dev.log&quot; : Locale.localDatetime().replace(/:/g, &quot;&quot;) + &quot;.log&quot;)</span><span class="c">     await fs.truncate(logpath).catch(() =&gt; {})</span><span class="c">     const stream = createWriteStream(logpath, { flags: &quot;a&quot; })</span><span class="c">     write = async (msg: any) =&gt; {</span><span class="h">@@ -124,7 +122,7 @@ export namespace Log {</span><span class="c">       const next = new Date()</span><span class="c">       const diff = next.getTime() - last</span><span class="c">       last = next.getTime()</span><span class="r">-      return [next.toISOString().split(&quot;.&quot;)[0], &quot;+&quot; + diff + &quot;ms&quot;, prefix, message].filter(Boolean).join(&quot; &quot;) + &quot;\n&quot;</span><span class="a">+      return [Locale.localDatetime(next.getTime()), &quot;+&quot; + diff + &quot;ms&quot;, prefix, message].filter(Boolean).join(&quot; &quot;) + &quot;\n&quot;</span><span class="c">     }</span><span class="c">     const result: Logger = {</span><span class="c">       debug(message?: any, extra?: Record&lt;string, any&gt;) {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/opencode/run-20261121-184931/9387/">Previous · #9387</a>
+  <a class="mid" href="/backtests/opencode/run-20261121-184931/">All tickets in this run</a>
+  <a href="/backtests/opencode/run-20261121-184931/22225/">Next · #22225</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
