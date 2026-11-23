@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>anomalyco/opencode · 23 Nov 2026 — sudo backtests</title>
+<meta name="description" content="6 of 10 tickets judged better than the merged fix on anomalyco/opencode, run 23 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/opencode/run-20261123-023747/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/opencode/">opencode</a><span aria-hidden="true">/</span><span aria-current="page">run-20261123-023747</span></p>
+<h1>anomalyco/opencode</h1>
+<p class="lead">Open-source AI coding agent built for the terminal.</p>
+<div class="card summary">
+  <p class="k">This run · 23 Nov 2026 · <span class="runid">run-20261123-023747</span></p>
+  <p class="big">60%<small>judged better than the merged fix</small></p>
+  <p class="sub">6 of 10 tickets. Issues fixed by one maintainer, shared by link.</p>
+  <div class="bar" role="img" aria-label="6 better, 0 par, 4 worse, 0 error"><span class="b-better" style="width:60%"></span><span class="b-worse" style="width:40%"></span></div>
+  <div class="counts"><span class="better"><i></i>6 better</span><span class="par"><i></i>0 par</span><span class="worse"><i></i>4 worse</span><span class="error"><i></i>0 error</span></div>
+</div>
+<section>
+  <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
+  <div class="runs">
+<details class="run" id="run-20261123-023747" open>
+  <summary>
+    <span class="date">23 Nov 2026<span class="runid">run-20261123-023747</span></span>
+    <span class="bars"><div class="bar thin" role="img" aria-label="6 better, 0 par, 4 worse, 0 error"><span class="b-better" style="width:60%"></span><span class="b-worse" style="width:40%"></span></div><span class="counts"><span class="better">6 better</span><span class="par">0 par</span><span class="worse">4 worse</span><span class="error">0 error</span></span></span>
+    <span class="notes">Issues fixed by one maintainer, shared by link</span>
+    <span class="meta">10 tickets · <a href="/backtests/opencode/run-20261123-023747/">permalink</a></span>
+  </summary>
+  <div class="runbody">
+<div class="filters" role="group" aria-label="Filter tickets by verdict"><button type="button" data-filter="all" aria-pressed="true">All 10</button><button type="button" class="better" data-filter="better" aria-pressed="false">Better 6</button><button type="button" class="par" data-filter="par" aria-pressed="false">Par 0</button><button type="button" class="worse" data-filter="worse" aria-pressed="false">Worse 4</button></div>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Issue</th><th>Title</th><th>Verdict</th><th class="num">Lines ours / merged</th><th>Test suite</th></tr></thead>
+    <tbody>
+<tr class="link" data-verdict="worse"><td class="id">#45924</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/45924/">edit and apply_patch silently corrupt non-UTF-8 files (U+FFFD replacement)</a></td><td><span class="pill worse">Worse</span></td><td class="num">383 / 91</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#63892</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/63892/">shell: Store PowerShell fails with 0xC0070005 in Windows pipe mode</a></td><td><span class="pill better">Better</span></td><td class="num">440 / 282</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#64557</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/64557/">zen/go: Gemini 4 Argon returns upstream 403 &quot;Request rejected in accordance with our terms of use and policies&quot;</a></td><td><span class="pill better">Better</span></td><td class="num">263 / 15</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#64803</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/64803/">windows: parallel shell calls fail with &quot;failed to spawn ...\WindowsApps\pwsh.exe: os error 5&quot;</a></td><td><span class="pill worse">Worse</span></td><td class="num">184 / 282</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#65044</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/65044/">install: staging dir under /tmp is invisible to confined curl (snap), and the exit 23 message blames disk space</a></td><td><span class="pill better">Better</span></td><td class="num">382 / 47</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#65086</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/65086/">[bug] (+patch from me with solution) Web client drops subagent permission requests after reconnect</a></td><td><span class="pill worse">Worse</span></td><td class="num">363 / 174</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#65088</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/65088/">core: frontmatter repair turns valid flow collections into strings</a></td><td><span class="pill worse">Worse</span></td><td class="num">247 / 184</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#65089</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/65089/">core: Markdown commands discard separate legacy variants</a></td><td><span class="pill better">Better</span></td><td class="num">286 / 86</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#65090</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/65090/">util: sampledChecksum still skips the tail of large files</a></td><td><span class="pill better">Better</span></td><td class="num">199 / 7</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#65179</td><td class="title"><a href="/backtests/opencode/run-20261123-023747/65179/">Desktop regression: model list takes 8+ seconds to load and update, freezing the UI</a></td><td><span class="pill better">Better</span></td><td class="num">573 / 285</td><td class="tests">No new failures</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+</details>
+  </div>
+</section>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.runbody').forEach(function(panel){
+    var f=panel.querySelector('.filters');if(!f)return;
+    var rows=panel.querySelectorAll('tr[data-verdict]');
+    f.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-filter]');if(!b)return;
+      var v=b.getAttribute('data-filter');
+      f.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+      rows.forEach(function(r){r.hidden=v!=='all'&&r.getAttribute('data-verdict')!==v});
+    });
+  });
+})();
+</script>
+</body>
+</html>
