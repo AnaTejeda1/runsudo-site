@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#37064 All Code nodes fail with &quot;task was not matched to a runner&quot; on 2.37.x — regression appears tied to the Node 26 runners image migration (works on 2.36.7) — n8n-io/n8n backtest</title>
+<meta name="description" content="The harness couldn&#39;t finish this ticket. Issue #37064 in n8n-io/n8n, run 23 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/n8n/run-20261123-070205/37064/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/n8n/">n8n</a><span aria-hidden="true">/</span><a href="/backtests/n8n/run-20261123-070205/">run-20261123-070205</a><span aria-hidden="true">/</span><span aria-current="page">#37064</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/n8n-io/n8n/issues/37064" rel="noopener" target="_blank">#37064</a></span>
+  <span>Merged fix <a href="https://github.com/n8n-io/n8n/pull/37106" rel="noopener" target="_blank">PR #37106</a></span>
+  <span>Run 23 Nov 2026 · <span class="runid">run-20261123-070205</span></span>
+  <span>n8n-io/n8n</span>
+</div>
+<h1 class="ticket-title">All Code nodes fail with &quot;task was not matched to a runner&quot; on 2.37.x — regression appears tied to the Node 26 runners image migration (works on 2.36.7)</h1>
+
+<div class="verdict-block">
+  <span class="pill error lg">Error</span>
+  <p class="line">The harness couldn't finish this ticket.</p>
+  <p class="note">The solver hit its turn or time cap.. No judgment was produced for this ticket. It counts as an error in the run total.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 30m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v">Not run</p><p class="d">The harness did not reach the test stage</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">0<small>vs 20 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/n8n-io/n8n/issues/37064" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Bug Description</h3>
+<p>After upgrading our n8n Cloud instance from the stable channel to 2.37.0 this morning, <strong>every Code node in every workflow on the tenant</strong> fails with:</p>
+<blockquote><p>Your Code node task was not matched to a runner within the timeout period.</p></blockquote>
+<p>A full instance restart from the Cloud admin panel does not resolve it. At least three other reports were filed today with the identical symptom on 2.37.x: #37062, #37037, #36989. I understand individual cloud instances are handled via help@n8n.io (we are contacting support as well) — this issue is to document what looks like a <strong>release-line regression in 2.37.x</strong>, with the code-level comparison below, since it is affecting multiple tenants on the beta channel today.</p>
+<p><strong>Why this does not look like broker/matching logic:</strong> the only recent behavioral change to the task broker, #36530 (&quot;Avoid restarting task runners that are only slow&quot;), was backported to 2.36.x via #36609 — so the working stable line (2.36.7) and the broken beta line (2.37.x) run essentially the same matching/registration code.</p>
+<p><strong>What is exclusive to 2.37.x is a rebuild of the runner runtime</strong> (<a href="https://github.com/n8n-io/n8n/blob/n8n%402.36.7/docker/images/runners/Dockerfile" rel="noopener nofollow" target="_blank">runners Dockerfile diff: 2.36.7</a> vs <a href="https://github.com/n8n-io/n8n/blob/n8n%402.37.1/docker/images/runners/Dockerfile" rel="noopener nofollow" target="_blank">2.37.1</a>):</p>
+<ul><li>Node <strong>24.18.1 → 26.5.1</strong> in the n8n and runners images (#36291) — matches the <code>nodeJsVersion: 26.5.1</code> in the debug info attached to #37062</li><li>corepack removed; pnpm <strong>10.32.1 → 11.22.0</strong>, now installed from npm (#36702, #36424)</li><li><code>task-runner-launcher</code> still pinned at <strong>1.4.7 (released June 10)</strong> — predating the Node 26 runtime it now supervises</li></ul>
+<p>This is consistent with the JS runner sidecar failing to start or complete registration with the broker on 2.37.x, so every Code node task times out unmatched — and with why an instance restart doesn&#39;t help (it respawns the same pairing). Related prior fragility in this area: #35685 (launcher health-check breakage from an environment-level change).</p>
+<p>Happy to provide the full debug information or instance details privately to support.</p>
+<h3>To Reproduce</h3>
+<ol><li>n8n Cloud instance on 2.37.0 or 2.37.1</li><li>Create a new, blank workflow containing only a Manual Trigger and a Code node with <code>return [{ json: { test: &quot;hello&quot; } }];</code></li><li>Execute the workflow</li><li>Fails after ~60s with &quot;Your Code node task was not matched to a runner within the timeout period&quot; — same result in every workflow on the tenant; a restart of the instance does not change the behavior</li></ol>
+<p>The same instance&#39;s Code nodes worked on the stable channel immediately before the upgrade.</p>
+<h3>Expected behavior</h3>
+<p>The task runner registers with the broker and Code node tasks execute, as on 2.36.7.</p>
+<h3>Debug Info</h3>
+<p>Full &quot;Copy debug information&quot; output available on request — key facts for this tenant:</p>
+<ul><li>n8nVersion: 2.37.0 (upgraded from stable channel 2026-08-25; issue persists after instance restart)</li><li>platform: docker (cloud)</li><li>nodeJsVersion: 26.5.1 (per the 2.37.x image; identical to the debug info in #37062)</li><li>executionMode: regular</li><li>Identical error and blank-workflow reproduction to the debug info posted in #37062</li></ul>
+<h3>Operating System</h3>
+<p>n8n Cloud (managed, Alpine-based container)</p>
+<h3>n8n Version</h3>
+<p>2.37.0 (also reported on 2.37.1; not reproducible on 2.36.7)</p>
+<h3>Node.js Version</h3>
+<p>26.5.1</p>
+<h3>Database</h3>
+<p>SQLite (default)</p>
+<h3>Execution mode</h3>
+<p>main (default)</p>
+<h3>Hosting</h3>
+<p>n8n cloud</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+0</span> <span class="r">−0</span></span></div><pre class="diff"><span class="empty">No patch was produced.</span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/n8n-io/n8n/pull/37106" rel="noopener" target="_blank">PR #37106</a></span><span class="pm"><span class="a">+20</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">.github/workflows/docker-build-push.yml</span><span class="h">index 6e59509084c..ff872e9a86c 100644</span><span class="h">@@ -277,6 +277,22 @@ jobs:</span><span class="c">           push: ${{ needs.determine-build-context.outputs.push_enabled == &#39;true&#39; }}</span><span class="c">           tags: ${{ steps.determine-tags.outputs.runners_distroless_tags }}</span><span class="c"> </span><span class="a">+      - name: Runners interpreters smoke check</span><span class="a">+        # The runtime stages assemble node/python by copying binaries across images,</span><span class="a">+        # so a missing shared library only surfaces at exec time. Runs the exact</span><span class="a">+        # interpreter paths the launcher config (n8n-task-runners.json) uses.</span><span class="a">+        if: needs.determine-build-context.outputs.push_enabled == &#39;true&#39;</span><span class="a">+        env:</span><span class="a">+          RUNNERS_TAGS: ${{ steps.determine-tags.outputs.runners_tags }}</span><span class="a">+          RUNNERS_DISTROLESS_TAGS: ${{ steps.determine-tags.outputs.runners_distroless_tags }}</span><span class="a">+        run: |</span><span class="a">+          for TAGS in &quot;$RUNNERS_TAGS&quot; &quot;$RUNNERS_DISTROLESS_TAGS&quot;; do</span><span class="a">+            IMAGE_TAG=$(echo &quot;$TAGS&quot; | cut -d&#39;,&#39; -f1)</span><span class="a">+            docker pull &quot;$IMAGE_TAG&quot;</span><span class="a">+            docker run --rm --entrypoint /usr/local/bin/node &quot;$IMAGE_TAG&quot; --version</span><span class="a">+            docker run --rm --entrypoint /opt/runners/task-runner-python/.venv/bin/python &quot;$IMAGE_TAG&quot; --version</span><span class="a">+          done</span><span class="a">+</span><span class="c">   create_multi_arch_manifest:</span><span class="c">     name: Create Multi-Arch Manifest</span><span class="c">     needs: [determine-build-context, build-and-push-docker]</span><span class="f">docker/images/runners/Dockerfile.distroless</span><span class="h">index 82f8fcfe23b..13f56c804ec 100644</span><span class="h">@@ -164,6 +164,10 @@ COPY --from=python-runner-builder /usr/lib/*-linux-gnu* /runtime/usr/lib/</span><span class="c"> # Copy Node.js runtime</span><span class="c"> COPY --from=node-debian /usr/local/bin/node /runtime/usr/local/bin/node</span><span class="c"> </span><span class="a">+# Node 26+ links against libatomic, which neither the python image above nor</span><span class="a">+# the distroless cc base provides, so stage it from the node image.</span><span class="a">+COPY --from=node-debian /usr/lib/*-linux-gnu*/libatomic.so.1* /runtime/usr/lib/</span><span class="a">+</span><span class="c"> # Copy task runners</span><span class="c"> COPY --from=javascript-runner-builder /app/task-runner-javascript /runtime/opt/runners/task-runner-javascript</span><span class="c"> COPY --from=python-runner-builder /app/task-runner-python /runtime/opt/runners/task-runner-python</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/n8n/run-20261123-070205/36473/">Previous · #36473</a>
+  <a class="mid" href="/backtests/n8n/run-20261123-070205/">All tickets in this run</a>
+  <a href="/backtests/n8n/run-20261123-070205/37361/">Next · #37361</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

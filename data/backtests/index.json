@@ -787,6 +787,33 @@
           "judge": "panel"
         }
       ]
+    },
+    {
+      "slug": "n8n",
+      "name": "n8n-io/n8n",
+      "description": "Fair-code workflow automation platform with native AI capabilities. Combine visual building with custom code, self-host or cloud, 400+ integrations.",
+      "languages": [
+        "TypeScript"
+      ],
+      "status": "active",
+      "runs": [
+        {
+          "date": "2026-11-23",
+          "id": "run-20261123-070205",
+          "source_runs": [
+            "run-20261123-070205"
+          ],
+          "tickets": 30,
+          "better": 22,
+          "par": 0,
+          "worse": 6,
+          "tie": 1,
+          "error": 1,
+          "notes": "First n8n run; judged by the four-judge panel",
+          "footnote": "",
+          "judge": "panel"
+        }
+      ]
     }
   ],
   "events": []

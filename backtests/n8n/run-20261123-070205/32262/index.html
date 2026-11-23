@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#32262 Javascript expression: Using ` (template literals) adds UNINTENDED SPACE after underscore if there&#39;s a fixed string before it — n8n-io/n8n backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #32262 in n8n-io/n8n, run 23 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/n8n/run-20261123-070205/32262/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/n8n/">n8n</a><span aria-hidden="true">/</span><a href="/backtests/n8n/run-20261123-070205/">run-20261123-070205</a><span aria-hidden="true">/</span><span aria-current="page">#32262</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/n8n-io/n8n/issues/32262" rel="noopener" target="_blank">#32262</a></span>
+  <span>Merged fix <a href="https://github.com/n8n-io/n8n/pull/42181" rel="noopener" target="_blank">PR #42181</a></span>
+  <span>Run 23 Nov 2026 · <span class="runid">run-20261123-070205</span></span>
+  <span>n8n-io/n8n</span>
+</div>
+<h1 class="ticket-title">Javascript expression: Using ` (template literals) adds UNINTENDED SPACE after underscore if there&#39;s a fixed string before it</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches apply the same root-cause fix: they stop replacing individual TemplateElements (which recast patches in place, inserting a space between a trailing identifier character like `_` and the following `${`) and instead rebuild the whole TemplateLiteral with `original = null` so recast reprints it from scratch. Both gate the rebuild on the literal containing a real newline, so literals without newlines are no longer touched at all. On the core issue they are equivalent and both resolve the `chk_ 123` symptom at its cause.
+
+The differentiator is a side effect of reprinting the whole literal. Recast&#39;s printer builds each quasi via `fromString(raw)`, which treats leading whitespace as indentation and re-emits leading tabs as spaces when concatenating. In the base code only quasis containing a newline were reprinted; with the whole-literal rebuild, every quasi of a multiline literal is reprinted, so a quasi such as `\tb_` that previously survived untouched now has its leading tab expanded to spaces under Patch A. Patch B anticipates this by escaping tabs to `\t` in the rebuilt elements (a semantically identical change to the cooked value, consistent with how newlines are already escaped) and adds a &#39;keeps tabs&#39; test for it. This is adjacent to the issue, but it directly neutralises a regression the shared approach would otherwise widen, so it counts as a correctness advantage rather than scope creep.
+
+Tests: Patch B&#39;s suite is more thorough and more faithful to the report: a direct `people.map(p =&gt; \`...\`).join(&#39;&#39;)` reproduction, fixed text plus multiple code chunks, nested literals, tagged templates, tabs, and a workflow-package test with the issue&#39;s expression shape. Patch A adds two tournament tests plus a compatibility-corpus row that cover the core case and nesting but less of the surrounding surface. All of these tests would fail on base and pass after their respective patch for the core scenario; neither could be executed by the harness (all runs crashed), so I weighed them on content only.
+
+Craft is comparable: A uses an object spread with an `original: null` type intersection, B assigns `literal.original = null` on a `{ original?: null }` type; both are clear, and B&#39;s comment explains the recast behaviour in more detail. Overall B is the better fix by a modest but real margin on correctness at the edges and on test coverage.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">2h 21m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">52,176 passed · 65 skipped · 52,305 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">99<small>vs 45 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/n8n-io/n8n/issues/32262" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Bug Description</h3>
+<p>Javascript expression: Using ` (template literals) adds UNINTENDED SPACE after underscore if there&#39;s a fixed string before it.<br>The example flow below creates this output, showcasing the <strong>buggy behaviour in the first line of the output</strong>:</p>
+<pre><code class="lang-console">
+- There&#39;s an unwanted space between the &quot;chk_&quot; and the variable-string: chk_ 123
+- When I change the _ to a - the unwanted space disappears: chk-123
+- When I use a variable in front of the _ instead of a fixed string, the unwanted space disappears as well: John_123
+
+- There&#39;s an unwanted space between the &quot;chk_&quot; and the variable-string: chk_ 456
+- When I change the _ to a - the unwanted space disappears: chk-456
+- When I use a variable in front of the _ instead of a fixed string, the unwanted space disappears as well: Max_456
+
+
+------------
+
+- There&#39;s NO unwanted space between the &quot;chk_&quot; and the variable-string anymore when not using template literals: chk_123
+- There&#39;s NO unwanted space between the &quot;chk_&quot; and the variable-string anymore when not using template literals: chk_456
+</code></pre>
+<h3>To Reproduce</h3>
+<p>Showcase flow:</p>
+<pre><code class="lang-json">{
+  &quot;nodes&quot;: [
+    {
+      &quot;parameters&quot;: {},
+      &quot;type&quot;: &quot;n8n-nodes-base.manualTrigger&quot;,
+      &quot;typeVersion&quot;: 1,
+      &quot;position&quot;: [
+        0,
+        0
+      ],
+      &quot;id&quot;: &quot;ff5abb1d-7649-4af1-ab43-a3d827566d6b&quot;,
+      &quot;name&quot;: &quot;When clicking ‘Execute workflow’&quot;
+    },
+    {
+      &quot;parameters&quot;: {
+        &quot;assignments&quot;: {
+          &quot;assignments&quot;: [
+            {
+              &quot;id&quot;: &quot;08250aec-4df6-42b2-bb2f-4719774acae0&quot;,
+              &quot;name&quot;: &quot;test&quot;,
+              &quot;value&quot;: &quot;={{$json.people.map(person =&gt; `\n- There&#39;s an unwanted space between the \&quot;chk_\&quot; and the variable-string: chk_${person.id}\n- When I change the _ to a - the unwanted space disappears: chk-${person.id}\n- When I use a variable in front of the _ instead of a fixed string, the unwanted space disappears as well: ${person.first_name}_${person.id}\n`).join(&#39;&#39;)}}\n\n------------\n\n{{$json.people.map(person =&gt; \&quot;- There&#39;s NO unwanted space between the \\\&quot;chk_\\\&quot; and the variable-string anymore when not using template literals: chk_\&quot;+person.id+\&quot;\\n\&quot;).join(&#39;&#39;)}}&quot;,
+              &quot;type&quot;: &quot;string&quot;
+            }
+          ]
+        },
+        &quot;options&quot;: {}
+      },
+      &quot;type&quot;: &quot;n8n-nodes-base.set&quot;,
+      &quot;typeVersion&quot;: 3.4,
+      &quot;position&quot;: [
+        208,
+        0
+      ],
+      &quot;id&quot;: &quot;62d238b3-2285-401f-8018-6fc3b555c477&quot;,
+      &quot;name&quot;: &quot;Edit Fields&quot;
+    }
+  ],
+  &quot;connections&quot;: {
+    &quot;When clicking ‘Execute workflow’&quot;: {
+      &quot;main&quot;: [
+        [
+          {
+            &quot;node&quot;: &quot;Edit Fields&quot;,
+            &quot;type&quot;: &quot;main&quot;,
+            &quot;index&quot;: 0
+          }
+        ]
+      ]
+    }
+  },
+  &quot;pinData&quot;: {
+    &quot;When clicking ‘Execute workflow’&quot;: [
+      {
+        &quot;people&quot;: [
+          {
+            &quot;id&quot;: &quot;123&quot;,
+            &quot;first_name&quot;: &quot;John&quot;,
+            &quot;last_name&quot;: &quot;Doe&quot;
+          },
+          {
+            &quot;id&quot;: &quot;456&quot;,
+            &quot;first_name&quot;: &quot;Max&quot;,
+            &quot;last_name&quot;: &quot;Musterman&quot;
+          }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+<h3>Expected behavior</h3>
+<p>NOT adding a space after the underscore.</p>
+<h3>Debug Info</h3>
+<h2>core</h2>
+<ul><li>n8nVersion: 2.25.7</li><li>platform: docker (self-hosted)</li></ul>
+<h2>pruning</h2>
+<ul><li>enabled: true</li><li>maxAge: 336 hours</li><li>maxCount: 10000 executions</li></ul>
+<h3>Operating System</h3>
+<p>Linux</p>
+<h3>n8n Version</h3>
+<p>2.25.7</p>
+<h3>Node.js Version</h3>
+<p>24.15.0</p>
+<h3>Database</h3>
+<p>SQLite (default)</p>
+<h3>Execution mode</h3>
+<p>main (default)</p>
+<h3>Hosting</h3>
+<p>self hosted</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+91</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">packages/@n8n/tournament/src/ExpressionBuilder.ts</span><span class="h">index 4744ecc6e0..3db878810d 100644</span><span class="h">@@ -133,21 +133,44 @@ export type ParsedCode = ExpressionCode &amp; { parsed: types.namedTypes.File };</span><span class="c"> </span><span class="c"> // This replaces any actual new lines with \n&#39;s. This only happens in</span><span class="c"> // template strings.</span><span class="a">+//</span><span class="a">+// The rebuilt template literal is marked with `original = null` so recast</span><span class="a">+// reprints it as a whole. Otherwise recast patches each changed template</span><span class="a">+// element into the original source on its own. When an element ends with an</span><span class="a">+// identifier character right before `${`, recast then inserts a space to keep</span><span class="a">+// what it thinks are two adjacent tokens apart, so `chk_${id}` would become</span><span class="a">+// `chk_ ${id}`.</span><span class="c"> const fixStringNewLines = (node: types.namedTypes.File): types.namedTypes.File =&gt; {</span><span class="c"> 	const replace = (str: string): string =&gt; {</span><span class="c"> 		return str.replace(/\n/g, &#39;\\n&#39;);</span><span class="c"> 	};</span><span class="a">+	// Tabs are escaped as well because the reprint would otherwise expand them</span><span class="a">+	// into spaces.</span><span class="a">+	const replaceInRebuilt = (str: string): string =&gt; {</span><span class="a">+		return replace(str).replace(/\t/g, &#39;\\t&#39;);</span><span class="a">+	};</span><span class="c"> 	visit(node, {</span><span class="r">-		visitTemplateElement(path) {</span><span class="a">+		visitTemplateLiteral(path) {</span><span class="c"> 			this.traverse(path);</span><span class="r">-			const el = b.templateElement(</span><span class="r">-				{</span><span class="r">-					cooked: path.node.value.cooked === null ? null : replace(path.node.value.cooked),</span><span class="r">-					raw: replace(path.node.value.raw),</span><span class="r">-				},</span><span class="r">-				path.node.tail,</span><span class="a">+			const { quasis, expressions } = path.node;</span><span class="a">+			if (!quasis.some((q) =&gt; q.value.raw.includes(&#39;\n&#39;))) {</span><span class="a">+				return;</span><span class="a">+			}</span><span class="a">+			const newQuasis = quasis.map((q) =&gt;</span><span class="a">+				b.templateElement(</span><span class="a">+					{</span><span class="a">+						cooked: q.value.cooked === null ? null : replaceInRebuilt(q.value.cooked),</span><span class="a">+						raw: replaceInRebuilt(q.value.raw),</span><span class="a">+					},</span><span class="a">+					q.tail,</span><span class="a">+				),</span><span class="a">+			);</span><span class="a">+			const literal: types.namedTypes.TemplateLiteral &amp; { original?: null } = b.templateLiteral(</span><span class="a">+				newQuasis,</span><span class="a">+				expressions,</span><span class="c"> 			);</span><span class="r">-			path.replace(el);</span><span class="a">+			literal.original = null;</span><span class="a">+			path.replace(literal);</span><span class="c"> 		},</span><span class="c"> 	});</span><span class="c"> </span><span class="f">packages/@n8n/tournament/test/Es6Syntax.test.ts</span><span class="h">index 8a8964c6a1..f27281a065 100644</span><span class="h">@@ -21,6 +21,58 @@ describe(&#39;ES6 Syntax&#39;, () =&gt; {</span><span class="c"> 		expect(result).toBe(&#39;abc 123 def&#39;);</span><span class="c"> 	});</span><span class="c"> </span><span class="a">+	describe(&#39;multiline template literals&#39;, () =&gt; {</span><span class="a">+		test(&#39;does not add a space between an identifier character and an interpolation&#39;, () =&gt; {</span><span class="a">+			const result = t.execute(&#39;{{ `\nchk_${id}\n` }}&#39;, { id: &#39;123&#39; });</span><span class="a">+</span><span class="a">+			expect(result).toBe(&#39;\nchk_123\n&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		test(&#39;in a single code chunk with a callback&#39;, () =&gt; {</span><span class="a">+			const result = t.execute(</span><span class="a">+				&quot;{{ people.map(p =&gt; `\n- chk_${p.id}\n- chk-${p.id}\n- ${p.name}_${p.id}\n`).join(&#39;&#39;) }}&quot;,</span><span class="a">+				{</span><span class="a">+					people: [</span><span class="a">+						{ id: &#39;123&#39;, name: &#39;John&#39; },</span><span class="a">+						{ id: &#39;456&#39;, name: &#39;Max&#39; },</span><span class="a">+					],</span><span class="a">+				},</span><span class="a">+			);</span><span class="a">+</span><span class="a">+			expect(result).toBe(</span><span class="a">+				&#39;\n- chk_123\n- chk-123\n- John_123\n\n- chk_456\n- chk-456\n- Max_456\n&#39;,</span><span class="a">+			);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		test(&#39;mixed with fixed text and multiple code chunks&#39;, () =&gt; {</span><span class="a">+			const result = t.execute(&#39;={{ `a$\nb_${x}c1${x}` }}\n--\n{{ `\nz9${x}_` }}&#39;, { x: &#39;X&#39; });</span><span class="a">+</span><span class="a">+			expect(result).toBe(&#39;=a$\nb_Xc1X\n--\n\nz9X_&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		test(&#39;nested template literals&#39;, () =&gt; {</span><span class="a">+			const result = t.execute(&#39;{{ `\nout_${`\nin_${x}`}` }}&#39;, { x: 1 });</span><span class="a">+</span><span class="a">+			expect(result).toBe(&#39;\nout_\nin_1&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		test(&#39;tagged template literals&#39;, () =&gt; {</span><span class="a">+			const result = t.execute(&#39;{{ tag`\nraw_${x}` }}&#39;, {</span><span class="a">+				x: 1,</span><span class="a">+				tag: (strings: TemplateStringsArray, ...values: unknown[]) =&gt;</span><span class="a">+					strings.map((str, i) =&gt; `${str}${i &lt; values.length ? String(values[i]) : &#39;&#39;}`).join(&#39;&#39;),</span><span class="a">+			});</span><span class="a">+</span><span class="a">+			expect(result).toBe(&#39;\nraw_1&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		test(&#39;keeps tabs&#39;, () =&gt; {</span><span class="a">+			const result = t.execute(&#39;{{ `\tb_${x}\n` }}&#39;, { x: 1 });</span><span class="a">+</span><span class="a">+			expect(result).toBe(&#39;\tb_1\n&#39;);</span><span class="a">+		});</span><span class="a">+	});</span><span class="a">+</span><span class="c"> 	test(&#39;spread operator&#39;, () =&gt; {</span><span class="c"> 		const result = t.execute(&#39;{{ Math.max(...[1, 2, 3]) }}&#39;, {});</span><span class="c"> </span><span class="f">packages/workflow/test/expression.test.ts</span><span class="h">index ecb7e2e9aa..9d2f7f79eb 100644</span><span class="h">@@ -273,6 +273,14 @@ describe(&#39;Expression&#39;, () =&gt; {</span><span class="c"> 			expect(thrownError?.context.itemIndex).toBe(3);</span><span class="c"> 		});</span><span class="c"> </span><span class="a">+		it(&#39;should not add a space after an identifier character before an interpolation in multiline template literals&#39;, () =&gt; {</span><span class="a">+			expect(</span><span class="a">+				evaluate(</span><span class="a">+					&quot;={{[{ id: &#39;123&#39;, first_name: &#39;John&#39; }].map(person =&gt; `\n- chk_${person.id}\n- chk-${person.id}\n- ${person.first_name}_${person.id}\n`).join(&#39;&#39;)}}\n\n---\n\n{{ `\nx_${(1).toString()}` }}&quot;,</span><span class="a">+				),</span><span class="a">+			).toBe(&#39;\n- chk_123\n- chk-123\n- John_123\n\n\n---\n\n\nx_1&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="c"> 		describe(&#39;when it returns objects as strings&#39;, () =&gt; {</span><span class="c"> 			const evaluateAsString = (value: string) =&gt;</span><span class="c"> 				expression.getParameterValue(value, null, 0, 0, &#39;node&#39;, [], &#39;manual&#39;, {}, undefined, true);</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/n8n-io/n8n/pull/42181" rel="noopener" target="_blank">PR #42181</a></span><span class="pm"><span class="a">+37</span> <span class="r">−8</span></span></div><pre class="diff"><span class="f">packages/@n8n/tournament/src/ExpressionBuilder.ts</span><span class="h">index 4744ecc6e0c..28cc39d2c66 100644</span><span class="h">@@ -137,17 +137,29 @@ const fixStringNewLines = (node: types.namedTypes.File): types.namedTypes.File =</span><span class="c"> 	const replace = (str: string): string =&gt; {</span><span class="c"> 		return str.replace(/\n/g, &#39;\\n&#39;);</span><span class="c"> 	};</span><span class="a">+	const hasNewLine = (el: types.namedTypes.TemplateElement): boolean =&gt; el.value.raw.includes(&#39;\n&#39;);</span><span class="c"> 	visit(node, {</span><span class="r">-		visitTemplateElement(path) {</span><span class="a">+		visitTemplateLiteral(path) {</span><span class="c"> 			this.traverse(path);</span><span class="r">-			const el = b.templateElement(</span><span class="r">-				{</span><span class="r">-					cooked: path.node.value.cooked === null ? null : replace(path.node.value.cooked),</span><span class="r">-					raw: replace(path.node.value.raw),</span><span class="r">-				},</span><span class="r">-				path.node.tail,</span><span class="a">+			if (!path.node.quasis.some(hasNewLine)) return;</span><span class="a">+			const quasis = path.node.quasis.map((el) =&gt;</span><span class="a">+				b.templateElement(</span><span class="a">+					{</span><span class="a">+						cooked: el.value.cooked === null ? null : replace(el.value.cooked),</span><span class="a">+						raw: replace(el.value.raw),</span><span class="a">+					},</span><span class="a">+					el.tail,</span><span class="a">+				),</span><span class="c"> 			);</span><span class="r">-			path.replace(el);</span><span class="a">+			// `original: null` makes recast print the literal from scratch. When</span><span class="a">+			// recast patches a changed element into the source instead, it adds</span><span class="a">+			// a space between an element that ends in an identifier character</span><span class="a">+			// and the `${` after it, which changes the string value.</span><span class="a">+			const literal: types.namedTypes.TemplateLiteral &amp; { original: null } = {</span><span class="a">+				...b.templateLiteral(quasis, path.node.expressions),</span><span class="a">+				original: null,</span><span class="a">+			};</span><span class="a">+			path.replace(literal);</span><span class="c"> 		},</span><span class="c"> 	});</span><span class="c"> </span><span class="f">packages/@n8n/tournament/test/Es6Syntax.test.ts</span><span class="h">index 8a8964c6a14..64f175511ee 100644</span><span class="h">@@ -21,6 +21,18 @@ describe(&#39;ES6 Syntax&#39;, () =&gt; {</span><span class="c"> 		expect(result).toBe(&#39;abc 123 def&#39;);</span><span class="c"> 	});</span><span class="c"> </span><span class="a">+	test(&#39;template literal with new lines keeps text next to interpolations&#39;, () =&gt; {</span><span class="a">+		const result = t.execute(&#39;{{ `\nchk_${num}\n${name}_${num}\n` }}&#39;, { num: 123, name: &#39;John&#39; });</span><span class="a">+</span><span class="a">+		expect(result).toBe(&#39;\nchk_123\nJohn_123\n&#39;);</span><span class="a">+	});</span><span class="a">+</span><span class="a">+	test(&#39;nested template literal with new lines&#39;, () =&gt; {</span><span class="a">+		const result = t.execute(&#39;{{ `a_${`\nb_${num}`}_c` }}&#39;, { num: 1 });</span><span class="a">+</span><span class="a">+		expect(result).toBe(&#39;a_\nb_1_c&#39;);</span><span class="a">+	});</span><span class="a">+</span><span class="c"> 	test(&#39;spread operator&#39;, () =&gt; {</span><span class="c"> 		const result = t.execute(&#39;{{ Math.max(...[1, 2, 3]) }}&#39;, {});</span><span class="c"> </span><span class="f">packages/workflow/test/expression-compatibility.test.ts</span><span class="h">index 344676f82af..77545be8a84 100644</span><span class="h">@@ -472,6 +472,11 @@ describe(&#39;Expression — compatibility corpus&#39;, () =&gt; {</span><span class="c"> 		[&#39;typeof&#39;, &#39;={{ typeof $json.id }}&#39;, &#39;number&#39;],</span><span class="c"> 		[&#39;instanceof&#39;, &#39;={{ $json.metadata instanceof Object }}&#39;, true],</span><span class="c"> 		[&#39;nested template literal&#39;, &#39;={{ `outer ${`inner ${$json.id}`}` }}&#39;, &#39;outer inner 42&#39;],</span><span class="a">+		[</span><span class="a">+			&#39;template literal with new lines keeps text next to interpolations&#39;,</span><span class="a">+			&#39;={{ `\nid_${$json.id}\n${$json.name}_${$json.id}\n` }}&#39;,</span><span class="a">+			&#39;\nid_42\nAda_42\n&#39;,</span><span class="a">+		],</span><span class="c"> 		[&#39;optional call on missing member&#39;, &#39;={{ $json.nope?.call?.() ?? &quot;none&quot; }}&#39;, &#39;none&#39;],</span><span class="c"> 		[&#39;block comment inside interpolation&#39;, &#39;={{ /* comment */ $json.id }}&#39;, 42],</span><span class="c"> 		[&#39;line comment inside interpolation&#39;, &#39;={{ $json.id // trailing comment\n }}&#39;, 42],</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/n8n/run-20261123-070205/30871/">Previous · #30871</a>
+  <a class="mid" href="/backtests/n8n/run-20261123-070205/">All tickets in this run</a>
+  <a href="/backtests/n8n/run-20261123-070205/33052/">Next · #33052</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

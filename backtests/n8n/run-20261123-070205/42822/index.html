@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#42822 Editor: Run at column in the evaluation runs table is hardcoded English — n8n-io/n8n backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #42822 in n8n-io/n8n, run 23 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/n8n/run-20261123-070205/42822/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/n8n/">n8n</a><span aria-hidden="true">/</span><a href="/backtests/n8n/run-20261123-070205/">run-20261123-070205</a><span aria-hidden="true">/</span><span aria-current="page">#42822</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/n8n-io/n8n/issues/42822" rel="noopener" target="_blank">#42822</a></span>
+  <span>Merged fix <a href="https://github.com/n8n-io/n8n/pull/42823" rel="noopener" target="_blank">PR #42823</a></span>
+  <span>Run 23 Nov 2026 · <span class="runid">run-20261123-070205</span></span>
+  <span>n8n-io/n8n</span>
+</div>
+<h1 class="ticket-title">Editor: Run at column in the evaluation runs table is hardcoded English</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical source change: they add an `evaluation.listRuns.runAt` key to en.json and replace the hardcoded `&#39;Run at&#39;` label in RunsSection.vue with `locale.baseText(&#39;evaluation.listRuns.runAt&#39;)`. That fully resolves the issue at its root (the label was never routed through i18n) and matches the convention of the neighbouring `runNumber` and `status` columns. The only difference in the en.json placement (A after `runDate`, B before it) is cosmetic. The independent tests crashed on every tree, so they provide no signal either way, and I judged the fix from the diffs. The deciding factor is tests: Patch A adds a RunsSection unit test that mocks `useI18n` to return a `translated:&lt;key&gt;` marker, stubs TestRunsTable to render each column label as text, and asserts the `runAt` header is `translated:evaluation.listRuns.runAt` and not the English `Run at`. That test would fail on the base commit (where the label is the literal string) and pass after the change, so it is a genuine regression guard rather than a tautology, and it also checks the neighbouring columns for consistency. Patch B adds no test. Scope and craft are otherwise equal, so A wins on criterion 2.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">44m 2s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">55,861 passed · 80 skipped · 56,004 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">79<small>vs 3 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/n8n-io/n8n/issues/42822" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Bug Description</h3>
+<p>On the <strong>Evaluations</strong> tab of a workflow, the table of past runs has a &quot;Run at&quot; column. Its header is written in English straight into the code, so it does not get translated.</p>
+<p><a href="https://github.com/n8n-io/n8n/blob/fa52841130f3576b50da09a55a9d1e61ae9ad5f8/packages/frontend/editor-ui/src/features/ai/evaluation.ee/components/ListRuns/RunsSection.vue#L83" rel="noopener nofollow" target="_blank">https://github.com/n8n-io/n8n/blob/fa52841130f3576b50da09a55a9d1e61ae9ad5f8/packages/frontend/editor-ui/src/features/ai/evaluation.ee/components/ListRuns/RunsSection.vue#L83</a></p>
+<p>The other columns next to it are already translated. They use <code>evaluation.listRuns.runNumber</code> and <code>evaluation.listRuns.status</code>.</p>
+<h3>To Reproduce</h3>
+<ol><li>Set the UI to a language other than English.</li><li>Open a workflow that has an evaluation set up, and go to the <strong>Evaluations</strong> tab.</li><li>Run the evaluation at least once.</li><li>In the table of past runs, the &quot;Run at&quot; header is still in English.</li></ol>
+<h3>Expected behavior</h3>
+<p>The column header shows in the selected language.</p>
+<h3>Debug Info</h3>
+<p>I found this while reading the code on <code>master</code> (2.46.0). The text is written into the code, so it happens on every setup.</p>
+<h3>Environment</h3>
+<ul><li>Operating System: macOS (platform independent)</li><li>n8n Version: 2.46.0 (<code>master</code>)</li><li>Node.js Version: 24.x</li><li>Database: n/a</li><li>Execution mode: n/a</li></ul>
+<h3>Note</h3>
+<p>I have a fix ready and will open a PR.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+78</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/frontend/@n8n/i18n/src/locales/en.json</span><span class="h">index 2a4add7be4..98de372296 100644</span><span class="h">@@ -7579,6 +7579,7 @@</span><span class="c"> 	&quot;evaluation.listRuns.testCasesListHeader&quot;: &quot;Run #{index}&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.runNumber&quot;: &quot;Run&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.runDate&quot;: &quot;Run date&quot;,</span><span class="a">+	&quot;evaluation.listRuns.runAt&quot;: &quot;Run at&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.runStatus&quot;: &quot;Run status&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.noRuns&quot;: &quot;No test runs&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.pastRuns.total&quot;: &quot;No runs | All runs | All runs&quot;,</span><span class="f">packages/frontend/editor-ui/src/features/ai/evaluation.ee/components/ListRuns/RunsSection.test.ts</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..80804969fc</span><span class="h">@@ -0,0 +1,76 @@</span><span class="a">+import { defineComponent, h, type PropType } from &#39;vue&#39;;</span><span class="a">+import { describe, expect, it, vi } from &#39;vitest&#39;;</span><span class="a">+</span><span class="a">+import { createComponentRenderer } from &#39;@/__tests__/render&#39;;</span><span class="a">+</span><span class="a">+import type { TestRunRecord } from &#39;../../evaluation.api&#39;;</span><span class="a">+import type { TestTableColumn } from &#39;../shared/TestTableBase.vue&#39;;</span><span class="a">+import RunsSection from &#39;./RunsSection.vue&#39;;</span><span class="a">+</span><span class="a">+// Simulate a non-English locale: every translated string is distinguishable</span><span class="a">+// from the hardcoded English it would otherwise fall back to.</span><span class="a">+vi.mock(&#39;@n8n/i18n&#39;, async (importOriginal) =&gt; ({</span><span class="a">+	...(await importOriginal()),</span><span class="a">+	useI18n: () =&gt; ({ baseText: (key: string) =&gt; `translated:${key}` }),</span><span class="a">+}));</span><span class="a">+</span><span class="a">+vi.mock(&#39;vue-router&#39;, async (importOriginal) =&gt; ({</span><span class="a">+	...(await importOriginal()),</span><span class="a">+	useRouter: () =&gt; ({ push: vi.fn() }),</span><span class="a">+}));</span><span class="a">+</span><span class="a">+type TestRunRow = TestRunRecord &amp; { index: number };</span><span class="a">+</span><span class="a">+const runs: TestRunRow[] = [</span><span class="a">+	{</span><span class="a">+		id: &#39;run-1&#39;,</span><span class="a">+		workflowId: &#39;workflow-id&#39;,</span><span class="a">+		status: &#39;completed&#39;,</span><span class="a">+		metrics: { accuracy: 0.9 },</span><span class="a">+		createdAt: &#39;2026-09-29T09:00:00.000Z&#39;,</span><span class="a">+		updatedAt: &#39;2026-09-29T09:01:00.000Z&#39;,</span><span class="a">+		runAt: &#39;2026-09-29T09:00:00.000Z&#39;,</span><span class="a">+		completedAt: &#39;2026-09-29T09:01:00.000Z&#39;,</span><span class="a">+		index: 1,</span><span class="a">+	},</span><span class="a">+];</span><span class="a">+</span><span class="a">+// Render each column header as plain text so the test can read what the</span><span class="a">+// real table would show, without Element Plus table layout.</span><span class="a">+const TestRunsTableStub = defineComponent({</span><span class="a">+	props: {</span><span class="a">+		columns: { type: Array as PropType&lt;Array&lt;TestTableColumn&lt;TestRunRow&gt;&gt;&gt;, required: true },</span><span class="a">+	},</span><span class="a">+	setup(props) {</span><span class="a">+		return () =&gt;</span><span class="a">+			h(</span><span class="a">+				&#39;div&#39;,</span><span class="a">+				props.columns.map((column) =&gt;</span><span class="a">+					h(&#39;span&#39;, { &#39;data-test-id&#39;: `column-${column.prop}` }, column.label),</span><span class="a">+				),</span><span class="a">+			);</span><span class="a">+	},</span><span class="a">+});</span><span class="a">+</span><span class="a">+const renderComponent = createComponentRenderer(RunsSection, {</span><span class="a">+	global: {</span><span class="a">+		stubs: {</span><span class="a">+			MetricsChart: true,</span><span class="a">+			TestRunsTable: TestRunsTableStub,</span><span class="a">+		},</span><span class="a">+	},</span><span class="a">+});</span><span class="a">+</span><span class="a">+describe(&#39;RunsSection&#39;, () =&gt; {</span><span class="a">+	it(&#39;shows translated headers for the run number, run at and status columns&#39;, () =&gt; {</span><span class="a">+		const { getByTestId } = renderComponent({</span><span class="a">+			props: { runs, workflowId: &#39;workflow-id&#39;, selectedMetric: &#39;accuracy&#39; },</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		const header = (prop: string) =&gt; getByTestId(`column-${prop}`);</span><span class="a">+		expect(header(&#39;id&#39;)).toHaveTextContent(&#39;translated:evaluation.listRuns.runNumber&#39;);</span><span class="a">+		expect(header(&#39;runAt&#39;)).toHaveTextContent(&#39;translated:evaluation.listRuns.runAt&#39;);</span><span class="a">+		expect(header(&#39;status&#39;)).toHaveTextContent(&#39;translated:evaluation.listRuns.status&#39;);</span><span class="a">+		expect(header(&#39;runAt&#39;)).not.toHaveTextContent(&#39;Run at&#39;);</span><span class="a">+	});</span><span class="a">+});</span><span class="f">packages/frontend/editor-ui/src/features/ai/evaluation.ee/components/ListRuns/RunsSection.vue</span><span class="h">index 15eed6c8ee..5f17fba6ea 100644</span><span class="h">@@ -80,7 +80,7 @@ const columns = computed(() =&gt; [</span><span class="c"> 	},</span><span class="c"> 	{</span><span class="c"> 		prop: &#39;runAt&#39;,</span><span class="r">-		label: &#39;Run at&#39;,</span><span class="a">+		label: locale.baseText(&#39;evaluation.listRuns.runAt&#39;),</span><span class="c"> 		sortable: true,</span><span class="c"> 		showOverflowTooltip: true,</span><span class="c"> 		formatter: (row: TestRunRecord) =&gt; {</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/n8n-io/n8n/pull/42823" rel="noopener" target="_blank">PR #42823</a></span><span class="pm"><span class="a">+2</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/frontend/@n8n/i18n/src/locales/en.json</span><span class="h">index 2a4add7be4b..1291e4405e4 100644</span><span class="h">@@ -7578,6 +7578,7 @@</span><span class="c"> 	&quot;evaluation.listRuns.allTestCases&quot;: &quot;All test cases | All test cases ({count})&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.testCasesListHeader&quot;: &quot;Run #{index}&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.runNumber&quot;: &quot;Run&quot;,</span><span class="a">+	&quot;evaluation.listRuns.runAt&quot;: &quot;Run at&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.runDate&quot;: &quot;Run date&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.runStatus&quot;: &quot;Run status&quot;,</span><span class="c"> 	&quot;evaluation.listRuns.noRuns&quot;: &quot;No test runs&quot;,</span><span class="f">packages/frontend/editor-ui/src/features/ai/evaluation.ee/components/ListRuns/RunsSection.vue</span><span class="h">index 15eed6c8ee8..5f17fba6ea3 100644</span><span class="h">@@ -80,7 +80,7 @@ const columns = computed(() =&gt; [</span><span class="c"> 	},</span><span class="c"> 	{</span><span class="c"> 		prop: &#39;runAt&#39;,</span><span class="r">-		label: &#39;Run at&#39;,</span><span class="a">+		label: locale.baseText(&#39;evaluation.listRuns.runAt&#39;),</span><span class="c"> 		sortable: true,</span><span class="c"> 		showOverflowTooltip: true,</span><span class="c"> 		formatter: (row: TestRunRecord) =&gt; {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/n8n/run-20261123-070205/42820/">Previous · #42820</a>
+  <a class="mid" href="/backtests/n8n/run-20261123-070205/">All tickets in this run</a>
+  <a href="/backtests/n8n/run-20261123-070205/43924/">Next · #43924</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

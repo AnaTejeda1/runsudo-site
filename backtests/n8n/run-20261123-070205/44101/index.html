@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#44101 Microsoft Outlook v1 Add attachment reads the binary field name from item 0 for every item — n8n-io/n8n backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #44101 in n8n-io/n8n, run 23 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/n8n/run-20261123-070205/44101/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/n8n/">n8n</a><span aria-hidden="true">/</span><a href="/backtests/n8n/run-20261123-070205/">run-20261123-070205</a><span aria-hidden="true">/</span><span aria-current="page">#44101</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/n8n-io/n8n/issues/44101" rel="noopener" target="_blank">#44101</a></span>
+  <span>Merged fix <a href="https://github.com/n8n-io/n8n/pull/44104" rel="noopener" target="_blank">PR #44104</a></span>
+  <span>Run 23 Nov 2026 · <span class="runid">run-20261123-070205</span></span>
+  <span>n8n-io/n8n</span>
+</div>
+<h1 class="ticket-title">Microsoft Outlook v1 Add attachment reads the binary field name from item 0 for every item</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The source change is byte-identical in both patches: the single-line switch from index 0 to index i in the v1 messageAttachment add loop, which is exactly the root cause the issue names. So correctness and scope are tied, and the decision rests on the tests. Both tests exercise the issue&#39;s scenario (two items, binary fields &#39;data&#39; and &#39;attachment&#39;, per-item binaryPropertyName) and both would fail on base because the second item would look up &#39;data&#39;, which is absent, and throw. Both assert getBinaryDataBuffer is called with (0,&#39;data&#39;) and (1,&#39;attachment&#39;), which is the direct observable of the fix. The difference is Patch A&#39;s extra assertions. A mocks getBinaryDataBuffer to resolve Buffer.from(&#39;content&#39;) and then asserts the request body contains contentBytes &#39;c2Vjb25k&#39;, the raw base64 of the second item&#39;s binary data. Those two choices are mutually inconsistent: the node calls getBinaryDataBuffer precisely to build contentBytes from the buffer (the call would be pointless otherwise), so with that mock the real contentBytes would be the base64 of &#39;content&#39;, not &#39;c2Vjb25k&#39;, and A&#39;s test would most likely fail even with the fix applied. A also relies on a pass-through returnJsonArray mock and an exact result shape of [[{success:true},{success:true}]], which couples the test to downstream helpers that are not what the issue is about. Patch B keeps its assertions to what the issue specifies: execution completes, getBinaryDataBuffer is called exactly twice, and each call uses the current item&#39;s field name. That test is internally consistent and has no assertion that contradicts its own mocks. The independent harness runs crashed on all three trees, so they provide no signal either way. Given identical fixes, B wins on test craft: a focused test that is very likely to pass after the fix beats a broader test that probably fails because of a self-contradictory mock.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 1m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">58,523 passed · 83 skipped · 58,670 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">67<small>vs 56 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/n8n-io/n8n/issues/44101" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Bug Description</h3>
+<p>In packages/nodes-base/nodes/Microsoft/Outlook/v1/MicrosoftOutlookV1.node.ts, resource Message Attachment, operation Add, the per-item loop reads the binary property name with item index 0: this.getNodeParameter(&#39;binaryPropertyName&#39;, 0). The binary data checks right after it use items[i].</p>
+<p>If the field name is an expression that differs per item, every item uses the field name of the first item. messageId and additionalFields in the same loop already use the current index i.</p>
+<p>This is the same kind of bug as #44021, but not a duplicate. That issue covers the v2 operation (v2/actions/messageAttachment/add.operation.ts). This one covers the v1 node file, which is not fixed by the v2 PR.</p>
+<h3>To Reproduce</h3>
+<ol><li>Use Microsoft Outlook node version 1 (existing workflow). Resource: Message Attachment. Operation: Add.</li><li>Two input items. Item 1 has binary data on the field &quot;data&quot;. Item 2 has binary data on the field &quot;attachment&quot;. Each item has a &quot;field&quot; value in its JSON that names its binary field.</li><li>Set &quot;Binary Property&quot; to {{ $json.field }}.</li><li>Run the node.</li><li>Item 2 looks up &quot;data&quot; instead of &quot;attachment&quot; and fails.</li></ol>
+<h3>Expected behavior</h3>
+<p>The binary field name is read with the current item index. Item 2 uses &quot;attachment&quot;.</p>
+<h3>Debug Info</h3>
+<p>Found by reading the source on master. Verified with a unit test that uses two items with different binary field names. The test fails without the fix. A fix PR will follow.</p>
+<h3>Operating System</h3>
+<p>macOS</p>
+<h3>n8n Version</h3>
+<p>2.48.0</p>
+<h3>Node.js Version</h3>
+<p>24.20.0</p>
+<h3>Database</h3>
+<p>SQLite (default)</p>
+<h3>Execution mode</h3>
+<p>main (default)</p>
+<h3>Hosting</h3>
+<p>self hosted</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+66</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/nodes-base/nodes/Microsoft/Outlook/test/v1/MessageAttachmentAdd.test.ts</span><span class="h">new file mode 100644</span><span class="h">index 0000000000..24ef335cac</span><span class="h">@@ -0,0 +1,65 @@</span><span class="a">+import { mockDeep } from &#39;vitest-mock-extended&#39;;</span><span class="a">+import type { IExecuteFunctions, INodeExecutionData } from &#39;n8n-workflow&#39;;</span><span class="a">+</span><span class="a">+import { MicrosoftOutlookV1 } from &#39;../../v1/MicrosoftOutlookV1.node&#39;;</span><span class="a">+</span><span class="a">+describe(&#39;Microsoft Outlook V1 - messageAttachment:add&#39;, () =&gt; {</span><span class="a">+	it(&#39;should read the binary property name for each item&#39;, async () =&gt; {</span><span class="a">+		const node = new MicrosoftOutlookV1({</span><span class="a">+			displayName: &#39;Microsoft Outlook&#39;,</span><span class="a">+			name: &#39;microsoftOutlook&#39;,</span><span class="a">+			group: [&#39;transform&#39;],</span><span class="a">+			description: &#39;Consume Microsoft Outlook API&#39;,</span><span class="a">+		});</span><span class="a">+		const items: INodeExecutionData[] = [</span><span class="a">+			{</span><span class="a">+				json: { field: &#39;data&#39; },</span><span class="a">+				binary: { data: { data: &#39;Zmlyc3Q=&#39;, mimeType: &#39;text/plain&#39;, fileName: &#39;first.txt&#39; } },</span><span class="a">+			},</span><span class="a">+			{</span><span class="a">+				json: { field: &#39;attachment&#39; },</span><span class="a">+				binary: {</span><span class="a">+					attachment: { data: &#39;c2Vjb25k&#39;, mimeType: &#39;text/plain&#39;, fileName: &#39;second.txt&#39; },</span><span class="a">+				},</span><span class="a">+			},</span><span class="a">+		];</span><span class="a">+		const mockExecuteFunctions = mockDeep&lt;IExecuteFunctions&gt;();</span><span class="a">+		mockExecuteFunctions.getInputData.mockReturnValue(items);</span><span class="a">+		mockExecuteFunctions.continueOnFail.mockReturnValue(false);</span><span class="a">+		mockExecuteFunctions.getNodeParameter.mockImplementation(</span><span class="a">+			(name: string, itemIndex: number) =&gt; {</span><span class="a">+				const params: Record&lt;string, unknown&gt; = {</span><span class="a">+					resource: &#39;messageAttachment&#39;,</span><span class="a">+					operation: &#39;add&#39;,</span><span class="a">+					messageId: `message-${itemIndex}`,</span><span class="a">+					binaryPropertyName: items[itemIndex].json.field,</span><span class="a">+					additionalFields: {},</span><span class="a">+				};</span><span class="a">+				return params[name] as never;</span><span class="a">+			},</span><span class="a">+		);</span><span class="a">+		mockExecuteFunctions.helpers.getBinaryDataBuffer.mockResolvedValue(Buffer.from(&#39;content&#39;));</span><span class="a">+		mockExecuteFunctions.getCredentials.mockResolvedValue({});</span><span class="a">+		mockExecuteFunctions.helpers.requestOAuth2.mockResolvedValue({});</span><span class="a">+		mockExecuteFunctions.helpers.returnJsonArray.mockImplementation(</span><span class="a">+			(data) =&gt; data as unknown as INodeExecutionData[],</span><span class="a">+		);</span><span class="a">+</span><span class="a">+		const result = await node.execute.call(mockExecuteFunctions);</span><span class="a">+</span><span class="a">+		expect(result).toEqual([[{ success: true }, { success: true }]]);</span><span class="a">+		expect(mockExecuteFunctions.helpers.getBinaryDataBuffer).toHaveBeenNthCalledWith(1, 0, &#39;data&#39;);</span><span class="a">+		expect(mockExecuteFunctions.helpers.getBinaryDataBuffer).toHaveBeenNthCalledWith(</span><span class="a">+			2,</span><span class="a">+			1,</span><span class="a">+			&#39;attachment&#39;,</span><span class="a">+		);</span><span class="a">+		expect(mockExecuteFunctions.helpers.requestOAuth2).toHaveBeenCalledWith(</span><span class="a">+			&#39;microsoftOutlookOAuth2Api&#39;,</span><span class="a">+			expect.objectContaining({</span><span class="a">+				method: &#39;POST&#39;,</span><span class="a">+				body: expect.objectContaining({ name: &#39;second.txt&#39;, contentBytes: &#39;c2Vjb25k&#39; }),</span><span class="a">+			}),</span><span class="a">+		);</span><span class="a">+	});</span><span class="a">+});</span><span class="f">packages/nodes-base/nodes/Microsoft/Outlook/v1/MicrosoftOutlookV1.node.ts</span><span class="h">index 7f1132734f..6c4a0165bc 100644</span><span class="h">@@ -654,7 +654,7 @@ export class MicrosoftOutlookV1 implements INodeType {</span><span class="c"> 				for (let i = 0; i &lt; length; i++) {</span><span class="c"> 					try {</span><span class="c"> 						const messageId = this.getNodeParameter(&#39;messageId&#39;, i) as string;</span><span class="r">-						const binaryPropertyName = this.getNodeParameter(&#39;binaryPropertyName&#39;, 0);</span><span class="a">+						const binaryPropertyName = this.getNodeParameter(&#39;binaryPropertyName&#39;, i);</span><span class="c"> 						const additionalFields = this.getNodeParameter(&#39;additionalFields&#39;, i);</span><span class="c"> </span><span class="c"> 						if (items[i].binary === undefined) {</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/n8n-io/n8n/pull/44104" rel="noopener" target="_blank">PR #44104</a></span><span class="pm"><span class="a">+55</span> <span class="r">−1</span></span></div><pre class="diff"><span class="f">packages/nodes-base/nodes/Microsoft/Outlook/test/v1/MessageAttachmentAdd.test.ts</span><span class="h">new file mode 100644</span><span class="h">index 00000000000..107208986f6</span><span class="h">@@ -0,0 +1,54 @@</span><span class="a">+import { mockDeep } from &#39;vitest-mock-extended&#39;;</span><span class="a">+import type { IExecuteFunctions, INodeExecutionData } from &#39;n8n-workflow&#39;;</span><span class="a">+</span><span class="a">+import { MicrosoftOutlookV1 } from &#39;../../v1/MicrosoftOutlookV1.node&#39;;</span><span class="a">+</span><span class="a">+describe(&#39;Microsoft Outlook V1 - messageAttachment:add&#39;, () =&gt; {</span><span class="a">+	it(&#39;should read the binary property name from the current item&#39;, async () =&gt; {</span><span class="a">+		const node = new MicrosoftOutlookV1({</span><span class="a">+			displayName: &#39;Microsoft Outlook&#39;,</span><span class="a">+			name: &#39;microsoftOutlook&#39;,</span><span class="a">+			group: [&#39;transform&#39;],</span><span class="a">+			description: &#39;Consume Microsoft Outlook API&#39;,</span><span class="a">+		});</span><span class="a">+		const items: INodeExecutionData[] = [</span><span class="a">+			{</span><span class="a">+				json: {},</span><span class="a">+				binary: { data: { data: &#39;SGVsbG8=&#39;, mimeType: &#39;text/plain&#39;, fileName: &#39;first.txt&#39; } },</span><span class="a">+			},</span><span class="a">+			{</span><span class="a">+				json: {},</span><span class="a">+				binary: {</span><span class="a">+					attachment: { data: &#39;V29ybGQ=&#39;, mimeType: &#39;text/plain&#39;, fileName: &#39;second.txt&#39; },</span><span class="a">+				},</span><span class="a">+			},</span><span class="a">+		];</span><span class="a">+		const binaryPropertyNames = [&#39;data&#39;, &#39;attachment&#39;];</span><span class="a">+		const mockExecuteFunctions = mockDeep&lt;IExecuteFunctions&gt;();</span><span class="a">+		mockExecuteFunctions.getInputData.mockReturnValue(items);</span><span class="a">+		mockExecuteFunctions.getNodeParameter.mockImplementation((name: string, itemIndex: number) =&gt; {</span><span class="a">+			const params: Record&lt;string, string | object&gt; = {</span><span class="a">+				resource: &#39;messageAttachment&#39;,</span><span class="a">+				operation: &#39;add&#39;,</span><span class="a">+				messageId: &#39;AAMkAGI2TG93AAA=&#39;,</span><span class="a">+				binaryPropertyName: binaryPropertyNames[itemIndex],</span><span class="a">+				additionalFields: {},</span><span class="a">+			};</span><span class="a">+			return params[name];</span><span class="a">+		});</span><span class="a">+		mockExecuteFunctions.getCredentials.mockResolvedValue({});</span><span class="a">+		mockExecuteFunctions.helpers.getBinaryDataBuffer.mockResolvedValue(Buffer.from(&#39;content&#39;));</span><span class="a">+		mockExecuteFunctions.helpers.requestOAuth2.mockResolvedValue({});</span><span class="a">+		mockExecuteFunctions.helpers.returnJsonArray.mockReturnValue([]);</span><span class="a">+</span><span class="a">+		await expect(node.execute.call(mockExecuteFunctions)).resolves.not.toThrow();</span><span class="a">+</span><span class="a">+		expect(mockExecuteFunctions.helpers.getBinaryDataBuffer).toHaveBeenCalledTimes(2);</span><span class="a">+		expect(mockExecuteFunctions.helpers.getBinaryDataBuffer).toHaveBeenNthCalledWith(1, 0, &#39;data&#39;);</span><span class="a">+		expect(mockExecuteFunctions.helpers.getBinaryDataBuffer).toHaveBeenNthCalledWith(</span><span class="a">+			2,</span><span class="a">+			1,</span><span class="a">+			&#39;attachment&#39;,</span><span class="a">+		);</span><span class="a">+	});</span><span class="a">+});</span><span class="f">packages/nodes-base/nodes/Microsoft/Outlook/v1/MicrosoftOutlookV1.node.ts</span><span class="h">index 7f1132734f4..6c4a0165bc0 100644</span><span class="h">@@ -654,7 +654,7 @@ export class MicrosoftOutlookV1 implements INodeType {</span><span class="c"> 				for (let i = 0; i &lt; length; i++) {</span><span class="c"> 					try {</span><span class="c"> 						const messageId = this.getNodeParameter(&#39;messageId&#39;, i) as string;</span><span class="r">-						const binaryPropertyName = this.getNodeParameter(&#39;binaryPropertyName&#39;, 0);</span><span class="a">+						const binaryPropertyName = this.getNodeParameter(&#39;binaryPropertyName&#39;, i);</span><span class="c"> 						const additionalFields = this.getNodeParameter(&#39;additionalFields&#39;, i);</span><span class="c"> </span><span class="c"> 						if (items[i].binary === undefined) {</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/n8n/run-20261123-070205/44088/">Previous · #44088</a>
+  <a class="mid" href="/backtests/n8n/run-20261123-070205/">All tickets in this run</a>
+  <span class="disabled">Next</span>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#36473 Regression in 2.35.x: JSON property named `toString` cannot be evaluated correctly in expressions / IF node — n8n-io/n8n backtest</title>
+<meta name="description" content="The judges split evenly between our patch and the merged fix. Issue #36473 in n8n-io/n8n, run 23 Nov 2026.">
+<link rel="canonical" href="https://runsudo.dev/backtests/n8n/run-20261123-070205/36473/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/n8n/">n8n</a><span aria-hidden="true">/</span><a href="/backtests/n8n/run-20261123-070205/">run-20261123-070205</a><span aria-hidden="true">/</span><span aria-current="page">#36473</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/n8n-io/n8n/issues/36473" rel="noopener" target="_blank">#36473</a></span>
+  <span>Merged fix <a href="https://github.com/n8n-io/n8n/pull/42364" rel="noopener" target="_blank">PR #42364</a></span>
+  <span>Run 23 Nov 2026 · <span class="runid">run-20261123-070205</span></span>
+  <span>n8n-io/n8n</span>
+</div>
+<h1 class="ticket-title">Regression in 2.35.x: JSON property named <code>toString</code> cannot be evaluated correctly in expressions / IF node</h1>
+
+<div class="verdict-block">
+  <span class="pill tie lg">Tie</span>
+  <p class="line">The judges split evenly between our patch and the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical root-cause change: they drop the six Object.prototype method names (toString, valueOf, toLocaleString, hasOwnProperty, isPrototypeOf, propertyIsEnumerable) from the runtime sanitizer denylist in safe-globals.ts, so `obj[key]` no longer throws for those keys and matches the transform-time denylist that already allowed `obj.key`. That resolves the issue&#39;s dot, bracket, and computed-key scenarios equally. The independent harness crashed on all three trees, so it provides no separation. The differences are in tests and craft. Patch B&#39;s tests reproduce the issue faithfully: the exact `.some(item =&gt; item.toString === &#39;To Do&#39;)` IF expression over Jira-shaped changelog data, the bracket-notation variant inside the callback, root-level `$json.toString`, a runtime-computed key, Object.keys iteration, and an object literal with a toString key, plus sibling prototype names. Its in-place comment explains why the names are deliberately absent. Patch A&#39;s tests are also solid and add a useful check that prototype members still resolve when no data field exists, and it corrects the header comment from &#39;superset&#39; to &#39;must match&#39;. However, A&#39;s new parity test calls `isSafeObjectProperty` without any import change visible in the diff; the existing parity file most plausibly imports the denylist set rather than that helper, so there is a real risk the added test does not compile, which would count as no test. B carries no such risk and its tests are more directly tied to the reported scenario, so B edges out A on tests and reliability while matching it on correctness and scope.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">1h 40m<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">52,858 passed · 70 skipped · 52,992 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">102<small>vs 77 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/n8n-io/n8n/issues/36473" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Bug Description</h3>
+<p>After upgrading from n8n <strong>2.34.x to 2.35.x</strong>, expressions that access a JSON property literally named <code>toString</code> no longer evaluate correctly.</p>
+<p>This affects payloads from external systems that legitimately use <code>toString</code> as a JSON property name. In my actual use case, the payload originates from a Jira webhook, so I do not control the upstream property name.</p>
+<p>The same workflow works correctly on n8n 2.34.x.</p>
+<p>I created a minimal reproduction that does not require Jira or any external service.</p>
+<h3>To Reproduce</h3>
+<ol><li>Import the workflow below.</li><li>Click <strong>Execute workflow</strong>.</li><li><code>Set Test Data1</code> creates objects containing <code>&quot;toString&quot;: &quot;To Do&quot;</code>.</li><li><code>Create Safe Alias</code> copies the same value to <code>JiraToString</code> while preserving the original <code>toString</code> property.</li><li>Two IF nodes evaluate the same value:</li><li><code>item.JiraToString === &#39;To Do&#39;</code></li><li><code>item.toString === &#39;To Do&#39;</code></li><li>On n8n 2.35.x, observe that the <code>JiraToString</code> condition follows the <strong>true</strong> branch while the <code>toString</code> condition follows the <strong>false</strong> branch.</li><li>On n8n 2.34.x, both conditions work correctly.</li></ol>
+<p>Bracket notation (<code>item[&#39;toString&#39;]</code>) also does not resolve the issue.</p>
+<h3>Minimal reproduction workflow</h3>
+<pre><code class="lang-json">{
+  &quot;nodes&quot;: [
+    {
+      &quot;parameters&quot;: {},
+      &quot;type&quot;: &quot;n8n-nodes-base.manualTrigger&quot;,
+      &quot;typeVersion&quot;: 1,
+      &quot;position&quot;: [-288, -96],
+      &quot;id&quot;: &quot;30a6435f-86da-4aeb-ad0a-4152362d6cb1&quot;,
+      &quot;name&quot;: &quot;When clicking ‘Execute workflow’&quot;
+    },
+    {
+      &quot;parameters&quot;: {
+        &quot;jsCode&quot;: &quot;return $input.all().map(item =&gt; {\n  const data = item.json;\n\n  if (data.changelog?.items) {\n    data.changelog.items = data.changelog.items.map(change =&gt; ({\n      ...change,\n      JiraToString: change.toString,\n    }));\n  }\n\n  return { json: data };\n});&quot;
+      },
+      &quot;type&quot;: &quot;n8n-nodes-base.code&quot;,
+      &quot;typeVersion&quot;: 2,
+      &quot;position&quot;: [160, -96],
+      &quot;id&quot;: &quot;69feb4ba-aa14-405a-9a6e-559f3860a0d3&quot;,
+      &quot;name&quot;: &quot;Create Safe Alias&quot;
+    },
+    {
+      &quot;parameters&quot;: {
+        &quot;mode&quot;: &quot;raw&quot;,
+        &quot;jsonOutput&quot;: &quot;{\n  \&quot;changelog\&quot;: {\n    \&quot;id\&quot;: \&quot;1\&quot;,\n    \&quot;items\&quot;: [\n      {\n        \&quot;field\&quot;: \&quot;status\&quot;,\n        \&quot;toString\&quot;: \&quot;To Do\&quot;\n      },\n      {\n        \&quot;field\&quot;: \&quot;status\&quot;,\n        \&quot;toString\&quot;: \&quot;In Progress\&quot;\n      }\n    ]\n  }\n}&quot;,
+        &quot;options&quot;: {}
+      },
+      &quot;id&quot;: &quot;0e49cd09-de79-4293-ad54-c2b8bb7a6c32&quot;,
+      &quot;name&quot;: &quot;Set Test Data1&quot;,
+      &quot;type&quot;: &quot;n8n-nodes-base.set&quot;,
+      &quot;typeVersion&quot;: 3.5,
+      &quot;position&quot;: [-64, -96]
+    },
+    {
+      &quot;parameters&quot;: {
+        &quot;conditions&quot;: {
+          &quot;options&quot;: {&quot;caseSensitive&quot;: true,&quot;leftValue&quot;: &quot;&quot;,&quot;typeValidation&quot;: &quot;strict&quot;,&quot;version&quot;: 3},
+          &quot;conditions&quot;: [{&quot;id&quot;:&quot;check-to-do&quot;,&quot;leftValue&quot;:&quot;={{ ($json.changelog?.items ?? []).some(item =&gt; item.JiraToString === &#39;To Do&#39;) }}&quot;,&quot;rightValue&quot;:&quot;&quot;,&quot;operator&quot;:{&quot;type&quot;:&quot;boolean&quot;,&quot;operation&quot;:&quot;true&quot;,&quot;singleValue&quot;:true}}],
+          &quot;combinator&quot;: &quot;and&quot;
+        },
+        &quot;options&quot;: {}
+      },
+      &quot;id&quot;: &quot;2325b48f-5e1f-4cea-8481-3d1273a56402&quot;,
+      &quot;name&quot;: &quot;Is To Do? JiraToString&quot;,
+      &quot;type&quot;: &quot;n8n-nodes-base.if&quot;,
+      &quot;typeVersion&quot;: 2.3,
+      &quot;position&quot;: [384, -192]
+    },
+    {
+      &quot;parameters&quot;: {
+        &quot;conditions&quot;: {
+          &quot;options&quot;: {&quot;caseSensitive&quot;: true,&quot;leftValue&quot;: &quot;&quot;,&quot;typeValidation&quot;: &quot;strict&quot;,&quot;version&quot;: 3},
+          &quot;conditions&quot;: [{&quot;id&quot;:&quot;check-to-do&quot;,&quot;leftValue&quot;:&quot;={{ ($json.changelog?.items ?? []).some(item =&gt; item.toString === &#39;To Do&#39;) }}&quot;,&quot;rightValue&quot;:&quot;&quot;,&quot;operator&quot;:{&quot;type&quot;:&quot;boolean&quot;,&quot;operation&quot;:&quot;true&quot;,&quot;singleValue&quot;:true}}],
+          &quot;combinator&quot;: &quot;and&quot;
+        },
+        &quot;options&quot;: {}
+      },
+      &quot;id&quot;: &quot;725775ff-9897-4de8-924f-6bd05056b1f8&quot;,
+      &quot;name&quot;: &quot;Is To Do? toString&quot;,
+      &quot;type&quot;: &quot;n8n-nodes-base.if&quot;,
+      &quot;typeVersion&quot;: 2.3,
+      &quot;position&quot;: [384, 0]
+    }
+  ],
+  &quot;connections&quot;: {
+    &quot;When clicking ‘Execute workflow’&quot;: {&quot;main&quot;:[[{&quot;node&quot;:&quot;Set Test Data1&quot;,&quot;type&quot;:&quot;main&quot;,&quot;index&quot;:0}]]},
+    &quot;Set Test Data1&quot;: {&quot;main&quot;:[[{&quot;node&quot;:&quot;Create Safe Alias&quot;,&quot;type&quot;:&quot;main&quot;,&quot;index&quot;:0}]]},
+    &quot;Create Safe Alias&quot;: {&quot;main&quot;:[[{&quot;node&quot;:&quot;Is To Do? JiraToString&quot;,&quot;type&quot;:&quot;main&quot;,&quot;index&quot;:0},{&quot;node&quot;:&quot;Is To Do? toString&quot;,&quot;type&quot;:&quot;main&quot;,&quot;index&quot;:0}]]}
+  },
+  &quot;pinData&quot;: {},
+  &quot;meta&quot;: {}
+}</code></pre>
+<h3>Expected behavior</h3>
+<p>Given an object containing:</p>
+<pre><code class="lang-json">{
+  &quot;toString&quot;: &quot;To Do&quot;,
+  &quot;JiraToString&quot;: &quot;To Do&quot;
+}</code></pre>
+<p>both expressions should evaluate to <code>true</code>:</p>
+<pre><code class="lang-javascript">item.toString === &#39;To Do&#39;
+item.JiraToString === &#39;To Do&#39;</code></pre>
+<h3>Actual behavior</h3>
+<p>On n8n <strong>2.35.x</strong>:</p>
+<div class="tablewrap"><table class="table"><thead><tr><th>Property</th><th>Result</th></tr></thead><tbody><tr><td><code>JiraToString</code></td><td>True</td></tr><tr><td><code>toString</code></td><td>False</td></tr></tbody></table></div>
+<p>On n8n <strong>2.34.x</strong>, both evaluate to True.</p>
+<p>Renaming or aliasing <code>toString</code> to another property name works around the problem.</p>
+<h3>Additional context</h3>
+<p>In the real workflow, <code>toString</code> comes directly from Jira changelog data, for example:</p>
+<pre><code class="lang-json">{
+  &quot;field&quot;: &quot;status&quot;,
+  &quot;fromString&quot;: &quot;Pending For Approval&quot;,
+  &quot;toString&quot;: &quot;To Do&quot;
+}</code></pre>
+<p>Because this is an upstream Jira payload, changing the source schema is not an option. A Code node alias is currently required as a workaround.</p>
+<p>This appears to be a regression introduced in the 2.35.x release line.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+95</span> <span class="r">−7</span></span></div><pre class="diff"><span class="f">packages/@n8n/expression-runtime/src/runtime/__tests__/safe-globals.test.ts</span><span class="h">index cb2cf2eb96..b58f1fca54 100644</span><span class="h">@@ -14,6 +14,20 @@ describe(&#39;__sanitize&#39;, () =&gt; {</span><span class="c"> 		expect(__sanitize(&#39;0&#39;)).toBe(&#39;0&#39;);</span><span class="c"> 	});</span><span class="c"> </span><span class="a">+	it(&#39;allows Object.prototype method names, which are common data keys&#39;, () =&gt; {</span><span class="a">+		// A Jira changelog item carries a `toString` field; `item[key]` must read it.</span><span class="a">+		for (const name of [</span><span class="a">+			&#39;toString&#39;,</span><span class="a">+			&#39;valueOf&#39;,</span><span class="a">+			&#39;toLocaleString&#39;,</span><span class="a">+			&#39;hasOwnProperty&#39;,</span><span class="a">+			&#39;isPrototypeOf&#39;,</span><span class="a">+			&#39;propertyIsEnumerable&#39;,</span><span class="a">+		]) {</span><span class="a">+			expect(__sanitize(name)).toBe(name);</span><span class="a">+		}</span><span class="a">+	});</span><span class="a">+</span><span class="c"> 	it(&#39;throws for every name in the transform-time denylist&#39;, () =&gt; {</span><span class="c"> 		// These names are rejected for static and literal keys at transform time;</span><span class="c"> 		// keys built at runtime must be rejected here as well.</span><span class="f">packages/@n8n/expression-runtime/src/runtime/safe-globals.ts</span><span class="h">index 41ac84f4ea..348630713f 100644</span><span class="h">@@ -164,13 +164,10 @@ const unsafeObjectProperties = new Set([</span><span class="c"> 	&#39;dlopen&#39;,</span><span class="c"> 	&#39;execve&#39;,</span><span class="c"> 	&#39;loadEnvFile&#39;,</span><span class="r">-	// Additional names blocked only inside this runtime</span><span class="r">-	&#39;toString&#39;,</span><span class="r">-	&#39;valueOf&#39;,</span><span class="r">-	&#39;toLocaleString&#39;,</span><span class="r">-	&#39;hasOwnProperty&#39;,</span><span class="r">-	&#39;isPrototypeOf&#39;,</span><span class="r">-	&#39;propertyIsEnumerable&#39;,</span><span class="a">+	// Object.prototype method names (toString, valueOf, hasOwnProperty, ...)</span><span class="a">+	// are deliberately not listed: they are common data keys (e.g. Jira&#39;s</span><span class="a">+	// changelog `toString`), the legacy engine allows them, and reading one</span><span class="a">+	// yields at most an isolate-local function, never a host reference.</span><span class="c"> ]);</span><span class="c"> </span><span class="c"> export function __sanitize(value: unknown): unknown {</span><span class="f">packages/workflow/test/expression-nested-data.test.ts</span><span class="h">index 2e1960fdd1..af3f540cb2 100644</span><span class="h">@@ -120,4 +120,81 @@ describe(&#39;Expression — nested $json shapes (engine parity)&#39;, () =&gt; {</span><span class="c"> 			inner: { a: undefined },</span><span class="c"> 		});</span><span class="c"> 	});</span><span class="a">+</span><span class="a">+	describe(&#39;data keys that share a name with an Object.prototype method&#39;, () =&gt; {</span><span class="a">+		const changelog = {</span><span class="a">+			changelog: {</span><span class="a">+				items: [</span><span class="a">+					{ field: &#39;status&#39;, fromString: &#39;Pending&#39;, toString: &#39;To Do&#39; },</span><span class="a">+					{ field: &#39;status&#39;, toString: &#39;In Progress&#39; },</span><span class="a">+				],</span><span class="a">+			},</span><span class="a">+		};</span><span class="a">+</span><span class="a">+		it(&#39;reads a toString key with dot notation&#39;, () =&gt; {</span><span class="a">+			expect(evaluate(&#39;={{ $json.changelog.items[0].toString }}&#39;, changelog)).toBe(&#39;To Do&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;reads a toString key with bracket notation&#39;, () =&gt; {</span><span class="a">+			expect(evaluate(&quot;={{ $json.changelog.items[0][&#39;toString&#39;] }}&quot;, changelog)).toBe(&#39;To Do&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;compares a toString key inside an array callback&#39;, () =&gt; {</span><span class="a">+			expect(</span><span class="a">+				evaluate(</span><span class="a">+					&quot;={{ ($json.changelog?.items ?? []).some(item =&gt; item.toString === &#39;To Do&#39;) }}&quot;,</span><span class="a">+					changelog,</span><span class="a">+				),</span><span class="a">+			).toBe(true);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;compares a bracket-notation toString key inside an array callback&#39;, () =&gt; {</span><span class="a">+			expect(</span><span class="a">+				evaluate(</span><span class="a">+					&quot;={{ ($json.changelog?.items ?? []).some(item =&gt; item[&#39;toString&#39;] === &#39;To Do&#39;) }}&quot;,</span><span class="a">+					changelog,</span><span class="a">+				),</span><span class="a">+			).toBe(true);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;reads a toString key at the $json root&#39;, () =&gt; {</span><span class="a">+			expect(evaluate(&#39;={{ $json.toString }}&#39;, { toString: &#39;To Do&#39; })).toBe(&#39;To Do&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;reads valueOf and hasOwnProperty keys&#39;, () =&gt; {</span><span class="a">+			const data = { item: { valueOf: &#39;v&#39;, hasOwnProperty: &#39;h&#39;, toLocaleString: &#39;l&#39; } };</span><span class="a">+			expect(evaluate(&#39;={{ $json.item.valueOf }}&#39;, data)).toBe(&#39;v&#39;);</span><span class="a">+			expect(evaluate(&quot;={{ $json.item[&#39;hasOwnProperty&#39;] }}&quot;, data)).toBe(&#39;h&#39;);</span><span class="a">+			expect(evaluate(&#39;={{ $json.item.toLocaleString }}&#39;, data)).toBe(&#39;l&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;reads a toString key through a key computed at runtime&#39;, () =&gt; {</span><span class="a">+			expect(</span><span class="a">+				evaluate(</span><span class="a">+					&quot;={{ $json.changelog.items.map(item =&gt; item[[&#39;to&#39;, &#39;String&#39;].join(&#39;&#39;)]) }}&quot;,</span><span class="a">+					changelog,</span><span class="a">+				),</span><span class="a">+			).toEqual([&#39;To Do&#39;, &#39;In Progress&#39;]);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;reads every Object.prototype-named key through Object.keys&#39;, () =&gt; {</span><span class="a">+			const data = {</span><span class="a">+				item: {</span><span class="a">+					toString: &#39;a&#39;,</span><span class="a">+					valueOf: &#39;b&#39;,</span><span class="a">+					toLocaleString: &#39;c&#39;,</span><span class="a">+					hasOwnProperty: &#39;d&#39;,</span><span class="a">+					isPrototypeOf: &#39;e&#39;,</span><span class="a">+					propertyIsEnumerable: &#39;f&#39;,</span><span class="a">+				},</span><span class="a">+			};</span><span class="a">+			expect(</span><span class="a">+				evaluate(&#39;={{ Object.keys($json.item).map(key =&gt; $json.item[key]).join() }}&#39;, data),</span><span class="a">+			).toBe(&#39;a,b,c,d,e,f&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;builds a toString key in an expression object literal&#39;, () =&gt; {</span><span class="a">+			expect(evaluate(&quot;={{ ({ toString: &#39;x&#39; }).toString }}&quot;, {})).toBe(&#39;x&#39;);</span><span class="a">+		});</span><span class="a">+	});</span><span class="c"> });</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/n8n-io/n8n/pull/42364" rel="noopener" target="_blank">PR #42364</a></span><span class="pm"><span class="a">+67</span> <span class="r">−10</span></span></div><pre class="diff"><span class="f">packages/@n8n/expression-runtime/src/runtime/__tests__/safe-globals.test.ts</span><span class="h">index cb2cf2eb960..ddcff952822 100644</span><span class="h">@@ -14,6 +14,17 @@ describe(&#39;__sanitize&#39;, () =&gt; {</span><span class="c"> 		expect(__sanitize(&#39;0&#39;)).toBe(&#39;0&#39;);</span><span class="c"> 	});</span><span class="c"> </span><span class="a">+	it.each([</span><span class="a">+		&#39;toString&#39;,</span><span class="a">+		&#39;valueOf&#39;,</span><span class="a">+		&#39;toLocaleString&#39;,</span><span class="a">+		&#39;hasOwnProperty&#39;,</span><span class="a">+		&#39;isPrototypeOf&#39;,</span><span class="a">+		&#39;propertyIsEnumerable&#39;,</span><span class="a">+	])(&#39;allows %s, which can be a field name in workflow data&#39;, (key) =&gt; {</span><span class="a">+		expect(__sanitize(key)).toBe(key);</span><span class="a">+	});</span><span class="a">+</span><span class="c"> 	it(&#39;throws for every name in the transform-time denylist&#39;, () =&gt; {</span><span class="c"> 		// These names are rejected for static and literal keys at transform time;</span><span class="c"> 		// keys built at runtime must be rejected here as well.</span><span class="f">packages/@n8n/expression-runtime/src/runtime/safe-globals.ts</span><span class="h">index 41ac84f4ea9..982a8be3d9d 100644</span><span class="h">@@ -130,15 +130,15 @@ export class ExpressionError extends Error {</span><span class="c"> // Runtime sanitizer for dynamic property access</span><span class="c"> // Generated by PrototypeSanitizer: obj[expr] → obj[this.__sanitize(expr)]</span><span class="c"> //</span><span class="r">-// This list must stay a superset of `unsafeObjectProperties` in</span><span class="a">+// This list must match `unsafeObjectProperties` in</span><span class="c"> // packages/workflow/src/utils.ts. The transform checks static and literal</span><span class="c"> // keys against that list at compile time; keys built at runtime only reach</span><span class="r">-// the check below. Drift is guarded by</span><span class="a">+// the check below. A name blocked only here makes `obj[key]` fail where</span><span class="a">+// `obj.key` works. Drift is guarded by</span><span class="c"> // packages/workflow/test/expression-sanitize-parity.test.ts.</span><span class="c"> // ============================================================================</span><span class="c"> </span><span class="c"> const unsafeObjectProperties = new Set([</span><span class="r">-	// Mirror of packages/workflow/src/utils.ts `unsafeObjectProperties`</span><span class="c"> 	&#39;__proto__&#39;,</span><span class="c"> 	&#39;prototype&#39;,</span><span class="c"> 	&#39;constructor&#39;,</span><span class="h">@@ -164,13 +164,6 @@ const unsafeObjectProperties = new Set([</span><span class="c"> 	&#39;dlopen&#39;,</span><span class="c"> 	&#39;execve&#39;,</span><span class="c"> 	&#39;loadEnvFile&#39;,</span><span class="r">-	// Additional names blocked only inside this runtime</span><span class="r">-	&#39;toString&#39;,</span><span class="r">-	&#39;valueOf&#39;,</span><span class="r">-	&#39;toLocaleString&#39;,</span><span class="r">-	&#39;hasOwnProperty&#39;,</span><span class="r">-	&#39;isPrototypeOf&#39;,</span><span class="r">-	&#39;propertyIsEnumerable&#39;,</span><span class="c"> ]);</span><span class="c"> </span><span class="c"> export function __sanitize(value: unknown): unknown {</span><span class="f">packages/workflow/test/expression-nested-data.test.ts</span><span class="h">index 2e1960fdd11..c8a0389dbab 100644</span><span class="h">@@ -120,4 +120,46 @@ describe(&#39;Expression — nested $json shapes (engine parity)&#39;, () =&gt; {</span><span class="c"> 			inner: { a: undefined },</span><span class="c"> 		});</span><span class="c"> 	});</span><span class="a">+</span><span class="a">+	describe(&#39;fields named like Object.prototype members&#39;, () =&gt; {</span><span class="a">+		const item = {</span><span class="a">+			key: &#39;toString&#39;,</span><span class="a">+			toString: &#39;to-string-value&#39;,</span><span class="a">+			valueOf: &#39;value-of-value&#39;,</span><span class="a">+			toLocaleString: &#39;to-locale-string-value&#39;,</span><span class="a">+			hasOwnProperty: &#39;has-own-property-value&#39;,</span><span class="a">+			isPrototypeOf: &#39;is-prototype-of-value&#39;,</span><span class="a">+			propertyIsEnumerable: &#39;property-is-enumerable-value&#39;,</span><span class="a">+			row: { toString: &#39;nested-value&#39; },</span><span class="a">+		};</span><span class="a">+</span><span class="a">+		it.each([</span><span class="a">+			&#39;toString&#39;,</span><span class="a">+			&#39;valueOf&#39;,</span><span class="a">+			&#39;toLocaleString&#39;,</span><span class="a">+			&#39;hasOwnProperty&#39;,</span><span class="a">+			&#39;isPrototypeOf&#39;,</span><span class="a">+			&#39;propertyIsEnumerable&#39;,</span><span class="a">+		] as const)(&#39;returns the field %s for dot, bracket and computed access&#39;, (field) =&gt; {</span><span class="a">+			expect(evaluate(`={{ $json.${field} }}`, item)).toBe(item[field]);</span><span class="a">+			expect(evaluate(`={{ $json[&#39;${field}&#39;] }}`, item)).toBe(item[field]);</span><span class="a">+			expect(evaluate(`={{ $json[[&#39;${field}&#39;][0]] }}`, item)).toBe(item[field]);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;returns the field for a key read from the data&#39;, () =&gt; {</span><span class="a">+			expect(evaluate(&#39;={{ $json[$json.key] }}&#39;, item)).toBe(&#39;to-string-value&#39;);</span><span class="a">+			expect(evaluate(&quot;={{ $json[&#39;to&#39; + &#39;String&#39;] }}&quot;, item)).toBe(&#39;to-string-value&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;returns the field from a nested object&#39;, () =&gt; {</span><span class="a">+			expect(evaluate(&#39;={{ $json.row.toString }}&#39;, item)).toBe(&#39;nested-value&#39;);</span><span class="a">+			expect(evaluate(&quot;={{ $json.row[[&#39;toString&#39;][0]] }}&quot;, item)).toBe(&#39;nested-value&#39;);</span><span class="a">+		});</span><span class="a">+</span><span class="a">+		it(&#39;resolves the prototype member when the data has no such field&#39;, () =&gt; {</span><span class="a">+			expect(evaluate(&#39;={{ typeof $json.toString }}&#39;, { a: 1 })).toBe(&#39;function&#39;);</span><span class="a">+			expect(evaluate(&#39;={{ $json.list.toString() }}&#39;, { list: [1, 2, 3] })).toBe(&#39;1,2,3&#39;);</span><span class="a">+			expect(evaluate(&#39;={{ $json.inner.hasOwnProperty(&quot;a&quot;) }}&#39;, { inner: { a: 1 } })).toBe(true);</span><span class="a">+		});</span><span class="a">+	});</span><span class="c"> });</span><span class="f">packages/workflow/test/expression-sanitize-parity.test.ts</span><span class="h">index bab900418a3..3673d14f113 100644</span><span class="h">@@ -17,4 +17,15 @@ describe(&#39;engine property denylist parity&#39;, () =&gt; {</span><span class="c"> 			expect(() =&gt; __sanitize(name)).toThrow(`Cannot access &quot;${name}&quot; due to security concerns`);</span><span class="c"> 		}</span><span class="c"> 	});</span><span class="a">+</span><span class="a">+	// Item fields can be named like any Object.prototype member. A name that the</span><span class="a">+	// transform allows must also pass the runtime sanitizer, or `$json[key]`</span><span class="a">+	// fails where `$json.key` works.</span><span class="a">+	it(&#39;allows every transform-allowed Object.prototype name in the runtime sanitizer&#39;, () =&gt; {</span><span class="a">+		const allowedNames = Object.getOwnPropertyNames(Object.prototype).filter(isSafeObjectProperty);</span><span class="a">+		expect(allowedNames).toContain(&#39;toString&#39;);</span><span class="a">+		for (const name of allowedNames) {</span><span class="a">+			expect(__sanitize(name)).toBe(name);</span><span class="a">+		}</span><span class="a">+	});</span><span class="c"> });</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/n8n/run-20261123-070205/36307/">Previous · #36307</a>
+  <a class="mid" href="/backtests/n8n/run-20261123-070205/">All tickets in this run</a>
+  <a href="/backtests/n8n/run-20261123-070205/37064/">Next · #37064</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
