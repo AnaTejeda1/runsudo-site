@@ -9,7 +9,7 @@
 }
 *{box-sizing:border-box}
 html{color-scheme:dark;background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;animation:fade .6s ease-out both}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;animation:fade .6s ease-out backwards}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){body{animation:none}}
 a{color:inherit;text-decoration:none}
@@ -284,6 +284,8 @@ html.js .collapse[data-collapsed] .toggle,html.js .collapse[data-expanded] .togg
    browsers without them). Every animated element is .an: it plays its keyframes across
    [--a, --b], in percent of the pinned scroll. Plateaus between ranges are the pauses. */
 body{overflow-x:clip}
+/* typed, so the fallback's per-frame --p write is a cheap number change */
+@property --p{syntax:'<number>';inherits:true;initial-value:0}
 #replay{--docker:#1D63ED;--sudo:#6aa0ff;--sudo-bg:rgba(106,160,255,.13);--sudo-line:rgba(106,160,255,.55);--eng:#f2a33c;--eng-bg:rgba(242,163,60,.12);--eng-line:rgba(242,163,60,.55)}
 #replay .intro2{margin:0;color:var(--muted);font-size:17px;max-width:48ch;align-self:end}
 #replay{padding-top:36px}
@@ -470,16 +472,24 @@ body{overflow-x:clip}
 @media (prefers-reduced-motion:no-preference) and (min-width:761px){
   #replay .reel{--fit:1;height:1946vh;margin-inline:calc(50% - 50vw);view-timeline:--reel block}
   #replay .stage{position:sticky;top:0;height:100vh;overflow:hidden}
-  #replay .frame{display:block;position:absolute;left:50%;top:50%;width:1200px;height:760px;margin:-380px 0 0 -600px;transform:scale(var(--fit))}
+  /* --ox/--oy (replay.js) nudge the scaled frame onto whole device pixels so its layers are not drawn at half-pixel offsets */
+  #replay .frame{display:block;position:absolute;left:50%;top:50%;width:1200px;height:760px;margin:-380px 0 0 -600px;transform:translate(var(--ox,0px),var(--oy,0px)) scale(var(--fit))}
   #replay .world,#replay .ground,#replay .inside,#replay .vp,#replay .col,#replay .pt,#replay .pe{display:block}
   #replay .hud,#replay .mark,#replay .ihead{display:flex}
   #replay .grid,#replay .route,#replay .crate,#replay .scan,#replay .tk,#replay .brace,#replay .gaze,#replay .eye{display:block}
   #replay .crates2d{display:none}
 
   #replay .an{--a:0;--b:100;animation-duration:auto;animation-fill-mode:both;animation-timing-function:linear;animation-timeline:--reel;animation-range:contain calc(var(--a) * 1%) contain calc(var(--b) * 1%)}
-  #replay .jr.pk::after{animation:pkx auto linear both;animation-timeline:--reel;animation-range:contain 0% contain 100%}
-  .no-sdt #replay .an{animation-timeline:auto;animation-duration:1s;animation-play-state:paused;animation-delay:calc(clamp(0, (var(--p, 0) * 100 - var(--a)) / (var(--b) - var(--a)), .9999) * -1s)}
-  .no-sdt #replay .jr.pk::after{animation-timeline:auto;animation-duration:1s;animation-play-state:paused;animation-delay:calc(var(--p, 0) * -.9999s)}
+  /* Where the last keyframe equals the static style, fill only backwards: once its range is over the
+     animation stops applying, so the element leaves its animation layer and is drawn crisp at rest. */
+  #replay .an:where(.srow,.trace span,.tl,.chk li,.crit,.verdict,.verdict .rv,.jhead,.pg .row,.s1,.s0>span,.r0 b,.r2 b,.bar i,.tag,.jchip,.ob2,.tg1,.ih2,.hz.good,.vpatch,.tkl,.grid,.mark,.crate .fr .shd){animation-fill-mode:backwards}
+  /* the picked-row overlay runs only across 8.183..14.204 and rests in its final state as a static style */
+  #replay .jr.pk::after{background-color:rgba(255,255,255,.82);border-left-color:transparent;outline-color:#B3B9C4;animation:pkx auto linear backwards;animation-timeline:--reel;animation-range:contain 8.183% contain 14.204%}
+  /* the judge's eye: ring (::after) and dim (::before) are static layers faded by opacity only */
+  #replay .eye::before,#replay .eye::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;animation-duration:auto;animation-fill-mode:none;animation-timing-function:linear;animation-timeline:--reel;animation-range:contain calc(var(--a) * 1%) contain calc(var(--b) * 1%)}
+  .no-sdt #replay .an{animation-timeline:auto;animation-duration:1s;animation-fill-mode:both;animation-play-state:paused;animation-delay:calc(clamp(0, (var(--p, 0) * 100 - var(--a)) / (var(--b) - var(--a)), .9999) * -1s)}
+  .no-sdt #replay .jr.pk::after{animation-timeline:auto;animation-duration:1s;animation-fill-mode:both;animation-play-state:paused;animation-delay:calc(clamp(0, (var(--p, 0) * 100 - 8.183) / 6.021, .9999) * -1s)}
+  .no-sdt #replay .eye::before,.no-sdt #replay .eye::after{animation-timeline:auto;animation-duration:1s;animation-play-state:paused;animation-delay:calc(clamp(0, (var(--p, 0) * 100 - var(--a)) / (var(--b) - var(--a)), .9999) * -1s)}
 
   /* captions and the step rail */
   #replay .cap{position:absolute;left:0;top:0;width:820px;margin:0;z-index:2;animation-name:capx}
@@ -497,7 +507,7 @@ body{overflow-x:clip}
   #replay .c9,#replay .prog i:nth-child(9){--a:95.662;--b:115}
 
   /* camera: the ground plane tilts, pans and dives; translate3d is the look-at point */
-  #replay .world{position:absolute;inset:0;perspective:1500px;perspective-origin:600px 440px;animation-name:worldx}
+  #replay .world{position:absolute;inset:0;perspective:1500px;perspective-origin:600px 440px;animation-name:worldx,worldvis}
   #replay .ground{position:absolute;left:0;top:0;width:1200px;height:760px;transform-style:preserve-3d;transform-origin:600px 440px;animation-name:cam}
   #replay .ground>*{position:absolute}
   #replay .grid{left:-900px;top:-500px;width:4400px;height:1900px;background:linear-gradient(#1a1a1a 1px,transparent 1px) 0 0/48px 48px,linear-gradient(90deg,#1a1a1a 1px,transparent 1px) 0 0/48px 48px;-webkit-mask-image:radial-gradient(closest-side,#000 55%,transparent);mask-image:radial-gradient(closest-side,#000 55%,transparent);--a:11.579;--b:16.983;animation-name:fadein}
@@ -520,7 +530,7 @@ body{overflow-x:clip}
   #replay .ob2{visibility:visible;--a:8.183;--b:8.723;animation-name:fadein}
 
   /* pick: tickets pop out of their rows, fan out above the tilted board, then fly to containers */
-  #replay .tk{--a:calc(11.965 + var(--k) * .463);--b:calc(31.264 + var(--k) * .463);animation-name:fly}
+  #replay .tk{--a:calc(11.965 + var(--k) * .463);--b:calc(31.264 + var(--k) * .463);animation-name:fly,flyskin}
   #replay .t1{--k:0;--x0:240px;--y0:248px;--x1:150px;--xm:820px;--ym:400px;--zm:230px;--rm:8deg;--x2:1620px;--y2:345px}
   #replay .t2{--k:1;--x0:240px;--y0:282px;--x1:460px;--xm:1080px;--ym:350px;--zm:280px;--rm:4deg;--x2:1920px;--y2:315px}
   #replay .t3{--k:2;--x0:240px;--y0:316px;--x1:770px;--xm:1340px;--ym:420px;--zm:230px;--rm:-2deg;--x2:2220px;--y2:345px}
@@ -545,7 +555,7 @@ body{overflow-x:clip}
      Panels stack as solve / suite / duel / report; the camera opens on the suite, rises to
      solve, comes back down to the same suite for the rerun, then moves on to the duel, which
      the judge then reads in place. */
-  #replay .inside{position:absolute;left:0;top:120px;width:1200px;height:640px;border:1px solid var(--docker);border-radius:14px;background:#0a0c11;overflow:hidden;transform-origin:600px 330px;animation-name:inside}
+  #replay .inside{position:absolute;left:0;top:120px;width:1200px;height:640px;border:1px solid var(--docker);border-radius:14px;background:#0a0c11;overflow:hidden;transform-origin:600px 330px;animation-name:inside,insideb}
   #replay .ihead{position:relative;height:44px;align-items:center;padding:0 18px;border-bottom:1px solid rgba(29,99,237,.4);font-family:var(--mono);font-size:12px;color:#9dbcf5}
   #replay .ihead>span{position:absolute;left:18px;display:flex;align-items:center;gap:10px}
   #replay .ihead .shd{width:16px;height:16px;color:#5b93ff}
@@ -590,7 +600,7 @@ body{overflow-x:clip}
   #replay .trace .e{color:var(--bad)} #replay .trace .m{margin-top:8px;color:var(--muted)}
   #replay .vpatch{width:100%;--a:64.843;--b:65.872;animation-name:wipe}
   #replay .chk li{--a:calc(66.181 + var(--i) * 2.779);--b:calc(66.696 + var(--i) * 2.779);animation-name:rowin}
-  #replay .stamp{--a:69.577;--b:70.607;animation-name:stamp}
+  #replay .stamp{--a:69.577;--b:70.607;animation-name:stamp;animation-fill-mode:backwards}
 
   /* 05 solve */
   #replay .tl{--a:calc(50.022 + var(--i) * .618);--b:calc(50.588 + var(--i) * .618);animation-name:rowin}
@@ -610,14 +620,15 @@ body{overflow-x:clip}
      judge. Each lands centred on one end of the bracket (x 419 and 781, top 124). While the
      judge reads, names read Patch A and B and the clean pill is hidden; they swap back for
      the reveal. */
-  #replay .side{position:absolute;top:52px;width:562px;z-index:2;transform-origin:50% 0;--a:80.676;--b:83.042;animation-name:pull;animation-timing-function:cubic-bezier(.65,0,.3,1)}
+  #replay .side{position:absolute;top:52px;width:562px;z-index:2;transform-origin:50% 0;transform:translate(var(--dx),72px) scale(.62);--a:80.676;--b:83.042;animation-name:pull;animation-fill-mode:backwards;animation-timing-function:cubic-bezier(.65,0,.3,1)}
   #replay .sa{left:24px;--dx:114.3px} #replay .sb{left:614px;--dx:-114.3px}
   #replay .real,#replay .pf1{grid-area:1/1;--a:83.042;--b:93.493;animation-name:blindout}
   #replay .blind{display:block;grid-area:1/1;font-size:24px;line-height:1;--a:83.042;--b:93.493;animation-name:blindin}
   #replay .pft{display:grid}
   #replay .pf2{display:block;grid-area:1/1;--a:83.042;--b:93.493;animation-name:blindin}
-  #replay .eye{position:absolute;inset:0;z-index:5;border-radius:11px;pointer-events:none;--ring:var(--sudo);--a:83.318;--b:92.438;animation-name:lookA}
-  #replay .pb .eye{--ring:var(--eng);animation-name:lookB}
+  #replay .eye{position:absolute;inset:0;z-index:5;border-radius:11px;pointer-events:none;--ring:var(--sudo);--a:83.318;--b:92.438}
+  #replay .eye::before{background:rgba(8,10,14,.62);animation-name:lookB} #replay .eye::after{box-shadow:inset 0 0 0 3px var(--ring);animation-name:lookA}
+  #replay .pb .eye{--ring:var(--eng)} #replay .pb .eye::before{animation-name:lookA} #replay .pb .eye::after{animation-name:lookB}
   #replay .jg{display:contents}
   #replay .jhead{position:absolute;left:243px;top:20px;width:714px;text-align:center;--a:81.859;--b:82.845;animation-name:rowin}
   #replay .jhead .bk{justify-content:center;margin:0 0 4px}
@@ -651,10 +662,11 @@ body{overflow-x:clip}
 @keyframes tagin{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
 @keyframes dim{to{opacity:.4}}
 @keyframes sort{0%{transform:translate(0,0)}50%{transform:translate(var(--bx,0px),calc(var(--dy) * 17px))}100%{transform:translate(0,calc(var(--dy) * 34px))}}
+/* runs over 8.183..14.204 of the scroll (8.954 and 12.505 map to 12.805% and 71.783%) */
 @keyframes pkx{
-  0%,8.183%{opacity:0}
-  8.954%,12.505%{opacity:1;background-color:rgba(12,102,228,.1);border-left-color:#0C66E4;outline-color:transparent}
-  14.204%,100%{opacity:1;background-color:rgba(255,255,255,.82);border-left-color:transparent;outline-color:#B3B9C4}
+  0%{opacity:0;background-color:rgba(12,102,228,.1);border-left-color:#0C66E4;outline-color:transparent}
+  12.805%,71.783%{opacity:1;background-color:rgba(12,102,228,.1);border-left-color:#0C66E4;outline-color:transparent}
+  100%{opacity:1;background-color:rgba(255,255,255,.82);border-left-color:transparent;outline-color:#B3B9C4}
 }
 @keyframes cam{
   0%,11.579%{transform:translateZ(0px) rotateX(0deg) rotateZ(0deg) translate3d(0px,0px,0px);animation-timing-function:cubic-bezier(.65,0,.25,1)}
@@ -664,24 +676,31 @@ body{overflow-x:clip}
   36.281%{transform:translateZ(30px) rotateX(55deg) rotateZ(10deg) translate3d(-1460px,30px,0px);animation-timing-function:cubic-bezier(.7,0,.25,1)}
   41.685%,100%{transform:translateZ(1150px) rotateX(82deg) rotateZ(0deg) translate3d(-1160px,-60px,0px)}
 }
-@keyframes worldx{0%,39.369%{opacity:1;visibility:visible}41.273%,100%{opacity:0;visibility:hidden}}
+/* opacity and visibility are split so the fade stays on the compositor */
+@keyframes worldx{0%,39.369%{opacity:1}41.273%,100%{opacity:0}}
+@keyframes worldvis{0%,41.272%{visibility:visible}41.273%,100%{visibility:hidden}}
+/* transform and opacity only, so the flight runs on the compositor; the Jira-to-dark skin is flyskin */
 @keyframes fly{
-  0%{opacity:0;transform:translate3d(var(--x0),var(--y0),2px) rotateZ(0deg) rotateX(0deg) scale(.94);background-color:#fff;color:#172B4D;border-color:#DCDFE4}
-  8%{opacity:1;transform:translate3d(var(--x0),var(--y0),40px) rotateZ(0deg) rotateX(0deg) scale(1);background-color:#fff;color:#172B4D;border-color:#DCDFE4;animation-timing-function:cubic-bezier(.5,0,.2,1)}
-  30%,50%{opacity:1;transform:translate3d(var(--x1),370px,110px) rotateZ(14deg) rotateX(-54deg) scale(1);background-color:#0d0d0d;color:#f5f5f5;border-color:#2a2a2a;animation-timing-function:cubic-bezier(.5,0,.6,.6)}
+  0%{opacity:0;transform:translate3d(var(--x0),var(--y0),2px) rotateZ(0deg) rotateX(0deg) scale(.94)}
+  8%{opacity:1;transform:translate3d(var(--x0),var(--y0),40px) rotateZ(0deg) rotateX(0deg) scale(1);animation-timing-function:cubic-bezier(.5,0,.2,1)}
+  30%,50%{opacity:1;transform:translate3d(var(--x1),370px,110px) rotateZ(14deg) rotateX(-54deg) scale(1);animation-timing-function:cubic-bezier(.5,0,.6,.6)}
   70%{transform:translate3d(var(--xm),var(--ym),var(--zm)) rotateZ(var(--rm)) rotateX(-40deg) scale(.9);animation-timing-function:cubic-bezier(.3,.3,.4,1)}
   88%{transform:translate3d(var(--x2),var(--y2),210px) rotateZ(0deg) rotateX(-6deg) scale(.72);animation-timing-function:cubic-bezier(.6,0,.4,1)}
   96%,100%{opacity:1;transform:translate3d(var(--x2),var(--y2),12px) rotateZ(0deg) rotateX(0deg) scale(.7)}
+}
+@keyframes flyskin{
+  0%,8%{background-color:#fff;color:#172B4D;border-color:#DCDFE4;animation-timing-function:cubic-bezier(.5,0,.2,1)}
+  30%,50%{background-color:#0d0d0d;color:#f5f5f5;border-color:#2a2a2a}
 }
 @keyframes rise{from{transform:scale3d(1,1,.02)}to{transform:scale3d(1,1,1)}}
 @keyframes lid{from{transform:translateZ(120px) rotateX(108deg)}to{transform:translateZ(120px) rotateX(0deg)}}
 @keyframes pop{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.18)}100%{opacity:1;transform:scale(1)}}
 @keyframes inside{
-  0%,38.597%{opacity:0;transform:scale(.16);border-color:var(--docker);animation-timing-function:ease-out}
+  0%,38.597%{opacity:0;transform:scale(.16);animation-timing-function:ease-out}
   39.678%{opacity:1;transform:scale(.42)}
-  41.273%,95.859%{opacity:1;transform:none;border-color:var(--docker);animation-timing-function:ease-in-out}
-  97.634%,100%{opacity:1;transform:none;border-color:var(--line)}
+  41.273%,100%{opacity:1;transform:none}
 }
+@keyframes insideb{0%,95.859%{border-color:var(--docker);animation-timing-function:ease-in-out}97.634%,100%{border-color:var(--line)}}
 @keyframes colpan{
   0%,47.346%{transform:translateY(-596px);animation-timing-function:cubic-bezier(.65,0,.3,1)}
   49.919%,61.755%{transform:translateY(0);animation-timing-function:cubic-bezier(.65,0,.3,1)}
@@ -712,16 +731,15 @@ body{overflow-x:clip}
   71.5%,77%{transform:translateX(-181px)} 79.5%,85%{transform:translateX(181px)} 87%,94%{opacity:1;transform:none}
   100%{opacity:0;transform:none}
 }
-/* the ring is hidden outright outside the judging range so it never touches the text rendering of 07 */
+/* the eye layers fade by opacity only and use fill none, so outside the judging range they are plain
+   transparent boxes that never touch the text rendering of 07. lookA is on while A is read, lookB while B is. */
 @keyframes lookA{
-  0%,100%{visibility:hidden} .2%,99.8%{visibility:visible}
-  0%,10%,27%,30%,47%,50%,67%,70%,87%,100%{box-shadow:inset 0 0 0 0 transparent;background-color:transparent}
-  11.5%,17%,31.5%,37%,51.5%,57%,71.5%,77%{box-shadow:inset 0 0 0 3px var(--ring);background-color:transparent}
-  19.5%,25%,39.5%,45%,59.5%,65%,79.5%,85%{box-shadow:inset 0 0 0 0 transparent;background-color:rgba(8,10,14,.62)}
+  0%,10%,27%,30%,47%,50%,67%,70%,87%,100%{opacity:0}
+  11.5%,17%,31.5%,37%,51.5%,57%,71.5%,77%{opacity:1}
+  19.5%,25%,39.5%,45%,59.5%,65%,79.5%,85%{opacity:0}
 }
 @keyframes lookB{
-  0%,100%{visibility:hidden} .2%,99.8%{visibility:visible}
-  0%,10%,27%,30%,47%,50%,67%,70%,87%,100%{box-shadow:inset 0 0 0 0 transparent;background-color:transparent}
-  11.5%,17%,31.5%,37%,51.5%,57%,71.5%,77%{box-shadow:inset 0 0 0 0 transparent;background-color:rgba(8,10,14,.62)}
-  19.5%,25%,39.5%,45%,59.5%,65%,79.5%,85%{box-shadow:inset 0 0 0 3px var(--ring);background-color:transparent}
+  0%,10%,27%,30%,47%,50%,67%,70%,87%,100%{opacity:0}
+  11.5%,17%,31.5%,37%,51.5%,57%,71.5%,77%{opacity:0}
+  19.5%,25%,39.5%,45%,59.5%,65%,79.5%,85%{opacity:1}
 }
