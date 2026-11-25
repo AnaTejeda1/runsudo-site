@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#6043 Daytona extra allows daytona 2.0, which removes the 0.x API DaytonaSandboxClient uses — openai/openai-agents-python backtest</title>
+<meta name="description" content="Our patch was judged better than the merged fix. Issue #6043 in openai/openai-agents-python, run 25 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261125-025211/6043/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/run-20261125-025211/">run-20261125-025211</a><span aria-hidden="true">/</span><span aria-current="page">#6043</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/openai/openai-agents-python/issues/6043" rel="noopener" target="_blank">#6043</a></span>
+  <span>Merged fix <a href="https://github.com/openai/openai-agents-python/pull/6065" rel="noopener" target="_blank">PR #6065</a></span>
+  <span>Run 25 Nov 2026 · <span class="runid">run-20261125-025211</span></span>
+  <span>openai/openai-agents-python</span>
+</div>
+<h1 class="ticket-title">Daytona extra allows daytona 2.0, which removes the 0.x API DaytonaSandboxClient uses</h1>
+
+<div class="verdict-block">
+  <span class="pill better lg">Better</span>
+  <p class="line">Our patch was judged better than the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches make the identical one-line change to pyproject.toml, capping the extra at `daytona&gt;=0.226.1,&lt;1`, which is exactly the fix the issue requests and addresses the root cause (the extra resolving to the 2.x SDK whose root package no longer exposes the 0.x symbols the client imports). Lockfile changes were stripped from both diffs, so neither can be judged on uv.lock. On correctness and scope they are equal.
+
+The difference is tests. Patch B adds none. Patch A adds two: one parses pyproject.toml, extracts the daytona specifier, and asserts that 0.226.1 satisfies it while 1.0.0 and 2.0.0 do not. This test would fail on the pre-patch specifier (`&gt;=0.226.1` admits 2.0.0) and pass after, so it is a genuine regression guard against someone dropping the cap. The second test asserts the uv.lock requires-dist entry matches the pyproject specifier, guarding against the pyproject/lock drift the issue implicitly cares about.
+
+Craft caveats on A: it hand-rolls a PEP 440-ish comparator (~40 lines) instead of using `packaging.specifiers.SpecifierSet`, relies on `tomli` on Python &lt;3.11 and on `Path`, `Any`, and `sys` already being imported in the test module (no import changes appear in the diff), and the uv.lock test is somewhat coupled to uv&#39;s lock format. These are mild risks and some over-engineering, but they do not negate the value of having a test that actually fails before and passes after. Since the fixes are otherwise identical, the presence of a meaningful regression test tips it to A.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 1s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">779 passed · 1 skipped · 780 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">77<small>vs 4 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/openai/openai-agents-python/issues/6043" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Please read this first</h3>
+<ul><li><strong>Have you read the docs?</strong> Yes</li><li><strong>Have you searched for related issues?</strong> Yes, none found.</li></ul>
+<h3>Describe the bug</h3>
+<p>The <code>daytona</code> extra requires <code>daytona&gt;=0.226.1</code> with no upper bound. Daytona SDK 2.0 keeps only the clients, <code>DaytonaConfig</code> and the errors at the <code>daytona</code> package root and moves the 0.x API to <code>daytona.v0</code>. <code>agents/extensions/sandbox/daytona/sandbox.py</code> imports <code>CreateSandboxFromImageParams</code>, <code>CreateSandboxFromSnapshotParams</code>, <code>SandboxState</code>, <code>Resources</code>, <code>SessionExecuteRequest</code> and <code>daytona.common.pty</code> from the root. On 2.x, <code>DaytonaSandboxClient()</code> raises the &quot;requires the optional <code>daytona</code> dependency&quot; error even though the extra is installed, and reinstalling the extra gets 2.x again.</p>
+<p>2.0.0 was briefly the default install on 2026-11-13. Daytona pulled it back (yanked on PyPI) and plans to make it the default again next week. After that, a fresh <code>pip install &quot;openai-agents[daytona]&quot;</code> gets 2.0.0.</p>
+<h3>Debug information</h3>
+<ul><li>Agents SDK version: 0.24.0</li><li>Related library versions: daytona 2.0.0</li><li>Python version: 3.12</li><li>Operating system: Linux</li><li>Model and model provider: N/A</li><li>Does the issue reproduce with the latest Agents SDK release? Yes</li><li>Does the issue occur consistently or intermittently? Consistently</li></ul>
+<pre><code class="lang-text">  File &quot;.../agents/extensions/sandbox/daytona/sandbox.py&quot;, line 188, in _import_daytona_sdk
+    raise ImportError(
+ImportError: DaytonaSandboxClient requires the optional `daytona` dependency.
+Install the Daytona extra before using this sandbox backend.</code></pre>
+<h3>Repro steps</h3>
+<p>2.0.0 is yanked right now, so it has to be pinned:</p>
+<pre><code class="lang-bash">pip install &quot;openai-agents[daytona]==0.24.0&quot; &quot;daytona==2.0.0&quot;</code></pre>
+<pre><code class="lang-python">from agents.extensions.sandbox.daytona import DaytonaSandboxClient
+
+DaytonaSandboxClient()</code></pre>
+<h3>Expected behavior</h3>
+<p>The <code>daytona</code> extra installs a Daytona SDK version the integration supports.</p>
+<p>Suggested fix: cap the extra at <code>daytona&gt;=0.226.1,&lt;1</code>, the pin Daytona recommends for 0.x code. <code>uv lock</code> then changes only that specifier in <code>uv.lock</code>. A later change can move the integration to <code>daytona.v0</code> with <code>daytona[v0-sdk]&gt;=2,&lt;3</code>.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+75</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pyproject.toml</span><span class="h">index 4219dfe1..76b741f1 100644</span><span class="h">@@ -64,7 +64,7 @@ mongodb = [&quot;pymongo&gt;=4.18.3&quot;]</span><span class="c"> docker = [&quot;docker&gt;=6.1&quot;]</span><span class="c"> blaxel = [&quot;blaxel&gt;=0.2.50&quot;, &quot;aiohttp&gt;=3.14.3,&lt;4&quot;]</span><span class="c"> daytona = [</span><span class="r">-    &quot;daytona&gt;=0.226.1&quot;,</span><span class="a">+    &quot;daytona&gt;=0.226.1,&lt;1&quot;,</span><span class="c">     &quot;aiohttp&gt;=3.14.3,&lt;4&quot;,</span><span class="c">     &quot;protobuf&gt;=5.29.6,!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*&quot;,</span><span class="c"> ]</span><span class="f">tests/extensions/sandbox/test_daytona.py</span><span class="h">index b1b75607..b3822397 100644</span><span class="h">@@ -2208,3 +2208,76 @@ def test_build_docker_volume_driver_config_returns_none() -&gt; None:</span><span class="c">     strategy = DaytonaCloudBucketMountStrategy()</span><span class="c">     mount = MagicMock()</span><span class="c">     assert strategy.build_docker_volume_driver_config(mount) is None</span><span class="a">+</span><span class="a">+</span><span class="a">+_REPO_ROOT = Path(__file__).resolve().parents[3]</span><span class="a">+</span><span class="a">+</span><span class="a">+def _load_toml(name: str) -&gt; dict[str, Any]:</span><span class="a">+    if sys.version_info &gt;= (3, 11):</span><span class="a">+        import tomllib</span><span class="a">+    else:</span><span class="a">+        import tomli as tomllib</span><span class="a">+</span><span class="a">+    return tomllib.loads((_REPO_ROOT / name).read_text(encoding=&quot;utf-8&quot;))</span><span class="a">+</span><span class="a">+</span><span class="a">+def _daytona_extra_specifier() -&gt; str:</span><span class="a">+    import re</span><span class="a">+</span><span class="a">+    extra = _load_toml(&quot;pyproject.toml&quot;)[&quot;project&quot;][&quot;optional-dependencies&quot;][&quot;daytona&quot;]</span><span class="a">+    specifiers = [</span><span class="a">+        match.group(1)</span><span class="a">+        for requirement in extra</span><span class="a">+        if (match := re.fullmatch(r&quot;daytona\s*([&lt;&gt;=!~].*)&quot;, requirement)) is not None</span><span class="a">+    ]</span><span class="a">+    assert len(specifiers) == 1, extra</span><span class="a">+    return str(specifiers[0])</span><span class="a">+</span><span class="a">+</span><span class="a">+def _version_satisfies(version: tuple[int, ...], specifier: str) -&gt; bool:</span><span class="a">+    import operator</span><span class="a">+    import re</span><span class="a">+</span><span class="a">+    checks = {</span><span class="a">+        &quot;&lt;&quot;: operator.lt,</span><span class="a">+        &quot;&lt;=&quot;: operator.le,</span><span class="a">+        &quot;&gt;&quot;: operator.gt,</span><span class="a">+        &quot;&gt;=&quot;: operator.ge,</span><span class="a">+        &quot;==&quot;: operator.eq,</span><span class="a">+        &quot;!=&quot;: operator.ne,</span><span class="a">+    }</span><span class="a">+</span><span class="a">+    def pad(value: tuple[int, ...]) -&gt; tuple[int, ...]:</span><span class="a">+        return value + (0,) * (4 - len(value))</span><span class="a">+</span><span class="a">+    for clause in specifier.split(&quot;,&quot;):</span><span class="a">+        match = re.fullmatch(r&quot;\s*(&lt;=|&gt;=|&lt;|&gt;|==|!=)\s*([0-9]+(?:\.[0-9]+)*)\s*&quot;, clause)</span><span class="a">+        assert match is not None, f&quot;unexpected daytona specifier clause: {clause!r}&quot;</span><span class="a">+        bound = tuple(int(part) for part in match.group(2).split(&quot;.&quot;))</span><span class="a">+        if not checks[match.group(1)](pad(version), pad(bound)):</span><span class="a">+            return False</span><span class="a">+    return True</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_daytona_extra_excludes_daytona_2_sdk() -&gt; None:</span><span class="a">+    # Daytona SDK 2.0 moves the 0.x API used by DaytonaSandboxClient to `daytona.v0`, so the</span><span class="a">+    # extra must not resolve to a 1.x/2.x SDK.</span><span class="a">+    specifier = _daytona_extra_specifier()</span><span class="a">+</span><span class="a">+    assert _version_satisfies((0, 226, 1), specifier)</span><span class="a">+    assert not _version_satisfies((1, 0, 0), specifier)</span><span class="a">+    assert not _version_satisfies((2, 0, 0), specifier)</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_daytona_extra_specifier_matches_uv_lock() -&gt; None:</span><span class="a">+    specifier = _daytona_extra_specifier()</span><span class="a">+    packages = _load_toml(&quot;uv.lock&quot;)[&quot;package&quot;]</span><span class="a">+    project = next(package for package in packages if package[&quot;name&quot;] == &quot;openai-agents&quot;)</span><span class="a">+    locked = [</span><span class="a">+        requirement</span><span class="a">+        for requirement in project[&quot;metadata&quot;][&quot;requires-dist&quot;]</span><span class="a">+        if requirement[&quot;name&quot;] == &quot;daytona&quot;</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+    assert locked == [{&quot;name&quot;: &quot;daytona&quot;, &quot;marker&quot;: &quot;extra == &#39;daytona&#39;&quot;, &quot;specifier&quot;: specifier}]</span><span class="f">uv.lock</span><span class="h">index 5b01014b..20c28eb1 100644</span><span class="h">@@ -2942,7 +2942,7 @@ requires-dist = [</span><span class="c">     { name = &quot;certifi&quot;, specifier = &quot;&gt;=2026.10.19&quot; },</span><span class="c">     { name = &quot;cryptography&quot;, marker = &quot;extra == &#39;encrypt&#39;&quot;, specifier = &quot;&gt;=45.0,&lt;51&quot; },</span><span class="c">     { name = &quot;dapr&quot;, marker = &quot;extra == &#39;dapr&#39;&quot;, specifier = &quot;&gt;=1.16.0&quot; },</span><span class="r">-    { name = &quot;daytona&quot;, marker = &quot;extra == &#39;daytona&#39;&quot;, specifier = &quot;&gt;=0.226.1&quot; },</span><span class="a">+    { name = &quot;daytona&quot;, marker = &quot;extra == &#39;daytona&#39;&quot;, specifier = &quot;&gt;=0.226.1,&lt;1&quot; },</span><span class="c">     { name = &quot;docker&quot;, marker = &quot;extra == &#39;docker&#39;&quot;, specifier = &quot;&gt;=6.1&quot; },</span><span class="c">     { name = &quot;e2b&quot;, marker = &quot;extra == &#39;e2b&#39;&quot;, specifier = &quot;==2.31.0&quot; },</span><span class="c">     { name = &quot;e2b-code-interpreter&quot;, marker = &quot;extra == &#39;e2b&#39;&quot;, specifier = &quot;==2.8.1&quot; },</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/openai/openai-agents-python/pull/6065" rel="noopener" target="_blank">PR #6065</a></span><span class="pm"><span class="a">+2</span> <span class="r">−2</span></span></div><pre class="diff"><span class="f">pyproject.toml</span><span class="h">index 4219dfe11..76b741f17 100644</span><span class="h">@@ -64,7 +64,7 @@ mongodb = [&quot;pymongo&gt;=4.18.3&quot;]</span><span class="c"> docker = [&quot;docker&gt;=6.1&quot;]</span><span class="c"> blaxel = [&quot;blaxel&gt;=0.2.50&quot;, &quot;aiohttp&gt;=3.14.3,&lt;4&quot;]</span><span class="c"> daytona = [</span><span class="r">-    &quot;daytona&gt;=0.226.1&quot;,</span><span class="a">+    &quot;daytona&gt;=0.226.1,&lt;1&quot;,</span><span class="c">     &quot;aiohttp&gt;=3.14.3,&lt;4&quot;,</span><span class="c">     &quot;protobuf&gt;=5.29.6,!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*&quot;,</span><span class="c"> ]</span><span class="f">uv.lock</span><span class="h">index 5b01014b8..20c28eb10 100644</span><span class="h">@@ -2942,7 +2942,7 @@ requires-dist = [</span><span class="c">     { name = &quot;certifi&quot;, specifier = &quot;&gt;=2026.10.19&quot; },</span><span class="c">     { name = &quot;cryptography&quot;, marker = &quot;extra == &#39;encrypt&#39;&quot;, specifier = &quot;&gt;=45.0,&lt;51&quot; },</span><span class="c">     { name = &quot;dapr&quot;, marker = &quot;extra == &#39;dapr&#39;&quot;, specifier = &quot;&gt;=1.16.0&quot; },</span><span class="r">-    { name = &quot;daytona&quot;, marker = &quot;extra == &#39;daytona&#39;&quot;, specifier = &quot;&gt;=0.226.1&quot; },</span><span class="a">+    { name = &quot;daytona&quot;, marker = &quot;extra == &#39;daytona&#39;&quot;, specifier = &quot;&gt;=0.226.1,&lt;1&quot; },</span><span class="c">     { name = &quot;docker&quot;, marker = &quot;extra == &#39;docker&#39;&quot;, specifier = &quot;&gt;=6.1&quot; },</span><span class="c">     { name = &quot;e2b&quot;, marker = &quot;extra == &#39;e2b&#39;&quot;, specifier = &quot;==2.31.0&quot; },</span><span class="c">     { name = &quot;e2b-code-interpreter&quot;, marker = &quot;extra == &#39;e2b&#39;&quot;, specifier = &quot;==2.8.1&quot; },</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/openai-agents-python/run-20261125-025211/6025/">Previous · #6025</a>
+  <a class="mid" href="/backtests/openai-agents-python/run-20261125-025211/">All tickets in this run</a>
+  <a href="/backtests/openai-agents-python/run-20261125-025211/6048/">Next · #6048</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

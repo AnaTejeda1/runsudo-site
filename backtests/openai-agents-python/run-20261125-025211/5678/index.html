@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#5678 After a RunState JSON round trip, the next nested handoff embeds the previous history summary instead of flattening it — openai/openai-agents-python backtest</title>
+<meta name="description" content="The judges split evenly between our patch and the merged fix. Issue #5678 in openai/openai-agents-python, run 25 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261125-025211/5678/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/run-20261125-025211/">run-20261125-025211</a><span aria-hidden="true">/</span><span aria-current="page">#5678</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/openai/openai-agents-python/issues/5678" rel="noopener" target="_blank">#5678</a></span>
+  <span>Merged fix <a href="https://github.com/openai/openai-agents-python/pull/6041" rel="noopener" target="_blank">PR #6041</a></span>
+  <span>Run 25 Nov 2026 · <span class="runid">run-20261125-025211</span></span>
+  <span>openai/openai-agents-python</span>
+</div>
+<h1 class="ticket-title">After a RunState JSON round trip, the next nested handoff embeds the previous history summary instead of flattening it</h1>
+
+<div class="verdict-block">
+  <span class="pill tie lg">Tie</span>
+  <p class="line">The judges split evenly between our patch and the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">Both patches fix the root cause identified in the issue: `_extract_nested_history_transcript` only accepted string content, so the `[{&quot;type&quot;: &quot;output_text&quot;, &quot;text&quot;: ...}]` shape written by `RunState._serialize_input` was never recognized and the old summary got JSON-dumped into the next one. All eleven independent tests (run and run_streamed, to_string and to_json, repeated round trips, two chained JSON resumes, to_input_list) fail on base and pass on both A and B, so neither leaves the reported behaviour broken.
+
+The difference is in how wide the new acceptance is. Patch A unwraps any assistant message whose content is a single `output_text` part, regardless of other keys. That also matches ordinary model-generated messages (which carry `id`, `type: message`, and `annotations` on the part), so a model that emits text starting with the summary preamble and wrappers would now be flattened into history, where on base it was preserved. Patch B restricts the unwrap to the exact shape RunState writes (`status == completed`, item keys exactly role/status/content, part keys exactly type/text), which keeps the change targeted at the serialization rewrite the issue blames and preserves the existing behaviour for genuine model output. B adds a case to `test_nest_handoff_history_preserves_assistant_content_with_wrapper_markers` using a real message run item to pin that down. The exact-key matching is brittle to future serialization drift, but B&#39;s end-to-end round-trip test would fail loudly if that happened, so the brittleness is mitigated.
+
+On tests: A adds a solid parametrized regression test comparing model input and to_input_list between in-memory and JSON resumes, plus a focused unit test for the extractor including a two-part negative case. B instead strengthens the existing `test_nested_handoff_history_partition_survives_interruption_resume`, which the issue explicitly called out as passing despite the bug, parametrizes it over streamed/non-streamed, compares restored vs in-memory for both model input and replay, and asserts `1. user: start` appears as its own line. Both test sets would fail before and pass after. B&#39;s tests cover one more design point (no false positive on model output) that A&#39;s do not.
+
+Scope and craft are comparable; A is simpler and mirrors the issue&#39;s proposed diff, B is slightly more verbose but its comment explains why the shape is matched so narrowly. The narrower, better-guarded acceptance and the extra negative test tip this to B.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 33s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">152 passed · 0 skipped · 152 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">108<small>vs 58 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/openai/openai-agents-python/issues/5678" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Please read this first</h3>
+<ul><li><strong>Have you read the docs?</strong> Yes</li><li><strong>Have you searched for related issues?</strong> Yes. #3319, #3814, #4229 and #5595 fixed other nested-history parsing cases, and #5430 the record boundaries. None of them cover a summary that went through <code>RunState</code> serialization.</li></ul>
+<h3>Describe the bug</h3>
+<p>With <code>RunConfig(nest_handoff_history=True)</code>, a handoff replaces the history with one assistant summary message whose <code>content</code> is a string. On the next handoff, <code>_extract_nested_history_transcript</code> recognizes that summary and flattens its records into the new transcript.</p>
+<p><code>RunState.to_string()</code> / <code>to_json()</code> rewrites assistant string content as <code>[{&quot;type&quot;: &quot;output_text&quot;, &quot;text&quot;: ...}]</code>. The summary sits in the run&#39;s original input, so it gets rewritten too. After <code>RunState.from_string()</code>, the detector no longer recognizes it, because it only accepts string content. The next handoff then JSON-dumps the whole previous summary into the new one as a single record. The receiving agent sees the user&#39;s turn buried in an escaped string, and <code>result.to_input_list()</code> carries the same doubly nested summary.</p>
+<p>A run that isn&#39;t interrupted, or one resumed from the in-memory <code>RunState</code>, produces the normal flat transcript.</p>
+<h3>Debug information</h3>
+<ul><li>Agents SDK version: <code>main</code> (1fc77bbc), also 0.24.0</li><li>Python version: 3.14.7 (main), 3.12 (0.24.0)</li><li>Operating system: macOS</li><li>Model and model provider: n/a (<code>agents.testing.ScriptedModel</code>)</li><li>Does the issue reproduce with the latest Agents SDK release? Yes</li><li>Does the issue occur consistently or intermittently? Consistently, with <code>Runner.run</code> and <code>Runner.run_streamed</code></li></ul>
+<h3>Repro steps</h3>
+<p>A hands off to B, B pauses for a tool approval, then B hands off to C after the resume.</p>
+<pre><code class="lang-python">import asyncio
+
+from agents import Agent, RunConfig, Runner, RunState, function_tool
+from agents.testing import ScriptedModel, assistant_message, function_call
+
+
+async def run(from_json: bool) -&gt; None:
+    @function_tool(needs_approval=True)
+    def lookup(q: str) -&gt; str:
+        return &quot;found &quot; + q
+
+    c_model = ScriptedModel([[assistant_message(&quot;C answer&quot;)]])
+    c = Agent(name=&quot;C&quot;, model=c_model)
+    b = Agent(name=&quot;B&quot;, tools=[lookup], handoffs=[c], model=ScriptedModel(
+        [[function_call(&quot;lookup&quot;, {&quot;q&quot;: &quot;x&quot;}, call_id=&quot;b1&quot;)],
+         [function_call(&quot;transfer_to_c&quot;, {}, call_id=&quot;h2&quot;)]]))
+    a = Agent(name=&quot;A&quot;, handoffs=[b], model=ScriptedModel(
+        [[function_call(&quot;transfer_to_b&quot;, {}, call_id=&quot;h1&quot;)]]))
+    config = RunConfig(nest_handoff_history=True, tracing_disabled=True)
+
+    result = await Runner.run(a, &quot;hi&quot;, run_config=config)  # A -&gt; B, B pauses for approval
+    state = result.to_state()
+    state.approve(result.interruptions[0])
+    if from_json:
+        state = await RunState.from_string(a, state.to_string())
+    await Runner.run(a, state, run_config=config)  # B runs lookup, hands off to C
+
+    print(f&quot;from_json={from_json}: summary seen by C:\n{c_model.calls[-1].input[0][&#39;content&#39;]}\n&quot;)
+
+
+asyncio.run(run(False))
+asyncio.run(run(True))</code></pre>
+<p>Output (the first record of the second summary is shortened):</p>
+<pre><code class="lang-text">from_json=False: summary seen by C:
+For context, here is the conversation so far between the user and the previous agent:
+&lt;CONVERSATION HISTORY&gt;
+1. user: hi
+2. {&quot;arguments&quot;: &quot;{}&quot;, &quot;call_id&quot;: &quot;h1&quot;, &quot;name&quot;: &quot;transfer_to_b&quot;, &quot;type&quot;: &quot;function_call&quot;, &quot;id&quot;: &quot;h1&quot;}
+3. {&quot;call_id&quot;: &quot;h1&quot;, &quot;output&quot;: &quot;{\&quot;assistant\&quot;: \&quot;B\&quot;}&quot;, &quot;type&quot;: &quot;function_call_output&quot;}
+4. {&quot;arguments&quot;: &quot;{\&quot;q\&quot;:\&quot;x\&quot;}&quot;, &quot;call_id&quot;: &quot;b1&quot;, &quot;name&quot;: &quot;lookup&quot;, &quot;type&quot;: &quot;function_call&quot;, &quot;id&quot;: &quot;b1&quot;}
+5. {&quot;call_id&quot;: &quot;b1&quot;, &quot;output&quot;: &quot;found x&quot;, &quot;type&quot;: &quot;function_call_output&quot;}
+6. {&quot;arguments&quot;: &quot;{}&quot;, &quot;call_id&quot;: &quot;h2&quot;, &quot;name&quot;: &quot;transfer_to_c&quot;, &quot;type&quot;: &quot;function_call&quot;, &quot;id&quot;: &quot;h2&quot;}
+7. {&quot;call_id&quot;: &quot;h2&quot;, &quot;output&quot;: &quot;{\&quot;assistant\&quot;: \&quot;C\&quot;}&quot;, &quot;type&quot;: &quot;function_call_output&quot;}
+&lt;/CONVERSATION HISTORY&gt;
+
+from_json=True: summary seen by C:
+For context, here is the conversation so far between the user and the previous agent:
+&lt;CONVERSATION HISTORY&gt;
+1. {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: [{&quot;type&quot;: &quot;output_text&quot;, &quot;text&quot;: &quot;For context, here is the conversation so far between the user and the previous agent:\n&lt;CONVERSATION HISTORY&gt;\n1. user: hi\n2. {\&quot;arguments\&quot;: \&quot;{}\&quot;, ... &lt;/CONVERSATION HISTORY&gt;&quot;}], &quot;status&quot;: &quot;completed&quot;}
+2. {&quot;arguments&quot;: &quot;{\&quot;q\&quot;:\&quot;x\&quot;}&quot;, &quot;call_id&quot;: &quot;b1&quot;, &quot;name&quot;: &quot;lookup&quot;, &quot;type&quot;: &quot;function_call&quot;, &quot;id&quot;: &quot;b1&quot;}
+3. {&quot;call_id&quot;: &quot;b1&quot;, &quot;output&quot;: &quot;found x&quot;, &quot;type&quot;: &quot;function_call_output&quot;}
+4. {&quot;arguments&quot;: &quot;{}&quot;, &quot;call_id&quot;: &quot;h2&quot;, &quot;name&quot;: &quot;transfer_to_c&quot;, &quot;type&quot;: &quot;function_call&quot;, &quot;id&quot;: &quot;h2&quot;}
+5. {&quot;call_id&quot;: &quot;h2&quot;, &quot;output&quot;: &quot;{\&quot;assistant\&quot;: \&quot;C\&quot;}&quot;, &quot;type&quot;: &quot;function_call_output&quot;}
+&lt;/CONVERSATION HISTORY&gt;</code></pre>
+<p>Comparing C&#39;s model input and <code>to_input_list()</code> against an uninterrupted run:</p>
+<div class="tablewrap"><table class="table"><thead><tr><th></th><th>in-memory resume</th><th>JSON resume</th></tr></thead><tbody><tr><td><code>Runner.run</code></td><td>same</td><td>different</td></tr><tr><td><code>Runner.run_streamed</code></td><td>same</td><td>different</td></tr></tbody></table></div>
+<h3>Expected behavior</h3>
+<p>A run resumed from a serialized <code>RunState</code> hands off with the same flattened transcript as an uninterrupted run or an in-memory resume.</p>
+<h3>Root cause</h3>
+<ul><li><code>RunState._serialize_input</code> turns assistant string content into a single <code>output_text</code> part (<a href="https://github.com/openai/openai-agents-python/blob/1fc77bbc8ac1446690f6ba62dd0d52779bdcf43f/src/agents/run_state.py#L1564" rel="noopener nofollow" target="_blank">run_state.py#L1564</a>). That&#39;s intentional and covered by <code>test_serializes_assistant_messages</code>.</li><li>The summary built by <code>_build_summary_message</code> (<a href="https://github.com/openai/openai-agents-python/blob/1fc77bbc8ac1446690f6ba62dd0d52779bdcf43f/src/agents/handoffs/history.py#L386" rel="noopener nofollow" target="_blank">history.py#L386</a>) is part of the original input, so it gets the same rewrite.</li><li><code>_extract_nested_history_transcript</code> returns <code>None</code> unless <code>content</code> is a <code>str</code> (<a href="https://github.com/openai/openai-agents-python/blob/1fc77bbc8ac1446690f6ba62dd0d52779bdcf43f/src/agents/handoffs/history.py#L485" rel="noopener nofollow" target="_blank">history.py#L485</a>). <code>_flatten_nested_history_messages</code> then keeps the restored summary as an ordinary item, and the next summary JSON-dumps it.</li></ul>
+<p><code>test_nested_handoff_history_partition_survives_interruption_resume</code> runs this same scenario, but its <code>summary.count(&quot;once&quot;) == 1</code> check (<a href="https://github.com/openai/openai-agents-python/blob/1fc77bbc8ac1446690f6ba62dd0d52779bdcf43f/tests/test_handoff_history_duplication.py#L1849" rel="noopener nofollow" target="_blank">L1849</a>) still passes when the old summary is embedded, since the text appears once either way.</p>
+<h3>A possible fix</h3>
+<p>Accept the single-<code>output_text</code> shape that <code>RunState</code> itself writes. The serialized format stays the same, and the existing preamble and wrapper checks still decide whether the text is a summary.</p>
+<pre><code class="lang-diff">--- a/src/agents/handoffs/history.py
++++ b/src/agents/handoffs/history.py
+@@ -482,6 +482,14 @@ def _extract_nested_history_transcript(
+     if item.get(&quot;role&quot;) != &quot;assistant&quot;:
+         return None
+     content = item.get(&quot;content&quot;)
++    if (
++        isinstance(content, list)
++        and len(content) == 1
++        and isinstance(content[0], dict)
++        and content[0].get(&quot;type&quot;) == &quot;output_text&quot;
++    ):
++        # RunState.to_json() stores assistant string content as one output_text part.
++        content = content[0].get(&quot;text&quot;)
+     if not isinstance(content, str):
+         return None
+     start_marker, end_marker = get_conversation_history_wrappers()</code></pre>
+<p>Checked on 1fc77bbc:</p>
+<ul><li>With the patch, C&#39;s model input and <code>to_input_list()</code> after a JSON resume match the uninterrupted run, with <code>Runner.run</code> and <code>Runner.run_streamed</code>.</li><li>The regression test below fails on main in both modes (<code>assert 2 == 1</code>: two history blocks in the summary) and passes with the patch.</li><li><code>test_handoff_history_duplication.py</code>, <code>test_extension_filters.py</code>, <code>test_run_state.py</code>, <code>test_agent_runner.py</code>, <code>test_agent_runner_streamed.py</code>, <code>test_run_step_processing.py</code>, <code>test_stream_events.py</code> and <code>test_programmatic_tool_calling.py</code>: 1242 passed. ruff is clean, and mypy reports no new errors.</li></ul>
+<p>&lt;details&gt;<br>&lt;summary&gt;Regression test for tests/test_handoff_history_duplication.py&lt;/summary&gt;</p>
+<pre><code class="lang-python">@pytest.mark.parametrize(&quot;streamed&quot;, [False, True], ids=[&quot;non_streamed&quot;, &quot;streamed&quot;])
+@pytest.mark.asyncio
+async def test_nested_history_summary_flattens_after_run_state_json_round_trip(
+    streamed: bool,
+) -&gt; None:
+    &quot;&quot;&quot;A summary restored from RunState JSON must flatten like the in-memory one.&quot;&quot;&quot;
+
+    async def resume_and_hand_off(from_json: bool) -&gt; list[TResponseInputItem]:
+        @function_tool(needs_approval=True)
+        def lookup(q: str) -&gt; str:
+            return &quot;found &quot; + q
+
+        final_model = ScriptedModel([[get_text_message(&quot;done&quot;)]])
+        final_agent = Agent(name=&quot;final&quot;, model=final_model)
+        second_agent = Agent(
+            name=&quot;second&quot;,
+            tools=[lookup],
+            handoffs=[final_agent],
+            model=ScriptedModel(
+                [
+                    [get_function_tool_call(&quot;lookup&quot;, &#39;{&quot;q&quot;: &quot;x&quot;}&#39;, call_id=&quot;lookup&quot;)],
+                    [get_handoff_tool_call(final_agent)],
+                ]
+            ),
+        )
+        first_agent = Agent(
+            name=&quot;first&quot;,
+            handoffs=[second_agent],
+            model=ScriptedModel([[get_handoff_tool_call(second_agent)]]),
+        )
+        run_config = RunConfig(nest_handoff_history=True)
+
+        interrupted = await Runner.run(first_agent, input=&quot;start&quot;, run_config=run_config)
+        state = interrupted.to_state()
+        state.approve(interrupted.interruptions[0])
+        if from_json:
+            state = await RunState.from_string(first_agent, state.to_string())
+
+        if streamed:
+            streamed_result = Runner.run_streamed(first_agent, state, run_config=run_config)
+            async for _event in streamed_result.stream_events():
+                pass
+            assert streamed_result.final_output == &quot;done&quot;
+        else:
+            result = await Runner.run(first_agent, state, run_config=run_config)
+            assert result.final_output == &quot;done&quot;
+        return cast(list[TResponseInputItem], final_model.calls[-1].input)
+
+    in_memory_input = await resume_and_hand_off(from_json=False)
+    restored_input = await resume_and_hand_off(from_json=True)
+
+    start_marker, _ = get_conversation_history_wrappers()
+    summary = _input_item_text(restored_input[0])
+    # The first handoff&#39;s summary is flattened into the new one, not embedded inside it.
+    assert summary.count(start_marker) == 1
+    assert restored_input == in_memory_input</code></pre>
+<p>&lt;/details&gt;</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+108</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">src/agents/handoffs/history.py</span><span class="h">index 221abc92..1ac60b7f 100644</span><span class="h">@@ -482,6 +482,14 @@ def _extract_nested_history_transcript(</span><span class="c">     if item.get(&quot;role&quot;) != &quot;assistant&quot;:</span><span class="c">         return None</span><span class="c">     content = item.get(&quot;content&quot;)</span><span class="a">+    if (</span><span class="a">+        isinstance(content, list)</span><span class="a">+        and len(content) == 1</span><span class="a">+        and isinstance(content[0], dict)</span><span class="a">+        and content[0].get(&quot;type&quot;) == &quot;output_text&quot;</span><span class="a">+    ):</span><span class="a">+        # RunState.to_json() stores assistant string content as one output_text part.</span><span class="a">+        content = content[0].get(&quot;text&quot;)</span><span class="c">     if not isinstance(content, str):</span><span class="c">         return None</span><span class="c">     start_marker, end_marker = get_conversation_history_wrappers()</span><span class="f">tests/test_handoff_history_duplication.py</span><span class="h">index 9bd1df75..bd85b0f7 100644</span><span class="h">@@ -1850,6 +1850,106 @@ async def test_nested_handoff_history_partition_survives_interruption_resume() -</span><span class="c">     assert sum(_input_item_text(item) == &quot;once&quot; for item in resumed.to_input_list()) == 2</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&quot;streamed&quot;, [False, True], ids=[&quot;non_streamed&quot;, &quot;streamed&quot;])</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_nested_history_summary_flattens_after_run_state_json_round_trip(</span><span class="a">+    streamed: bool,</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A summary restored from RunState JSON must flatten like the in-memory one.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    async def resume_and_hand_off(</span><span class="a">+        from_json: bool,</span><span class="a">+    ) -&gt; tuple[list[TResponseInputItem], list[TResponseInputItem]]:</span><span class="a">+        @function_tool(needs_approval=True)</span><span class="a">+        def lookup(q: str) -&gt; str:</span><span class="a">+            return &quot;found &quot; + q</span><span class="a">+</span><span class="a">+        final_model = ScriptedModel([[get_text_message(&quot;done&quot;)]])</span><span class="a">+        final_agent = Agent(name=&quot;final&quot;, model=final_model)</span><span class="a">+        second_agent = Agent(</span><span class="a">+            name=&quot;second&quot;,</span><span class="a">+            tools=[lookup],</span><span class="a">+            handoffs=[final_agent],</span><span class="a">+            model=ScriptedModel(</span><span class="a">+                [</span><span class="a">+                    [get_function_tool_call(&quot;lookup&quot;, &#39;{&quot;q&quot;: &quot;x&quot;}&#39;, call_id=&quot;lookup&quot;)],</span><span class="a">+                    [get_handoff_tool_call(final_agent)],</span><span class="a">+                ]</span><span class="a">+            ),</span><span class="a">+        )</span><span class="a">+        first_agent = Agent(</span><span class="a">+            name=&quot;first&quot;,</span><span class="a">+            handoffs=[second_agent],</span><span class="a">+            model=ScriptedModel([[get_handoff_tool_call(second_agent)]]),</span><span class="a">+        )</span><span class="a">+        run_config = RunConfig(nest_handoff_history=True)</span><span class="a">+</span><span class="a">+        interrupted = await Runner.run(first_agent, input=&quot;start&quot;, run_config=run_config)</span><span class="a">+        state = interrupted.to_state()</span><span class="a">+        state.approve(interrupted.interruptions[0])</span><span class="a">+        if from_json:</span><span class="a">+            state = await RunState.from_string(first_agent, state.to_string())</span><span class="a">+</span><span class="a">+        if streamed:</span><span class="a">+            streamed_result = Runner.run_streamed(first_agent, state, run_config=run_config)</span><span class="a">+            async for _event in streamed_result.stream_events():</span><span class="a">+                pass</span><span class="a">+            assert streamed_result.final_output == &quot;done&quot;</span><span class="a">+            input_list = streamed_result.to_input_list()</span><span class="a">+        else:</span><span class="a">+            result = await Runner.run(first_agent, state, run_config=run_config)</span><span class="a">+            assert result.final_output == &quot;done&quot;</span><span class="a">+            input_list = result.to_input_list()</span><span class="a">+        return cast(list[TResponseInputItem], final_model.calls[-1].input), input_list</span><span class="a">+</span><span class="a">+    in_memory_input, in_memory_list = await resume_and_hand_off(from_json=False)</span><span class="a">+    restored_input, restored_list = await resume_and_hand_off(from_json=True)</span><span class="a">+</span><span class="a">+    start_marker, _ = get_conversation_history_wrappers()</span><span class="a">+    summary = _input_item_text(restored_input[0])</span><span class="a">+    # The first handoff&#39;s summary is flattened into the new one, not embedded inside it.</span><span class="a">+    assert summary.count(start_marker) == 1</span><span class="a">+    assert &quot;user: start&quot; in summary</span><span class="a">+    assert restored_input == in_memory_input</span><span class="a">+    assert restored_list == in_memory_list</span><span class="a">+</span><span class="a">+</span><span class="a">+def test_extract_nested_history_transcript_accepts_run_state_output_text_shape() -&gt; None:</span><span class="a">+    &quot;&quot;&quot;The single output_text shape written by RunState serialization is a summary too.&quot;&quot;&quot;</span><span class="a">+    summary_message = nest_handoff_history(</span><span class="a">+        HandoffInputData(</span><span class="a">+            input_history=({&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hello&quot;},),</span><span class="a">+            pre_handoff_items=(),</span><span class="a">+            new_items=(),</span><span class="a">+        )</span><span class="a">+    ).input_history[0]</span><span class="a">+    summary_text = _input_item_text(cast(TResponseInputItem, summary_message))</span><span class="a">+    serialized_shape = cast(</span><span class="a">+        TResponseInputItem,</span><span class="a">+        {</span><span class="a">+            &quot;role&quot;: &quot;assistant&quot;,</span><span class="a">+            &quot;content&quot;: [{&quot;type&quot;: &quot;output_text&quot;, &quot;text&quot;: summary_text}],</span><span class="a">+            &quot;status&quot;: &quot;completed&quot;,</span><span class="a">+        },</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    assert _extract_nested_history_transcript(serialized_shape) == [</span><span class="a">+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;hello&quot;}</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+    two_parts = cast(</span><span class="a">+        TResponseInputItem,</span><span class="a">+        {</span><span class="a">+            &quot;role&quot;: &quot;assistant&quot;,</span><span class="a">+            &quot;content&quot;: [</span><span class="a">+                {&quot;type&quot;: &quot;output_text&quot;, &quot;text&quot;: summary_text},</span><span class="a">+                {&quot;type&quot;: &quot;output_text&quot;, &quot;text&quot;: &quot;extra&quot;},</span><span class="a">+            ],</span><span class="a">+        },</span><span class="a">+    )</span><span class="a">+    assert _extract_nested_history_transcript(two_parts) is None</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.parametrize(&quot;streamed&quot;, [False, True], ids=[&quot;non_streamed&quot;, &quot;streamed&quot;])</span><span class="c"> @pytest.mark.parametrize(</span><span class="c">     &quot;nest_handoff_history&quot;,</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/openai/openai-agents-python/pull/6041" rel="noopener" target="_blank">PR #6041</a></span><span class="pm"><span class="a">+44</span> <span class="r">−14</span></span></div><pre class="diff"><span class="f">src/agents/handoffs/history.py</span><span class="h">index 221abc92e..069287477 100644</span><span class="h">@@ -482,6 +482,17 @@ def _extract_nested_history_transcript(</span><span class="c">     if item.get(&quot;role&quot;) != &quot;assistant&quot;:</span><span class="c">         return None</span><span class="c">     content = item.get(&quot;content&quot;)</span><span class="a">+    if isinstance(content, list) and len(content) == 1:</span><span class="a">+        part = content[0]</span><span class="a">+        # RunState wraps summary text in a bare output_text part and adds completed status.</span><span class="a">+        if (</span><span class="a">+            item.get(&quot;status&quot;) == &quot;completed&quot;</span><span class="a">+            and item.keys() == {&quot;role&quot;, &quot;status&quot;, &quot;content&quot;}</span><span class="a">+            and isinstance(part, dict)</span><span class="a">+            and part.keys() == {&quot;type&quot;, &quot;text&quot;}</span><span class="a">+            and part[&quot;type&quot;] == &quot;output_text&quot;</span><span class="a">+        ):</span><span class="a">+            content = part[&quot;text&quot;]</span><span class="c">     if not isinstance(content, str):</span><span class="c">         return None</span><span class="c">     start_marker, end_marker = get_conversation_history_wrappers()</span><span class="f">tests/test_extension_filters.py</span><span class="h">index e4e9b7be5..67ca96c05 100644</span><span class="h">@@ -517,6 +517,10 @@ def test_nest_handoff_history_preserves_assistant_content_with_wrapper_markers()</span><span class="c">                 ),</span><span class="c">             },</span><span class="c">         ),</span><span class="a">+        _get_message_output_run_item(</span><span class="a">+            &quot;For context, here is the conversation so far between the user and the &quot;</span><span class="a">+            &quot;previous agent:\n&lt;CONVERSATION HISTORY&gt;\n1. user: quoted\n&lt;/CONVERSATION HISTORY&gt;&quot;</span><span class="a">+        ).to_input_item(),</span><span class="c">     )</span><span class="c"> </span><span class="c">     def capture_transcript(transcript: list[TResponseInputItem]) -&gt; list[TResponseInputItem]:</span><span class="f">tests/test_handoff_history_duplication.py</span><span class="h">index 9bd1df751..fc38b4ae7 100644</span><span class="h">@@ -1792,8 +1792,11 @@ async def test_explicit_default_handoff_history_mapper_is_honored() -&gt; None:</span><span class="c">     assert &quot;transfer_to_second&quot; in summary</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&quot;streamed&quot;, [False, True], ids=[&quot;non_streamed&quot;, &quot;streamed&quot;])</span><span class="c"> @pytest.mark.asyncio</span><span class="r">-async def test_nested_handoff_history_partition_survives_interruption_resume() -&gt; None:</span><span class="a">+async def test_nested_handoff_history_partition_survives_interruption_resume(</span><span class="a">+    streamed: bool,</span><span class="a">+) -&gt; None:</span><span class="c">     &quot;&quot;&quot;The summary/raw partition should survive RunState serialization.&quot;&quot;&quot;</span><span class="c"> </span><span class="c">     @function_tool(needs_approval=True)</span><span class="h">@@ -1814,13 +1817,7 @@ async def test_nested_handoff_history_partition_survives_interruption_resume() -</span><span class="c">     run_config = RunConfig(nest_handoff_history=True)</span><span class="c"> </span><span class="c">     first_model.extend([[get_text_message(&quot;once&quot;), get_handoff_tool_call(second_agent)]])</span><span class="r">-    second_model.extend(</span><span class="r">-        [</span><span class="r">-            [get_function_tool_call(&quot;approval_tool&quot;, &quot;{}&quot;, call_id=&quot;approval&quot;)],</span><span class="r">-            [get_text_message(&quot;once&quot;), get_handoff_tool_call(final_agent)],</span><span class="r">-        ]</span><span class="r">-    )</span><span class="r">-    final_model.extend([[get_text_message(&quot;done&quot;)]])</span><span class="a">+    second_model.extend([[get_function_tool_call(&quot;approval_tool&quot;, &quot;{}&quot;, call_id=&quot;approval&quot;)]])</span><span class="c"> </span><span class="c">     interrupted = await Runner.run(first_agent, input=&quot;start&quot;, run_config=run_config)</span><span class="c">     assert len(interrupted.interruptions) == 1</span><span class="h">@@ -1841,13 +1838,31 @@ async def test_nested_handoff_history_partition_survives_interruption_resume() -</span><span class="c">         state._nested_history_owned_session_item_refs</span><span class="c">     )</span><span class="c"> </span><span class="r">-    resumed = await Runner.run(first_agent, restored, run_config=run_config)</span><span class="r">-</span><span class="r">-    assert resumed.final_output == &quot;done&quot;</span><span class="r">-    final_input = final_model.calls[-1].input</span><span class="r">-    summary = str(cast(dict[str, Any], final_input[0])[&quot;content&quot;])</span><span class="a">+    async def resume(</span><span class="a">+        checkpoint: RunState[Any, Agent[Any]],</span><span class="a">+    ) -&gt; tuple[list[TResponseInputItem], list[TResponseInputItem]]:</span><span class="a">+        second_model.extend([[get_text_message(&quot;once&quot;), get_handoff_tool_call(final_agent)]])</span><span class="a">+        final_model.extend([[get_text_message(&quot;done&quot;)]])</span><span class="a">+        resumed: RunResult | RunResultStreaming</span><span class="a">+        if streamed:</span><span class="a">+            resumed = Runner.run_streamed(first_agent, checkpoint, run_config=run_config)</span><span class="a">+            async for _ in resumed.stream_events():</span><span class="a">+                pass</span><span class="a">+        else:</span><span class="a">+            resumed = await Runner.run(first_agent, checkpoint, run_config=run_config)</span><span class="a">+        assert resumed.final_output == &quot;done&quot;</span><span class="a">+        final_input = final_model.calls[-1].input</span><span class="a">+        assert isinstance(final_input, list)</span><span class="a">+        return final_input, resumed.to_input_list()</span><span class="a">+</span><span class="a">+    in_memory_input, in_memory_replay = await resume(state)</span><span class="a">+    restored_input, restored_replay = await resume(restored)</span><span class="a">+    assert restored_input == in_memory_input</span><span class="a">+    assert restored_replay == in_memory_replay</span><span class="a">+    summary = _input_item_text(restored_input[0])</span><span class="a">+    assert &quot;1. user: start&quot; in summary.splitlines()</span><span class="c">     assert summary.count(&quot;once&quot;) == 1</span><span class="r">-    assert sum(_input_item_text(item) == &quot;once&quot; for item in resumed.to_input_list()) == 2</span><span class="a">+    assert sum(_input_item_text(item) == &quot;once&quot; for item in restored_replay) == 2</span><span class="c"> </span><span class="c"> </span><span class="c"> @pytest.mark.parametrize(&quot;streamed&quot;, [False, True], ids=[&quot;non_streamed&quot;, &quot;streamed&quot;])</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/openai-agents-python/run-20261125-025211/5670/">Previous · #5670</a>
+  <a class="mid" href="/backtests/openai-agents-python/run-20261125-025211/">All tickets in this run</a>
+  <a href="/backtests/openai-agents-python/run-20261125-025211/5743/">Next · #5743</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

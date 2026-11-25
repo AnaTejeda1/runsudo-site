@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>openai/openai-agents-python · 25 Nov 2026 — sudo backtests</title>
+<meta name="description" content="6 of 10 tickets judged better than the merged fix on openai/openai-agents-python, run 25 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261125-025211/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><span aria-current="page">run-20261125-025211</span></p>
+<h1>openai/openai-agents-python</h1>
+<p class="lead">Lightweight Python framework for building multi-agent workflows with OpenAI models.</p>
+<div class="card summary">
+  <p class="k">This run · 25 Nov 2026 · <span class="runid">run-20261125-025211</span></p>
+  <p class="big">60%<small>judged better than the merged fix</small></p>
+  <p class="sub">6 of 10 tickets. Issues fixed by one maintainer, shared by link.</p>
+  <div class="bar" role="img" aria-label="6 better, 1 par, 1 tie, 2 worse, 0 error"><span class="b-better" style="width:60%"></span><span class="b-par" style="width:10%"></span><span class="b-tie" style="width:10%"></span><span class="b-worse" style="width:20%"></span></div>
+  <div class="counts"><span class="better"><i></i>6 better</span><span class="par"><i></i>1 par</span><span class="tie"><i></i>1 tie</span><span class="worse"><i></i>2 worse</span><span class="error"><i></i>0 error</span></div>
+</div>
+<section>
+  <div class="sectionhead"><h2>Runs on this sample</h2><span class="muted small">Click a run to see its tickets</span></div>
+  <div class="runs">
+<details class="run" id="run-20261125-025211" open>
+  <summary>
+    <span class="date">25 Nov 2026<span class="runid">run-20261125-025211</span></span>
+    <span class="bars"><div class="bar thin" role="img" aria-label="6 better, 1 par, 1 tie, 2 worse, 0 error"><span class="b-better" style="width:60%"></span><span class="b-par" style="width:10%"></span><span class="b-tie" style="width:10%"></span><span class="b-worse" style="width:20%"></span></div><span class="counts"><span class="better">6 better</span><span class="par">1 par</span><span class="tie">1 tie</span><span class="worse">2 worse</span><span class="error">0 error</span></span></span>
+    <span class="notes">Issues fixed by one maintainer, shared by link</span>
+    <span class="meta">10 tickets · <a href="/backtests/openai-agents-python/run-20261125-025211/">permalink</a></span>
+  </summary>
+  <div class="runbody">
+<div class="filters" role="group" aria-label="Filter tickets by verdict"><button type="button" data-filter="all" aria-pressed="true">All 10</button><button type="button" class="better" data-filter="better" aria-pressed="false">Better 6</button><button type="button" class="par" data-filter="par" aria-pressed="false">Par 1</button><button type="button" class="tie" data-filter="tie" aria-pressed="false">Tie 1</button><button type="button" class="worse" data-filter="worse" aria-pressed="false">Worse 2</button></div>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Issue</th><th>Title</th><th>Verdict</th><th class="num">Lines ours / merged</th><th>Test suite</th></tr></thead>
+    <tbody>
+<tr class="link" data-verdict="better"><td class="id">#5653</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/5653/">WebSocket 17 support</a></td><td><span class="pill better">Better</span></td><td class="num">69 / 202</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#5670</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/5670/"><code>OpenAIConversationsSession.get_items()</code> and <code>pop_item()</code> return <code>async_</code> instead of the <code>async</code> wire field on function calls, so replayed or restored history sends an unknown parameter</a></td><td><span class="pill better">Better</span></td><td class="num">273 / 48</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="tie"><td class="id">#5678</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/5678/">After a RunState JSON round trip, the next nested handoff embeds the previous history summary instead of flattening it</a></td><td><span class="pill tie">Tie</span></td><td class="num">108 / 58</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="par"><td class="id">#5743</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/5743/">Already-completed sibling output guardrail result omitted from tripwire <code>run_data.output_guardrail_results</code> when the tripping result is consumed first (output counterpart of #5567)</a></td><td><span class="pill par">Par</span></td><td class="num">72 / 66</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#5935</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/5935/">Agent end hooks lose the structured purchase details of an agent-as-tool call</a></td><td><span class="pill worse">Worse</span></td><td class="num">78 / 48</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="worse"><td class="id">#5992</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/5992/">run_demo_loop never asks for tool approval, the paused call goes out without its output</a></td><td><span class="pill worse">Worse</span></td><td class="num">170 / 252</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#6025</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/6025/">Responses <code>incomplete</code> at max_output_tokens: billed usage is dropped from RunContextWrapper.usage and the trace (real api.openai.com case for #4901)</a></td><td><span class="pill better">Better</span></td><td class="num">515 / 247</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#6043</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/6043/">Daytona extra allows daytona 2.0, which removes the 0.x API DaytonaSandboxClient uses</a></td><td><span class="pill better">Better</span></td><td class="num">77 / 4</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#6048</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/6048/">Sandbox memory consolidation selects older rollouts when updated_at timestamps use different UTC offsets</a></td><td><span class="pill better">Better</span></td><td class="num">140 / 51</td><td class="tests">No new failures</td></tr>
+<tr class="link" data-verdict="better"><td class="id">#6057</td><td class="title"><a href="/backtests/openai-agents-python/run-20261125-025211/6057/">Experimental Codex tool validates JSON parameters in Python mode, so strict parameters are rejected</a></td><td><span class="pill better">Better</span></td><td class="num">215 / 144</td><td class="tests">No new failures</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+</details>
+  </div>
+</section>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.runbody').forEach(function(panel){
+    var f=panel.querySelector('.filters');if(!f)return;
+    var rows=panel.querySelectorAll('tr[data-verdict]');
+    f.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-filter]');if(!b)return;
+      var v=b.getAttribute('data-filter');
+      f.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+      rows.forEach(function(r){r.hidden=v!=='all'&&r.getAttribute('data-verdict')!==v});
+    });
+  });
+})();
+</script>
+</body>
+</html>

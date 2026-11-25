@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#5743 Already-completed sibling output guardrail result omitted from tripwire `run_data.output_guardrail_results` when the tripping result is consumed first (output counterpart of #5567) — openai/openai-agents-python backtest</title>
+<meta name="description" content="Our patch was judged on par with the merged fix. Issue #5743 in openai/openai-agents-python, run 25 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261125-025211/5743/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/run-20261125-025211/">run-20261125-025211</a><span aria-hidden="true">/</span><span aria-current="page">#5743</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/openai/openai-agents-python/issues/5743" rel="noopener" target="_blank">#5743</a></span>
+  <span>Merged fix <a href="https://github.com/openai/openai-agents-python/pull/6040" rel="noopener" target="_blank">PR #6040</a></span>
+  <span>Run 25 Nov 2026 · <span class="runid">run-20261125-025211</span></span>
+  <span>openai/openai-agents-python</span>
+</div>
+<h1 class="ticket-title">Already-completed sibling output guardrail result omitted from tripwire <code>run_data.output_guardrail_results</code> when the tripping result is consumed first (output counterpart of #5567)</h1>
+
+<div class="verdict-block">
+  <span class="pill par lg">Par</span>
+  <p class="line">Our patch was judged on par with the merged fix.</p>
+  <p class="map">In this judgment, <b>Patch A = our agent</b>, <b>Patch B = the merged fix</b>.</p>
+  <pre class="reasoning">The source changes in the two patches are functionally identical: both generalise `_unreported_input_guardrail_results` into `_unreported_guardrail_results` with a `TypeVar` constrained to the two result types, update the two existing input call sites, and insert the sibling-collection loop in `run_output_guardrails` between `record(result)` and the cancellation of sibling tasks. That is the exact root-cause fix the issue describes, and the independent tests confirm both patches fix every failing scenario (run, run_streamed, run_sync, cleanup-only exclusion, terminal-tool path) with no regressions. Both add the same regression test (`test_output_guardrail_tripwire_snapshot[False|True]`) with the same structure: a tripping sync guardrail first, a passing sync sibling second, and a `late` guardrail that only finishes during cancellation and must be excluded; both assert on `exc.run_data.output_guardrail_results` and, for streamed runs, on `result.output_guardrail_results`. This test would fail on base and pass after the change. The only differences are cosmetic: Patch B reflows the existing input-side call to one line so the two loops are textually identical and places the new test among the other output-guardrail tests, while Patch A leaves the input call&#39;s original three-line wrap and places the test directly after its input-side mirror. Both choices are reasonable and neither affects correctness, test strength, scope, or readability in any material way, so no meaningful difference remains.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">4m 32s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">65 passed · 0 skipped · 65 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">72<small>vs 66 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/openai/openai-agents-python/issues/5743" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Describe the bug</h3>
+<p>#5567 / #5634 fixed <code>run_input_guardrails</code> so that a sibling input guardrail that had already completed when the tripping result was consumed is still reported. <code>run_output_guardrails</code> in <code>src/agents/run_internal/guardrails.py</code> has the same <code>asyncio.as_completed</code> loop and was not changed, so <code>OutputGuardrailTripwireTriggered.run_data.output_guardrail_results</code> (and <code>RunResultStreaming.output_guardrail_results</code> in streamed runs) still omits a passed sibling output guardrail whenever the tripping guardrail is registered first. The docs say output tripwires &quot;provide the equivalent accumulated results through <code>exception.run_data.output_guardrail_results</code>&quot; (docs/guardrails.md), which is only true for one registration order.</p>
+<h3>Debug information</h3>
+<ul><li>Agents SDK version: 0.24.0 (also <code>main</code> at <code>d6896165</code>, 2026-11-10, which includes #5634)</li><li>Python version: 3.12.10</li><li>Operating system: Windows 11</li><li>Model and model provider: not involved; <code>agents.testing.ScriptedModel</code></li><li>Does the issue reproduce with the latest Agents SDK release? Yes</li><li>Does the issue occur consistently or intermittently? Consistently (both guardrails are synchronous, so the order is deterministic)</li></ul>
+<h3>Repro steps</h3>
+<p>No API key needed.</p>
+<pre><code class="lang-python">import asyncio
+
+from openai.types.responses import ResponseOutputMessage, ResponseOutputText
+
+from agents import Agent, GuardrailFunctionOutput, OutputGuardrail, OutputGuardrailTripwireTriggered, Runner
+from agents.testing import ScriptedModel
+
+
+def model() -&gt; ScriptedModel:
+    message = ResponseOutputMessage(
+        id=&quot;msg_1&quot;, type=&quot;message&quot;, role=&quot;assistant&quot;, status=&quot;completed&quot;,
+        content=[ResponseOutputText(type=&quot;output_text&quot;, text=&quot;hello&quot;, annotations=[])],
+    )
+    return ScriptedModel([{&quot;output&quot;: [message]}])
+
+
+def verdict(name: str, trips: bool) -&gt; OutputGuardrail:
+    def guardrail(context, agent, agent_output):
+        return GuardrailFunctionOutput(output_info=name, tripwire_triggered=trips)
+
+    return OutputGuardrail(guardrail_function=guardrail, name=name)
+
+
+def names(results) -&gt; list[str]:
+    return [r.guardrail.get_name() for r in results]
+
+
+async def main() -&gt; None:
+    for order in ([&quot;trips&quot;, &quot;passes&quot;], [&quot;passes&quot;, &quot;trips&quot;]):
+        guardrails = [verdict(n, n == &quot;trips&quot;) for n in order]
+        try:
+            await Runner.run(Agent(name=&quot;a&quot;, model=model(), output_guardrails=guardrails), &quot;hi&quot;)
+        except OutputGuardrailTripwireTriggered as exc:
+            print(f&quot;run          {order} -&gt; {names(exc.run_data.output_guardrail_results)}&quot;)
+
+        result = Runner.run_streamed(Agent(name=&quot;a&quot;, model=model(), output_guardrails=guardrails), &quot;hi&quot;)
+        try:
+            async for _ in result.stream_events():
+                pass
+        except OutputGuardrailTripwireTriggered as exc:
+            print(
+                f&quot;run_streamed {order} -&gt; {names(exc.run_data.output_guardrail_results)}&quot;
+                f&quot; (result.output_guardrail_results {names(result.output_guardrail_results)})&quot;
+            )
+
+
+asyncio.run(main())</code></pre>
+<p>Observed on <code>main</code>:</p>
+<pre><code class="lang-text">run          [&#39;trips&#39;, &#39;passes&#39;] -&gt; [&#39;trips&#39;]
+run_streamed [&#39;trips&#39;, &#39;passes&#39;] -&gt; [&#39;trips&#39;] (result.output_guardrail_results [&#39;trips&#39;])
+run          [&#39;passes&#39;, &#39;trips&#39;] -&gt; [&#39;passes&#39;, &#39;trips&#39;]
+run_streamed [&#39;passes&#39;, &#39;trips&#39;] -&gt; [&#39;passes&#39;, &#39;trips&#39;] (result.output_guardrail_results [&#39;passes&#39;, &#39;trips&#39;])</code></pre>
+<p>Expected (and observed with the fix below):</p>
+<pre><code class="lang-text">run          [&#39;trips&#39;, &#39;passes&#39;] -&gt; [&#39;trips&#39;, &#39;passes&#39;]
+run_streamed [&#39;trips&#39;, &#39;passes&#39;] -&gt; [&#39;trips&#39;, &#39;passes&#39;] (result.output_guardrail_results [&#39;trips&#39;, &#39;passes&#39;])
+run          [&#39;passes&#39;, &#39;trips&#39;] -&gt; [&#39;passes&#39;, &#39;trips&#39;]
+run_streamed [&#39;passes&#39;, &#39;trips&#39;] -&gt; [&#39;passes&#39;, &#39;trips&#39;] (result.output_guardrail_results [&#39;passes&#39;, &#39;trips&#39;])</code></pre>
+<h3>Expected behavior</h3>
+<p>Every output guardrail that has already completed successfully when the runner consumes the tripping result is included exactly once in <code>exception.run_data.output_guardrail_results</code> (and in <code>RunResultStreaming.output_guardrail_results</code>), regardless of registration order, the same contract #5634 established for input guardrails. Results that only complete during cancellation cleanup stay excluded, as on the input side.</p>
+<h3>Root cause</h3>
+<p><code>src/agents/run_internal/guardrails.py</code> at <code>d6896165</code>: <code>run_output_guardrails</code> (line 196) iterates <code>asyncio.as_completed(guardrail_tasks)</code> (line 225) and, on a tripping result (line 227), records only that result, cancels the siblings and raises (lines 228-238). A sibling task that is already <code>done()</code> but whose completion <code>as_completed</code> has not yielded yet is never recorded. The input paths got <code>_unreported_input_guardrail_results</code> (lines 55-66) for exactly this case in #5634; <code>run_output_guardrails</code> does not call it. All four callers (<code>run.py</code> lines 1352 and 2099, <code>run_internal/run_loop.py</code> lines 522 and 861) pass a sink list that becomes <code>run_data.output_guardrail_results</code>, so the omission reaches <code>Runner.run</code>, <code>Runner.run_streamed</code> and the terminal-tool path alike.</p>
+<h3>Proposed fix</h3>
+<p>Generalise the helper over both result types and call it from the output loop before cancelling, mirroring the input fix:</p>
+<pre><code class="lang-python">TGuardrailResult = TypeVar(&quot;TGuardrailResult&quot;, InputGuardrailResult, OutputGuardrailResult)
+
+def _unreported_guardrail_results(tasks: list[asyncio.Task[TGuardrailResult]], recorded: list[TGuardrailResult]) -&gt; list[TGuardrailResult]: ...
+
+# run_output_guardrails, on tripwire:
+record(result)
+for sibling in _unreported_guardrail_results(guardrail_tasks, guardrail_results):
+    record(sibling)</code></pre>
+<p>Branch with the fix and a regression test (<code>tests/test_guardrails.py::test_output_guardrail_tripwire_snapshot[False|True]</code>, a mirror of <code>test_input_guardrail_tripwire_snapshot</code> from #5634; it fails on <code>main</code> and passes with the change, the whole file passes, <code>ruff</code> and <code>mypy</code> are clean): <a href="https://github.com/reeve25/openai-agents-python/tree/fix/output-guardrail-sibling-results" rel="noopener nofollow" target="_blank">https://github.com/reeve25/openai-agents-python/tree/fix/output-guardrail-sibling-results</a></p>
+<p>This report and the fix branch were prepared with Claude Code (claude-fable-5-1); I reviewed the repro, the diff and the test output. Not run: the full test suite or a live model call.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+65</span> <span class="r">−7</span></span></div><pre class="diff"><span class="f">src/agents/run_internal/guardrails.py</span><span class="h">index 265f9dd0..570eb513 100644</span><span class="h">@@ -1,7 +1,7 @@</span><span class="c"> from __future__ import annotations</span><span class="c"> </span><span class="c"> import asyncio</span><span class="r">-from typing import Any</span><span class="a">+from typing import Any, TypeVar</span><span class="c"> </span><span class="c"> from ..agent import Agent</span><span class="c"> from ..exceptions import InputGuardrailTripwireTriggered, OutputGuardrailTripwireTriggered</span><span class="h">@@ -52,12 +52,15 @@ async def run_single_output_guardrail(</span><span class="c">         return result</span><span class="c"> </span><span class="c"> </span><span class="r">-def _unreported_input_guardrail_results(</span><span class="r">-    tasks: list[asyncio.Task[InputGuardrailResult]], recorded: list[InputGuardrailResult]</span><span class="r">-) -&gt; list[InputGuardrailResult]:</span><span class="a">+TGuardrailResult = TypeVar(&quot;TGuardrailResult&quot;, InputGuardrailResult, OutputGuardrailResult)</span><span class="a">+</span><span class="a">+</span><span class="a">+def _unreported_guardrail_results(</span><span class="a">+    tasks: list[asyncio.Task[TGuardrailResult]], recorded: list[TGuardrailResult]</span><span class="a">+) -&gt; list[TGuardrailResult]:</span><span class="c">     &quot;&quot;&quot;Collect successful siblings that as_completed has not yielded yet.&quot;&quot;&quot;</span><span class="c">     recorded_ids = {id(result) for result in recorded}</span><span class="r">-    missing = []</span><span class="a">+    missing: list[TGuardrailResult] = []</span><span class="c">     for task in tasks:</span><span class="c">         if task.done() and not task.cancelled() and task.exception() is None:</span><span class="c">             result = task.result()</span><span class="h">@@ -93,7 +96,7 @@ async def run_input_guardrails_with_queue(</span><span class="c">             if result.output.tripwire_triggered:</span><span class="c">                 streamed_result.input_guardrail_results = (</span><span class="c">                     streamed_result.input_guardrail_results</span><span class="r">-                    + _unreported_input_guardrail_results(</span><span class="a">+                    + _unreported_guardrail_results(</span><span class="c">                         guardrail_tasks, streamed_result.input_guardrail_results</span><span class="c">                     )</span><span class="c">                 )</span><span class="h">@@ -166,7 +169,7 @@ async def run_input_guardrails(</span><span class="c">             result = await done</span><span class="c">             if result.output.tripwire_triggered:</span><span class="c">                 record(result)</span><span class="r">-                for sibling in _unreported_input_guardrail_results(</span><span class="a">+                for sibling in _unreported_guardrail_results(</span><span class="c">                     guardrail_tasks, guardrail_results</span><span class="c">                 ):</span><span class="c">                     record(sibling)</span><span class="h">@@ -226,6 +229,8 @@ async def run_output_guardrails(</span><span class="c">             result = await done</span><span class="c">             if result.output.tripwire_triggered:</span><span class="c">                 record(result)</span><span class="a">+                for sibling in _unreported_guardrail_results(guardrail_tasks, guardrail_results):</span><span class="a">+                    record(sibling)</span><span class="c">                 for t in guardrail_tasks:</span><span class="c">                     t.cancel()</span><span class="c">                 await asyncio.gather(*guardrail_tasks, return_exceptions=True)</span><span class="f">tests/test_guardrails.py</span><span class="h">index c08cdb08..ed4d9d7c 100644</span><span class="h">@@ -2104,6 +2104,59 @@ async def test_input_guardrail_tripwire_snapshot(streamed: bool) -&gt; None:</span><span class="c">     ]</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.asyncio</span><span class="a">+@pytest.mark.parametrize(&quot;streamed&quot;, [False, True])</span><span class="a">+async def test_output_guardrail_tripwire_snapshot(streamed: bool) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;A passed sibling that finished before the tripping verdict is consumed is reported.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    cleanup_finished = asyncio.Event()</span><span class="a">+</span><span class="a">+    async def finish_during_cleanup(ctx, agent, agent_output):</span><span class="a">+        try:</span><span class="a">+            await asyncio.Event().wait()</span><span class="a">+        except asyncio.CancelledError:</span><span class="a">+            cleanup_finished.set()</span><span class="a">+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=False)</span><span class="a">+</span><span class="a">+    model = ScriptedModel()</span><span class="a">+    model.enqueue([get_text_message(&quot;hello&quot;)])</span><span class="a">+    agent = Agent(</span><span class="a">+        name=&quot;billing&quot;,</span><span class="a">+        model=model,</span><span class="a">+        output_guardrails=[</span><span class="a">+            OutputGuardrail(</span><span class="a">+                guardrail_function=get_sync_output_guardrail(True), name=&quot;order_required&quot;</span><span class="a">+            ),</span><span class="a">+            OutputGuardrail(</span><span class="a">+                guardrail_function=get_sync_output_guardrail(False), name=&quot;billing_in_scope&quot;</span><span class="a">+            ),</span><span class="a">+            OutputGuardrail(guardrail_function=finish_during_cleanup, name=&quot;late&quot;),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    if streamed:</span><span class="a">+        result = Runner.run_streamed(agent, &quot;Refund request without an order number&quot;)</span><span class="a">+        with pytest.raises(OutputGuardrailTripwireTriggered) as exc_info:</span><span class="a">+            async for _ in result.stream_events():</span><span class="a">+                pass</span><span class="a">+        assert sorted(_result_names(result.output_guardrail_results)) == [</span><span class="a">+            &quot;billing_in_scope&quot;,</span><span class="a">+            &quot;order_required&quot;,</span><span class="a">+        ]</span><span class="a">+    else:</span><span class="a">+        with pytest.raises(OutputGuardrailTripwireTriggered) as exc_info:</span><span class="a">+            await Runner.run(agent, &quot;Refund request without an order number&quot;)</span><span class="a">+</span><span class="a">+    exc = exc_info.value</span><span class="a">+    assert cleanup_finished.is_set()</span><span class="a">+    assert exc.guardrail_result.guardrail.get_name() == &quot;order_required&quot;</span><span class="a">+    assert exc.run_data is not None</span><span class="a">+    assert sorted(_result_names(exc.run_data.output_guardrail_results)) == [</span><span class="a">+        &quot;billing_in_scope&quot;,</span><span class="a">+        &quot;order_required&quot;,</span><span class="a">+    ]</span><span class="a">+</span><span class="a">+</span><span class="c"> def test_input_guardrail_tripwire_reports_results_sync():</span><span class="c">     &quot;&quot;&quot;Runner.run_sync() matches the async entry points.&quot;&quot;&quot;</span><span class="c">     model = ScriptedModel()</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/openai/openai-agents-python/pull/6040" rel="noopener" target="_blank">PR #6040</a></span><span class="pm"><span class="a">+57</span> <span class="r">−9</span></span></div><pre class="diff"><span class="f">src/agents/run_internal/guardrails.py</span><span class="h">index 265f9dd00..a80691948 100644</span><span class="h">@@ -1,7 +1,7 @@</span><span class="c"> from __future__ import annotations</span><span class="c"> </span><span class="c"> import asyncio</span><span class="r">-from typing import Any</span><span class="a">+from typing import Any, TypeVar</span><span class="c"> </span><span class="c"> from ..agent import Agent</span><span class="c"> from ..exceptions import InputGuardrailTripwireTriggered, OutputGuardrailTripwireTriggered</span><span class="h">@@ -52,12 +52,15 @@ async def run_single_output_guardrail(</span><span class="c">         return result</span><span class="c"> </span><span class="c"> </span><span class="r">-def _unreported_input_guardrail_results(</span><span class="r">-    tasks: list[asyncio.Task[InputGuardrailResult]], recorded: list[InputGuardrailResult]</span><span class="r">-) -&gt; list[InputGuardrailResult]:</span><span class="a">+TGuardrailResult = TypeVar(&quot;TGuardrailResult&quot;, InputGuardrailResult, OutputGuardrailResult)</span><span class="a">+</span><span class="a">+</span><span class="a">+def _unreported_guardrail_results(</span><span class="a">+    tasks: list[asyncio.Task[TGuardrailResult]], recorded: list[TGuardrailResult]</span><span class="a">+) -&gt; list[TGuardrailResult]:</span><span class="c">     &quot;&quot;&quot;Collect successful siblings that as_completed has not yielded yet.&quot;&quot;&quot;</span><span class="c">     recorded_ids = {id(result) for result in recorded}</span><span class="r">-    missing = []</span><span class="a">+    missing: list[TGuardrailResult] = []</span><span class="c">     for task in tasks:</span><span class="c">         if task.done() and not task.cancelled() and task.exception() is None:</span><span class="c">             result = task.result()</span><span class="h">@@ -93,7 +96,7 @@ async def run_input_guardrails_with_queue(</span><span class="c">             if result.output.tripwire_triggered:</span><span class="c">                 streamed_result.input_guardrail_results = (</span><span class="c">                     streamed_result.input_guardrail_results</span><span class="r">-                    + _unreported_input_guardrail_results(</span><span class="a">+                    + _unreported_guardrail_results(</span><span class="c">                         guardrail_tasks, streamed_result.input_guardrail_results</span><span class="c">                     )</span><span class="c">                 )</span><span class="h">@@ -166,9 +169,7 @@ async def run_input_guardrails(</span><span class="c">             result = await done</span><span class="c">             if result.output.tripwire_triggered:</span><span class="c">                 record(result)</span><span class="r">-                for sibling in _unreported_input_guardrail_results(</span><span class="r">-                    guardrail_tasks, guardrail_results</span><span class="r">-                ):</span><span class="a">+                for sibling in _unreported_guardrail_results(guardrail_tasks, guardrail_results):</span><span class="c">                     record(sibling)</span><span class="c">                 for t in guardrail_tasks:</span><span class="c">                     t.cancel()</span><span class="h">@@ -226,6 +227,8 @@ async def run_output_guardrails(</span><span class="c">             result = await done</span><span class="c">             if result.output.tripwire_triggered:</span><span class="c">                 record(result)</span><span class="a">+                for sibling in _unreported_guardrail_results(guardrail_tasks, guardrail_results):</span><span class="a">+                    record(sibling)</span><span class="c">                 for t in guardrail_tasks:</span><span class="c">                     t.cancel()</span><span class="c">                 await asyncio.gather(*guardrail_tasks, return_exceptions=True)</span><span class="f">tests/test_guardrails.py</span><span class="h">index c08cdb087..fa132217c 100644</span><span class="h">@@ -2266,6 +2266,51 @@ def test_output_guardrail_tripwire_reports_results_sync():</span><span class="c">     assert _result_names(run_data.output_guardrail_results) == [&quot;passes&quot;, &quot;trips&quot;]</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.asyncio</span><span class="a">+@pytest.mark.parametrize(&quot;streamed&quot;, [False, True])</span><span class="a">+async def test_output_guardrail_tripwire_snapshot(streamed: bool) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Both immediate output checks finish before the runner consumes the first verdict.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    cleanup_finished = asyncio.Event()</span><span class="a">+</span><span class="a">+    async def finish_during_cleanup(ctx, agent, agent_output):</span><span class="a">+        try:</span><span class="a">+            await asyncio.Event().wait()</span><span class="a">+        except asyncio.CancelledError:</span><span class="a">+            cleanup_finished.set()</span><span class="a">+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=False)</span><span class="a">+</span><span class="a">+    model = ScriptedModel()</span><span class="a">+    model.enqueue([get_text_message(&quot;hello&quot;)])</span><span class="a">+    agent = Agent(</span><span class="a">+        name=&quot;billing&quot;,</span><span class="a">+        model=model,</span><span class="a">+        output_guardrails=[</span><span class="a">+            OutputGuardrail(</span><span class="a">+                guardrail_function=get_sync_output_guardrail(True), name=&quot;refund_policy&quot;</span><span class="a">+            ),</span><span class="a">+            OutputGuardrail(guardrail_function=get_sync_output_guardrail(False), name=&quot;tone&quot;),</span><span class="a">+            OutputGuardrail(guardrail_function=finish_during_cleanup, name=&quot;late&quot;),</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    if streamed:</span><span class="a">+        result = Runner.run_streamed(agent, &quot;Refund request without an order number&quot;)</span><span class="a">+        with pytest.raises(OutputGuardrailTripwireTriggered) as exc_info:</span><span class="a">+            async for _ in result.stream_events():</span><span class="a">+                pass</span><span class="a">+        assert sorted(_result_names(result.output_guardrail_results)) == [&quot;refund_policy&quot;, &quot;tone&quot;]</span><span class="a">+    else:</span><span class="a">+        with pytest.raises(OutputGuardrailTripwireTriggered) as exc_info:</span><span class="a">+            await Runner.run(agent, &quot;Refund request without an order number&quot;)</span><span class="a">+</span><span class="a">+    exc = exc_info.value</span><span class="a">+    assert cleanup_finished.is_set()</span><span class="a">+    assert exc.guardrail_result.guardrail.get_name() == &quot;refund_policy&quot;</span><span class="a">+    assert exc.run_data is not None</span><span class="a">+    assert sorted(_result_names(exc.run_data.output_guardrail_results)) == [&quot;refund_policy&quot;, &quot;tone&quot;]</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.asyncio</span><span class="c"> async def test_output_guardrail_results_reported_on_success():</span><span class="c">     &quot;&quot;&quot;Passing output guardrails still land on the successful result exactly once.&quot;&quot;&quot;</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/openai-agents-python/run-20261125-025211/5678/">Previous · #5678</a>
+  <a class="mid" href="/backtests/openai-agents-python/run-20261125-025211/">All tickets in this run</a>
+  <a href="/backtests/openai-agents-python/run-20261125-025211/5935/">Next · #5935</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>

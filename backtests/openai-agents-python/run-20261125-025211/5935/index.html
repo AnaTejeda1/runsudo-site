@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#5935 Agent end hooks lose the structured purchase details of an agent-as-tool call — openai/openai-agents-python backtest</title>
+<meta name="description" content="The merged fix was judged better than our patch. Issue #5935 in openai/openai-agents-python, run 25 Nov 2026.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://runsudo.dev/backtests/openai-agents-python/run-20261125-025211/5935/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body class="bt">
+<div class="wrap">
+  <nav>
+    <a href="/" aria-label="sudo home"><img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752"></a>
+    <div class="links"><a href="/backtests/" class="keep" aria-current="page">Backtests</a><a href="/#replay">How it works</a><a href="/#backtest">Request a backtest</a></div>
+  </nav>
+  <main>
+
+<p class="crumbs"><a href="/backtests/">Backtests</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/">openai-agents-python</a><span aria-hidden="true">/</span><a href="/backtests/openai-agents-python/run-20261125-025211/">run-20261125-025211</a><span aria-hidden="true">/</span><span aria-current="page">#5935</span></p>
+<div class="tk-head">
+  <span>Issue <a href="https://github.com/openai/openai-agents-python/issues/5935" rel="noopener" target="_blank">#5935</a></span>
+  <span>Merged fix <a href="https://github.com/openai/openai-agents-python/pull/6037" rel="noopener" target="_blank">PR #6037</a></span>
+  <span>Run 25 Nov 2026 · <span class="runid">run-20261125-025211</span></span>
+  <span>openai/openai-agents-python</span>
+</div>
+<h1 class="ticket-title">Agent end hooks lose the structured purchase details of an agent-as-tool call</h1>
+
+<div class="verdict-block">
+  <span class="pill worse lg">Worse</span>
+  <p class="line">The merged fix was judged better than our patch.</p>
+  <p class="map">In this judgment, <b>Patch B = our agent</b>, <b>Patch A = the merged fix</b>.</p>
+  <pre class="reasoning">The source changes are byte-identical: both patches pass `context_wrapper.tool_input` into the `AgentHookContext` built for `on_start` in `run_single_turn` and `run_single_turn_streamed`, and for `on_end` in `run_final_output_hooks`. That is the root cause (the hook context was constructed without the structured tool input even though the wrapper carried it), and the independent tests confirm both patches fix on_start and on_end across nested-streamed, non-streamed, and outer-streamed runs. So the decision rests on tests and craft. Patch A&#39;s test sits next to the existing `test_agent_as_tool_structured_input_sets_tool_input`, parametrizes nested streaming, and asserts the full hook sequence for both agents, including that the outer Buyer&#39;s hooks see `None` and that ordering is Buyer-start, Calculator-start, Calculator-end, Buyer-end. That extra assertion guards against the plausible regression of tool_input leaking into the parent agent&#39;s hook context, which neither B nor the independent tests check. Patch B parametrizes outer streaming as well, but the asserted hook context is created inside the nested run, so the outer-streaming axis adds little beyond what A covers. B also has small craft issues: an inline `from pydantic import BaseModel` inside the test body, and an inconsistent hook signature (`on_start` typed with `AgentHookContext` while `on_end` is typed with `RunContextWrapper`), plus a more verbose ScriptedModel setup. Both tests would fail before and pass after the fix; A&#39;s is tighter and checks a more complete invariant, so A edges out B.</pre>
+  <p class="note">Four judges ruled on this ticket in parallel, and the verdict comes from counting their votes. Each saw the issue and the two patches, labelled A and B in random order (two of them saw ours as A), with issue links and version numbers removed. Where tests could check the fix, they also saw the results of tests a separate agent wrote for the issue, run on both patches. None was told which patch was ours. The reasoning above is one judge's, shown verbatim.</p>
+</div>
+
+<div class="stats">
+  <div class="card"><p class="k">Solve</p><p class="v">7m 54s<small></small></p><p class="d">Wall-clock time in the container</p></div>
+  <div class="card"><p class="k">Full test suite</p><p class="v"><span style="color:var(--good)">No new failures</span></p><p class="d">2,390 passed · 0 skipped · 2,390 total</p></div>
+  <div class="card"><p class="k">Contamination audit</p><p class="v" style="color:var(--good)">Clean</p><p class="d">No sign the agent saw the real fix</p></div>
+  <div class="card"><p class="k">Patch size</p><p class="v">78<small>vs 48 merged</small></p><p class="d">Changed lines, ours vs merged</p></div>
+</div>
+
+<section>
+  <div class="sectionhead"><h2>The issue</h2><a class="small" href="https://github.com/openai/openai-agents-python/issues/5935" rel="noopener" target="_blank">View on GitHub</a></div>
+  <div class="card collapse" data-collapsed="">
+    <div class="md"><h3>Please read this first</h3>
+<ul><li><strong>Have you read the docs?</strong> <a href="https://openai.github.io/openai-agents-python/" rel="noopener nofollow" target="_blank">Agents SDK docs</a></li><li><strong>Have you searched for related issues?</strong> Others may have faced similar issues.</li></ul>
+<h3>Describe the bug</h3>
+<p>&lt;!-- Clearly and concisely describe the bug. --&gt;</p>
+<p>I was using a purchasing assistant that delegates invoice calculations to a calculator agent through <code>Agent.as_tool(parameters=Purchase)</code>. I attached an end hook to the calculator to save the quantity, unit price and calculated total in a CSV. For two notebook boxes at $25 each, the assistant reported $50 and said the invoice was saved, but the saved row was <code>,,50</code>. The structured input is available on the nested run result; it disappears specifically in the context passed to the lifecycle hook.</p>
+<h3>Debug information</h3>
+<ul><li>Agents SDK version: 0.24.0</li><li>Related library versions (optional, e.g. <code>any-llm</code>, <code>litellm</code>, or <code>pydantic</code>): openai==3.49.0, pydantic==2.14.3, anyio==4.16.0, httpx2==2.16.0</li><li>Python version: 3.11.18</li><li>Operating system: Ubuntu 20.04.6 LTS, x86_64; Linux kernel 5.15.0-139-generic</li><li>Model and model provider: deepseek-v4.1-flash, DeepSeek</li><li>Does the issue reproduce with the latest Agents SDK release? Yes</li><li>Does the issue occur consistently or intermittently? Yes</li></ul>
+<p>If an error occurred, include the full traceback and any relevant logs. Remove API keys, tokens, model input or output, and other sensitive information before posting.</p>
+<p>&lt;!-- Paste the traceback or relevant logs below. --&gt;</p>
+<pre><code class="lang-text">
+The invoice has been calculated and saved. Two notebook boxes at $25 each come to a total of **$50**.
+quantity,unit_price,total
+,,50
+
+Traceback (most recent call last):
+  File &quot;/tmp/agent-framework-context-audit/openai-agents-python/investigation/agent-tool-lifecycle-input/main.py&quot;, line 36, in &lt;module&gt;
+    asyncio.run(main())
+  File &quot;/tmp/agent-framework-context-audit/openai-agents-python/conda-env/lib/python3.11/asyncio/runners.py&quot;, line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File &quot;/tmp/agent-framework-context-audit/openai-agents-python/conda-env/lib/python3.11/asyncio/runners.py&quot;, line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/tmp/agent-framework-context-audit/openai-agents-python/conda-env/lib/python3.11/asyncio/base_events.py&quot;, line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File &quot;/tmp/agent-framework-context-audit/openai-agents-python/investigation/agent-tool-lifecycle-input/main.py&quot;, line 33, in main
+    assert &quot;2,25,50&quot; in invoice.read_text(), &quot;The saved invoice lost the purchase details&quot;
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: The saved invoice lost the purchase details
+
+</code></pre>
+<h3>Repro steps</h3>
+<p>Ideally provide a minimal, self-contained Python script that can be run to reproduce the bug.</p>
+<pre><code class="lang-python">
+import asyncio
+import csv
+import os
+from pathlib import Path
+from openai import AsyncOpenAI
+from pydantic import BaseModel
+from agents import Agent, AgentHooks, ModelSettings, OpenAIChatCompletionsModel, Runner, set_tracing_disabled
+
+set_tracing_disabled(True)
+model = OpenAIChatCompletionsModel(&quot;deepseek-flash&quot;, AsyncOpenAI(api_key=os.environ[&quot;DEEPSEEK_API_KEY&quot;], base_url=&quot;https://api.deepseek.com/v1&quot;))
+settings = ModelSettings(temperature=0, extra_body={&quot;thinking&quot;: {&quot;type&quot;: &quot;disabled&quot;}})
+invoice = Path(&quot;/tmp/notebook-invoice.csv&quot;)
+
+
+class Purchase(BaseModel):
+    quantity: int
+    unit_price: int
+
+
+class SaveInvoice(AgentHooks):
+    async def on_end(self, context, agent, output):
+        purchase = context.tool_input or {}
+        with invoice.open(&quot;w&quot;, newline=&quot;&quot;) as file:
+            csv.writer(file).writerows([[&quot;quantity&quot;, &quot;unit_price&quot;, &quot;total&quot;], [purchase.get(&quot;quantity&quot;, &quot;&quot;), purchase.get(&quot;unit_price&quot;, &quot;&quot;), output]])
+
+
+async def main():
+    calculator = Agent(name=&quot;Purchase calculator&quot;, instructions=&quot;Calculate quantity times unit_price. Reply with only the numeric total, without currency symbols or explanation.&quot;, model=model, model_settings=settings, hooks=SaveInvoice())
+    buyer = Agent(name=&quot;Purchasing assistant&quot;, instructions=&quot;For a purchase, call calculate_purchase with its quantity and unit_price exactly once, then report the total.&quot;, model=model, model_settings=settings, tools=[calculator.as_tool(tool_name=&quot;calculate_purchase&quot;, tool_description=&quot;Calculate a purchase total and save its invoice.&quot;, parameters=Purchase)])
+    answer = await Runner.run(buyer, &quot;Please calculate and save the invoice for two notebook boxes at $25 each.&quot;)
+    print(answer.final_output)
+    print(invoice.read_text())
+    assert &quot;2,25,50&quot; in invoice.read_text(), &quot;The saved invoice lost the purchase details&quot;
+
+
+asyncio.run(main())
+</code></pre>
+<h3>Expected behavior</h3>
+<p>&lt;!-- Clearly and concisely describe what you expected to happen. --&gt;</p>
+<p>The invoice should contain <code>2,25,50</code>.</p></div>
+    <button type="button" class="toggle" aria-expanded="false">Show full issue</button>
+  </div>
+</section>
+
+<section>
+  <h2>The two patches</h2>
+  <div class="patches">
+    <div class="patch"><div class="ph"><span>Our patch</span><span class="pm"><span class="a">+78</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">src/agents/run_internal/run_loop.py</span><span class="h">index 0f9e8e5c..42bc9d66 100644</span><span class="h">@@ -2471,6 +2471,7 @@ async def run_single_turn_streamed(</span><span class="c">                 context=context_wrapper.context,</span><span class="c">                 usage=context_wrapper.usage,</span><span class="c">                 turn_input=turn_input,</span><span class="a">+                tool_input=context_wrapper.tool_input,</span><span class="c">             )</span><span class="c">             context_wrapper._share_tool_state_with(agent_hook_context)</span><span class="c">             await gather_with_cancel(</span><span class="h">@@ -2846,6 +2847,7 @@ async def run_single_turn(</span><span class="c">                 context=context_wrapper.context,</span><span class="c">                 usage=context_wrapper.usage,</span><span class="c">                 turn_input=turn_input,</span><span class="a">+                tool_input=context_wrapper.tool_input,</span><span class="c">             )</span><span class="c">             context_wrapper._share_tool_state_with(agent_hook_context)</span><span class="c">             await gather_with_cancel(</span><span class="f">src/agents/run_internal/turn_resolution.py</span><span class="h">index e16aa40c..e557588b 100644</span><span class="h">@@ -359,6 +359,7 @@ async def run_final_output_hooks(</span><span class="c">         context=context_wrapper.context,</span><span class="c">         usage=context_wrapper.usage,</span><span class="c">         turn_input=context_wrapper.turn_input,</span><span class="a">+        tool_input=context_wrapper.tool_input,</span><span class="c">     )</span><span class="c">     context_wrapper._share_tool_state_with(agent_hook_context)</span><span class="c"> </span><span class="f">tests/test_agent_hooks.py</span><span class="h">index a71b527d..8b85f41e 100644</span><span class="h">@@ -541,3 +541,78 @@ async def test_agent_hooks_receives_turn_input_streamed():</span><span class="c">     turn_input = hooks.captured_turn_inputs[0]</span><span class="c">     assert len(turn_input) == 1</span><span class="c">     assert turn_input[0][&quot;content&quot;] == &quot;streamed input&quot;</span><span class="a">+</span><span class="a">+</span><span class="a">+class ToolInputCapturingHooks(AgentHooks):</span><span class="a">+    &quot;&quot;&quot;Agent hooks that capture tool_input from on_start and on_end.&quot;&quot;&quot;</span><span class="a">+</span><span class="a">+    def __init__(self):</span><span class="a">+        self.start_tool_inputs: list[Any] = []</span><span class="a">+        self.end_records: list[tuple[Any, Any]] = []</span><span class="a">+</span><span class="a">+    async def on_start(self, context: AgentHookContext[TContext], agent: Agent[TContext]) -&gt; None:</span><span class="a">+        self.start_tool_inputs.append(context.tool_input)</span><span class="a">+</span><span class="a">+    async def on_end(</span><span class="a">+        self,</span><span class="a">+        context: RunContextWrapper[TContext],</span><span class="a">+        agent: Agent[TContext],</span><span class="a">+        output: Any,</span><span class="a">+    ) -&gt; None:</span><span class="a">+        self.end_records.append((context.tool_input, output))</span><span class="a">+</span><span class="a">+</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+@pytest.mark.parametrize(&quot;nested_streaming&quot;, [False, True])</span><span class="a">+@pytest.mark.parametrize(&quot;outer_streaming&quot;, [False, True])</span><span class="a">+async def test_agent_as_tool_hooks_receive_structured_tool_input(</span><span class="a">+    nested_streaming: bool, outer_streaming: bool</span><span class="a">+) -&gt; None:</span><span class="a">+    &quot;&quot;&quot;Agent hooks of an agent-as-tool see the structured parameters it was called with.&quot;&quot;&quot;</span><span class="a">+    from pydantic import BaseModel</span><span class="a">+</span><span class="a">+    class Purchase(BaseModel):</span><span class="a">+        quantity: int</span><span class="a">+        unit_price: int</span><span class="a">+</span><span class="a">+    hooks = ToolInputCapturingHooks()</span><span class="a">+    calculator_model = ScriptedModel()</span><span class="a">+    calculator_model.enqueue([get_text_message(&quot;50&quot;)])</span><span class="a">+    calculator = Agent(name=&quot;calculator&quot;, model=calculator_model, hooks=hooks)</span><span class="a">+</span><span class="a">+    async def on_stream(_event: Any) -&gt; None:</span><span class="a">+        return None</span><span class="a">+</span><span class="a">+    buyer_model = ScriptedModel()</span><span class="a">+    buyer_model.enqueue(</span><span class="a">+        [</span><span class="a">+            get_function_tool_call(</span><span class="a">+                &quot;calculate_purchase&quot;, json.dumps({&quot;quantity&quot;: 2, &quot;unit_price&quot;: 25})</span><span class="a">+            )</span><span class="a">+        ]</span><span class="a">+    )</span><span class="a">+    buyer_model.enqueue([get_text_message(&quot;The total is 50&quot;)])</span><span class="a">+    buyer = Agent(</span><span class="a">+        name=&quot;buyer&quot;,</span><span class="a">+        model=buyer_model,</span><span class="a">+        tools=[</span><span class="a">+            calculator.as_tool(</span><span class="a">+                tool_name=&quot;calculate_purchase&quot;,</span><span class="a">+                tool_description=&quot;Calculate a purchase total.&quot;,</span><span class="a">+                parameters=Purchase,</span><span class="a">+                on_stream=on_stream if nested_streaming else None,</span><span class="a">+            )</span><span class="a">+        ],</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    if outer_streaming:</span><span class="a">+        streamed = Runner.run_streamed(buyer, input=&quot;two boxes at 25&quot;)</span><span class="a">+        async for _ in streamed.stream_events():</span><span class="a">+            pass</span><span class="a">+        final_output = streamed.final_output</span><span class="a">+    else:</span><span class="a">+        final_output = (await Runner.run(buyer, input=&quot;two boxes at 25&quot;)).final_output</span><span class="a">+</span><span class="a">+    assert final_output == &quot;The total is 50&quot;</span><span class="a">+    assert hooks.start_tool_inputs == [{&quot;quantity&quot;: 2, &quot;unit_price&quot;: 25}]</span><span class="a">+    assert hooks.end_records == [({&quot;quantity&quot;: 2, &quot;unit_price&quot;: 25}, &quot;50&quot;)]</span><span class="c"> </span></pre></div>
+    <div class="patch"><div class="ph"><span>Merged fix · <a href="https://github.com/openai/openai-agents-python/pull/6037" rel="noopener" target="_blank">PR #6037</a></span><span class="pm"><span class="a">+48</span> <span class="r">−0</span></span></div><pre class="diff"><span class="f">src/agents/run_internal/run_loop.py</span><span class="h">index 0f9e8e5c8..42bc9d666 100644</span><span class="h">@@ -2471,6 +2471,7 @@ async def run_single_turn_streamed(</span><span class="c">                 context=context_wrapper.context,</span><span class="c">                 usage=context_wrapper.usage,</span><span class="c">                 turn_input=turn_input,</span><span class="a">+                tool_input=context_wrapper.tool_input,</span><span class="c">             )</span><span class="c">             context_wrapper._share_tool_state_with(agent_hook_context)</span><span class="c">             await gather_with_cancel(</span><span class="h">@@ -2846,6 +2847,7 @@ async def run_single_turn(</span><span class="c">                 context=context_wrapper.context,</span><span class="c">                 usage=context_wrapper.usage,</span><span class="c">                 turn_input=turn_input,</span><span class="a">+                tool_input=context_wrapper.tool_input,</span><span class="c">             )</span><span class="c">             context_wrapper._share_tool_state_with(agent_hook_context)</span><span class="c">             await gather_with_cancel(</span><span class="f">src/agents/run_internal/turn_resolution.py</span><span class="h">index e16aa40ca..e557588b5 100644</span><span class="h">@@ -359,6 +359,7 @@ async def run_final_output_hooks(</span><span class="c">         context=context_wrapper.context,</span><span class="c">         usage=context_wrapper.usage,</span><span class="c">         turn_input=context_wrapper.turn_input,</span><span class="a">+        tool_input=context_wrapper.tool_input,</span><span class="c">     )</span><span class="c">     context_wrapper._share_tool_state_with(agent_hook_context)</span><span class="c"> </span><span class="f">tests/test_agent_as_tool.py</span><span class="h">index 9b6ae1c80..ae9a334f8 100644</span><span class="h">@@ -16,6 +16,8 @@ import agents._debug as _debug</span><span class="c"> from agents import (</span><span class="c">     Agent,</span><span class="c">     AgentBase,</span><span class="a">+    AgentHookContext,</span><span class="a">+    AgentHooks,</span><span class="c">     AgentToolStreamEvent,</span><span class="c">     FunctionTool,</span><span class="c">     MessageOutputItem,</span><span class="h">@@ -1224,6 +1226,49 @@ async def test_agent_as_tool_structured_input_sets_tool_input(</span><span class="c">     assert run_context.tool_input is None</span><span class="c"> </span><span class="c"> </span><span class="a">+@pytest.mark.parametrize(&quot;streamed&quot;, [False, True], ids=[&quot;non_streamed&quot;, &quot;streamed&quot;])</span><span class="a">+@pytest.mark.asyncio</span><span class="a">+async def test_agent_as_tool_lifecycle_hooks_receive_structured_input(streamed: bool) -&gt; None:</span><span class="a">+    class Purchase(BaseModel):</span><span class="a">+        quantity: int</span><span class="a">+        unit_price: int</span><span class="a">+</span><span class="a">+    starts: list[tuple[str, Any]] = []</span><span class="a">+    ends: list[tuple[str, Any, Any]] = []</span><span class="a">+</span><span class="a">+    class PurchaseHooks(AgentHooks[Any]):</span><span class="a">+        async def on_start(self, context: AgentHookContext[Any], agent: Agent) -&gt; None:</span><span class="a">+            starts.append((agent.name, context.tool_input))</span><span class="a">+</span><span class="a">+        async def on_end(self, context: AgentHookContext[Any], agent: Agent, output: Any) -&gt; None:</span><span class="a">+            ends.append((agent.name, context.tool_input, output))</span><span class="a">+</span><span class="a">+    hooks = PurchaseHooks()</span><span class="a">+    calculator = Agent(</span><span class="a">+        name=&quot;Calculator&quot;, model=ScriptedModel([[get_text_message(&quot;50&quot;)]]), hooks=hooks</span><span class="a">+    )</span><span class="a">+    purchase = {&quot;quantity&quot;: 2, &quot;unit_price&quot;: 25}</span><span class="a">+    buyer = Agent(</span><span class="a">+        name=&quot;Buyer&quot;,</span><span class="a">+        model=ScriptedModel([[get_function_tool_call(&quot;calculate&quot;, json.dumps(purchase))]]),</span><span class="a">+        hooks=hooks,</span><span class="a">+        tools=[</span><span class="a">+            calculator.as_tool(</span><span class="a">+                &quot;calculate&quot;,</span><span class="a">+                &quot;Calculate the total&quot;,</span><span class="a">+                parameters=Purchase,</span><span class="a">+                on_stream=(lambda _event: None) if streamed else None,</span><span class="a">+            )</span><span class="a">+        ],</span><span class="a">+        tool_use_behavior=&quot;stop_on_first_tool&quot;,</span><span class="a">+    )</span><span class="a">+</span><span class="a">+    await Runner.run(buyer, &quot;Calculate the purchase total.&quot;)</span><span class="a">+</span><span class="a">+    assert starts == [(&quot;Buyer&quot;, None), (&quot;Calculator&quot;, purchase)]</span><span class="a">+    assert ends == [(&quot;Calculator&quot;, purchase, &quot;50&quot;), (&quot;Buyer&quot;, None, &quot;50&quot;)]</span><span class="a">+</span><span class="a">+</span><span class="c"> @pytest.mark.asyncio</span><span class="c"> async def test_agent_as_tool_clears_stale_tool_input_for_plain_tools(</span><span class="c">     monkeypatch: pytest.MonkeyPatch,</span><span class="c"> </span></pre></div>
+  </div>
+</section>
+
+
+
+<nav class="pager" aria-label="Ticket navigation">
+  <a href="/backtests/openai-agents-python/run-20261125-025211/5743/">Previous · #5743</a>
+  <a class="mid" href="/backtests/openai-agents-python/run-20261125-025211/">All tickets in this run</a>
+  <a href="/backtests/openai-agents-python/run-20261125-025211/5992/">Next · #5992</a>
+</nav>
+  </main>
+  <footer>
+    <div class="row">
+      <img class="logo" src="/sudo-logo.png" alt="sudo" width="2092" height="752">
+      <div class="meta"><a href="https://runsudo.dev">runsudo.dev</a><a href="mailto:hello@runsudo.dev">hello@runsudo.dev</a></div>
+    </div>
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.collapse').forEach(function(c){
+    var b=c.querySelector('.toggle');if(!b)return;
+    b.addEventListener('click',function(){
+      var open=c.hasAttribute('data-expanded');
+      if(open){c.removeAttribute('data-expanded');c.setAttribute('data-collapsed','');b.textContent='Show full issue';b.setAttribute('aria-expanded','false');c.scrollIntoView({block:'nearest'})}
+      else{c.removeAttribute('data-collapsed');c.setAttribute('data-expanded','');b.textContent='Collapse issue';b.setAttribute('aria-expanded','true')}
+    });
+  });
+})();
+</script>
+</body>
+</html>
